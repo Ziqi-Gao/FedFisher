@@ -3,6 +3,7 @@ import random
 import copy
 import argparse
 import csv
+import os
 import torch
 from torchvision import datasets, transforms
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
@@ -31,6 +32,14 @@ parser.add_argument('--num_clients', type = int, required = False, default = 5)
 parser.add_argument('--num_rounds', type = int, required = False, default = 1)
 parser.add_argument('--local_epochs', type=int, required= False, default = 30)
 parser.add_argument('--use_pretrained', type=bool, required = False, default = False) 
+parser.add_argument('--output_dir', type=str, required=False, default='.')
+parser.add_argument('--synthetic_split', type=str, required=False, default='noniid', choices=['iid', 'mild', 'noniid'])
+parser.add_argument('--synthetic_num_train', type=int, required=False, default=10000)
+parser.add_argument('--synthetic_num_test', type=int, required=False, default=10000)
+parser.add_argument('--synthetic_dim', type=int, required=False, default=100)
+parser.add_argument('--synthetic_signal_dim', type=int, required=False, default=10)
+parser.add_argument('--synthetic_signal_strength', type=float, required=False, default=0.7)
+parser.add_argument('--synthetic_noise_std', type=float, required=False, default=1.0)
 
 
 args_parser = parser.parse_args()
@@ -44,16 +53,40 @@ use_pretrained = args_parser.use_pretrained
 alpha = args_parser.alpha
 num_clients = args_parser.num_clients
 num_rounds = args_parser.num_rounds
+output_dir = args_parser.output_dir
 print_every_test = 1
 print_every_train = 1
 
 
 
-filename = "one_shot_results_"+str(seed)+"_"+dataset+"_"+model_name+"_"+"_"+str(local_epochs)
+alpha_tag = str(alpha).replace('.', 'p')
+filename_extra = ""
+if dataset == 'SyntheticBinary':
+  signal_tag = str(args_parser.synthetic_signal_strength).replace('.', 'p')
+  noise_tag = str(args_parser.synthetic_noise_std).replace('.', 'p')
+  filename_extra = (
+    "_split"+args_parser.synthetic_split+
+    "_train"+str(args_parser.synthetic_num_train)+
+    "_test"+str(args_parser.synthetic_num_test)+
+    "_dim"+str(args_parser.synthetic_dim)+
+    "_sdim"+str(args_parser.synthetic_signal_dim)+
+    "_sig"+signal_tag+
+    "_noise"+noise_tag
+  )
+filename_base = (
+  "one_shot_results_seed"+str(seed)+"_"+dataset+"_"+model_name+
+  "_epochs"+str(local_epochs)+"_alpha"+alpha_tag+
+  "_clients"+str(num_clients)+"_rounds"+str(num_rounds)+filename_extra
+)
+os.makedirs(output_dir, exist_ok=True)
+filename = os.path.join(output_dir, filename_base)
 filename_csv = filename + ".csv"
+print ("Writing results to", filename_csv)
 
 
-if(dataset=='CIFAR100'):
+if(dataset=='SyntheticBinary'):
+  n_c = 2
+elif(dataset=='CIFAR100'):
   n_c = 100
 elif (dataset == 'GTSRB'):
   n_c = 43
@@ -67,7 +100,21 @@ for alg in algs_to_run:
   print ("Using pre-trained model:", use_pretrained)
 
   np.random.seed(3)
-  dataset_train, dataset_train_global, dataset_test_global, net_cls_counts = get_dataset(dataset, num_clients, n_c, alpha, False)
+  dataset_train, dataset_train_global, dataset_test_global, net_cls_counts = get_dataset(
+    dataset,
+    num_clients,
+    n_c,
+    alpha,
+    False,
+    synthetic_split=args_parser.synthetic_split,
+    synthetic_num_train=args_parser.synthetic_num_train,
+    synthetic_num_test=args_parser.synthetic_num_test,
+    synthetic_dim=args_parser.synthetic_dim,
+    synthetic_signal_dim=args_parser.synthetic_signal_dim,
+    synthetic_signal_strength=args_parser.synthetic_signal_strength,
+    synthetic_noise_std=args_parser.synthetic_noise_std,
+    seed=seed,
+  )
   test_loader = DataLoader(dataset_test_global, batch_size=len(dataset_test_global))
 
   ind = np.random.choice(len(dataset_train_global), 500)
@@ -85,7 +132,8 @@ for alg in algs_to_run:
   "dataset":dataset,
   "model":model_name,
   "use_pretrained":use_pretrained,
-  "n_c":n_c
+  "n_c":n_c,
+  "synthetic_dim":args_parser.synthetic_dim
   }
 
 
@@ -93,7 +141,13 @@ for alg in algs_to_run:
   torch.manual_seed(seed)
   random.seed(seed)
   torch.backends.cudnn.deterministic = True
-  net_glob_org = get_model(args['model'], n_c, bias = False, use_pretrained = use_pretrained).to(args['device'])
+  net_glob_org = get_model(
+    args['model'],
+    n_c,
+    bias = False,
+    use_pretrained = use_pretrained,
+    synthetic_dim = args['synthetic_dim'],
+  ).to(args['device'])
 
 
   n = len(dataset_train)

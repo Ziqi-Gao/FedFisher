@@ -46,6 +46,28 @@ class FedNet(nn.Module):
         return x
 
 
+class SyntheticMLP(nn.Module):
+    def __init__(self, input_dim=100, hidden_dims=(64, 32), n_out=2, bias=True):
+        super(SyntheticMLP, self).__init__()
+        layers = []
+        prev_dim = input_dim
+        for hidden_dim in hidden_dims:
+            layers.append(nn.Linear(prev_dim, hidden_dim, bias=bias))
+            layers.append(nn.ReLU())
+            prev_dim = hidden_dim
+        layers.append(nn.Linear(prev_dim, n_out, bias=bias))
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.net(x)
+
+
+SYNTHETIC_MLP_HIDDEN_DIMS = {
+    "SyntheticMLP": (64, 32),
+    "SyntheticMLPDeep": (256, 128, 64, 32),
+}
+
+
 
 
 class BasicBlock_mod(nn.Module):
@@ -223,7 +245,7 @@ def ResNet18(n_c):
 
 
 
-def get_model(model,n_c, bias = False, use_pretrained = False, dataset = 'CIFAR10'):
+def get_model(model,n_c, bias = False, use_pretrained = False, dataset = 'CIFAR10', synthetic_dim = 100):
   if(model=='ResNet18'):
     if(use_pretrained == True):
         print ("Using pretrained model")
@@ -242,3 +264,5 @@ def get_model(model,n_c, bias = False, use_pretrained = False, dataset = 'CIFAR1
     return FedNet(bias = bias, n_out = n_c)
   elif (model=="LeNet"):
     return LeNet(bias = bias, n_out = n_c)
+  elif (model in SYNTHETIC_MLP_HIDDEN_DIMS):
+    return SyntheticMLP(input_dim=synthetic_dim, hidden_dims=SYNTHETIC_MLP_HIDDEN_DIMS[model], n_out=n_c, bias=True)

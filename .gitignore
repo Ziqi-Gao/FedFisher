@@ -1,0 +1,21 @@
+# Local environments and package caches
+.conda/
+.conda_pkgs/
+.pip_cache/
+
+# Editor and Codex-local metadata
+.vscode/
+.codex
+
+# Python runtime caches
+__pycache__/
+*.py[cod]
+
+# Root-level local data, run outputs, and scheduler logs
+/data/
+/logs/
+/results/
+slurm-*.out
+
+# One-off local artifacts
+1.png
