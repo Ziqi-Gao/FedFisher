@@ -79,26 +79,34 @@ def method_key(method):
 
 def read_seed_rows(input_dir):
     rows = []
+    skipped = []
     for path in sorted(Path(input_dir).glob("one_shot_results_seed*_SyntheticBinary_*.csv")):
         match = FILENAME_RE.match(path.name)
         if not match:
             continue
         meta = match.groupdict()
         seed = int(meta["seed"])
+        file_rows = []
         with path.open(newline="") as handle:
             for key, value in csv.reader(handle):
                 suffix = "_test_acc_%d_0" % seed
                 if key.endswith(suffix):
-                    rows.append(
+                    method = key[: -len(suffix)]
+                    file_rows.append(
                         {
                             "seed": seed,
                             "model": meta["model"],
                             "split": meta["split"],
-                            "method": key[: -len(suffix)],
+                            "method": method,
                             "accuracy_pct": parse_accuracy(value),
                         }
                     )
-    return rows
+        methods = {row["method"] for row in file_rows}
+        if not all(method in methods for method in METHOD_ORDER):
+            skipped.append(path.name)
+            continue
+        rows.extend(row for row in file_rows if row["method"] in METHOD_ORDER)
+    return rows, skipped
 
 
 def build_compare_rows(seed_rows):
@@ -231,9 +239,12 @@ class Svg:
             attrs.append('stroke="%s" stroke-width="%.2f"' % (stroke, width))
         self.add("<circle %s/>" % " ".join(attrs))
 
-    def path(self, points, stroke, width=2, fill="none"):
+    def path(self, points, stroke, width=2, fill="none", opacity=None):
         d = " ".join("%s %.2f %.2f" % ("M" if idx == 0 else "L", x, y) for idx, (x, y) in enumerate(points))
-        self.add('<path d="%s" fill="%s" stroke="%s" stroke-width="%.2f"/>' % (d, fill, stroke, width))
+        attrs = ['d="%s"' % d, 'fill="%s"' % fill, 'stroke="%s"' % stroke, 'stroke-width="%.2f"' % width]
+        if opacity is not None:
+            attrs.append('opacity="%.2f"' % opacity)
+        self.add("<path %s/>" % " ".join(attrs))
 
     def save(self, path):
         self.parts.append("</svg>")
@@ -244,6 +255,25 @@ def y_scale(value, min_value, max_value, top, bottom):
     if max_value == min_value:
         return bottom
     return bottom - (value - min_value) * (bottom - top) / (max_value - min_value)
+
+
+def tick_range(values, step=5, pad=2):
+    low = min(values) - pad
+    high = max(values) + pad
+    ymin = math.floor(low / step) * step
+    ymax = math.ceil(high / step) * step
+    if ymin == ymax:
+        ymax += step
+    return ymin, ymax
+
+
+def n_label(rows):
+    ns = sorted({row["n"] for row in rows})
+    if not ns:
+        return "0"
+    if ns[0] == ns[-1]:
+        return str(ns[0])
+    return "%d-%d" % (ns[0], ns[-1])
 
 
 def draw_legend(svg, x, y, methods):
@@ -259,13 +289,21 @@ def draw_accuracy_bars(compare_rows, output):
     left, right, top, bottom = 85, 40, 105, 585
     svg = Svg(width, height)
     svg.text(40, 42, "Original FedFisher pipeline synthetic accuracy", "title")
-    svg.text(40, 66, "Mean +/- std over 5 seeds; same synthetic data, original FedFisher aggregation path.", "subtitle")
+    svg.text(
+        40,
+        66,
+        "Mean +/- std over %s completed seed/config runs; original FedFisher aggregation path." % n_label(compare_rows),
+        "subtitle",
+    )
     draw_legend(svg, 620, 52, METHOD_ORDER)
 
     settings = sorted({(row["model"], row["split"]) for row in compare_rows}, key=lambda item: setting_key(*item))
     by_key = {(row["model"], row["split"], row["method"]): row for row in compare_rows}
-    ymin, ymax = 55.0, 76.0
-    for tick in range(55, 77, 5):
+    bounds = []
+    for row in compare_rows:
+        bounds.extend([row["accuracy_mean_pct"] - row["accuracy_std_pct"], row["accuracy_mean_pct"] + row["accuracy_std_pct"]])
+    ymin, ymax = tick_range(bounds, step=5, pad=2)
+    for tick in range(int(ymin), int(ymax) + 1, 5):
         y = y_scale(tick, ymin, ymax, top, bottom)
         svg.line(left, y, width - right, y, cls="grid")
         svg.text(left - 12, y + 4, tick, "axis", "end")
@@ -278,7 +316,9 @@ def draw_accuracy_bars(compare_rows, output):
     for group_idx, (model, split) in enumerate(settings):
         cx = left + group_w * group_idx + group_w / 2
         for method_idx, method in enumerate(METHOD_ORDER):
-            row = by_key[(model, split, method)]
+            row = by_key.get((model, split, method))
+            if row is None:
+                continue
             value = row["accuracy_mean_pct"]
             std = row["accuracy_std_pct"]
             x = cx - 1.5 * bar_w + method_idx * bar_w + 4
@@ -334,7 +374,7 @@ def draw_gain_heatmap(compare_rows, output):
             yy = top + row_idx * cell_h
             svg.rect(x, yy, cell_w - 10, cell_h - 10, gain_color(gain), stroke="#ffffff", radius=4)
             svg.text(x + (cell_w - 10) / 2, yy + 35, "%+.2f" % gain, "label", "middle", weight="700")
-            svg.text(x + (cell_w - 10) / 2, yy + 54, "wins %d/5" % row["seed_wins"], "small", "middle")
+            svg.text(x + (cell_w - 10) / 2, yy + 54, "wins %d/%d" % (row["seed_wins"], row["n"]), "small", "middle")
     svg.save(output)
 
 
@@ -343,11 +383,11 @@ def draw_seed_pairs(seed_rows, output):
     left, right, top, bottom = 95, 50, 100, 600
     svg = Svg(width, height)
     svg.text(40, 42, "Seed-level paired comparison", "title")
-    svg.text(40, 66, "Each line connects FedAvg to FedFisher for the same model, split, and seed.", "subtitle")
+    svg.text(40, 66, "Each line connects FedAvg to FedFisher for the same model, split, and completed seed.", "subtitle")
     settings = sorted({(row["model"], row["split"]) for row in seed_rows}, key=lambda item: setting_key(*item))
     by_seed = {(row["model"], row["split"], row["method"], row["seed"]): row["accuracy_pct"] for row in seed_rows}
-    ymin, ymax = 45.0, 78.0
-    for tick in range(45, 79, 5):
+    ymin, ymax = tick_range([row["accuracy_pct"] for row in seed_rows], step=5, pad=2)
+    for tick in range(int(ymin), int(ymax) + 1, 5):
         y = y_scale(tick, ymin, ymax, top, bottom)
         svg.line(left, y, width - right, y, cls="grid")
         svg.text(left - 12, y + 4, tick, "axis", "end")
@@ -364,20 +404,33 @@ def draw_seed_pairs(seed_rows, output):
         }
         for method, x in x_positions.items():
             svg.text(x, top - 12, METHOD_LABELS[method].replace("FedFisher ", "FF "), "small", "middle")
-        for seed in range(5):
+        seeds = sorted(
+            {
+                row["seed"]
+                for row in seed_rows
+                if row["model"] == model and row["split"] == split
+            }
+        )
+        complete_seeds = [
+            seed
+            for seed in seeds
+            if all(by_seed.get((model, split, method, seed)) is not None for method in METHOD_ORDER)
+        ]
+        line_opacity = 0.18 if len(complete_seeds) > 100 else 0.65
+        draw_points = len(complete_seeds) <= 100
+        for seed in complete_seeds:
             vals = {method: by_seed.get((model, split, method, seed)) for method in METHOD_ORDER}
-            if any(value is None for value in vals.values()):
-                continue
             points = [(x_positions[method], y_scale(vals[method], ymin, ymax, top, bottom)) for method in METHOD_ORDER]
             color = "#0f766e" if vals["fedfisher_diag"] >= vals["fedavg"] else "#b91c1c"
-            svg.path(points, color, width=1.5)
-            for method, (x, y) in zip(METHOD_ORDER, points):
-                svg.circle(x, y, 4, METHOD_COLORS[method], stroke="#ffffff", width=1)
+            svg.path(points, color, width=1.1, opacity=line_opacity)
+            if draw_points:
+                for method, (x, y) in zip(METHOD_ORDER, points):
+                    svg.circle(x, y, 4, METHOD_COLORS[method], stroke="#ffffff", width=1)
         svg.text(base_x, bottom + 24, "%s %s" % (MODEL_LABELS.get(model, model), SPLIT_LABELS.get(split, split)), "label", "middle")
     svg.save(output)
 
 
-def write_readme(compare_rows, output):
+def write_readme(compare_rows, output, input_dir, skipped_files):
     best = max(
         (row for row in compare_rows if row["method"] != "fedavg"),
         key=lambda row: row["gain_over_fedavg_mean_pct"],
@@ -388,15 +441,19 @@ def write_readme(compare_rows, output):
     )
     output.write_text(
         "# Original FedFisher Synthetic Visualizations\n\n"
-        "Generated from `synthetic_binary_experiment/outputs/original_fedfisher`.\n\n"
+        "Generated from `%s`.\n\n" % input_dir +
         "Files:\n\n"
         "- `original_compare_summary.csv`: numeric comparison table in accuracy percentage points.\n"
-        "- `original_accuracy_bars.svg`: absolute test accuracy mean +/- std over 5 seeds.\n"
+        "- `original_accuracy_bars.svg`: absolute test accuracy mean +/- std over completed seed/config runs.\n"
         "- `original_gain_heatmap.svg`: FedFisher gain over one-shot FedAvg.\n"
         "- `original_seed_pairs.svg`: paired seed-level FedAvg/FedFisher comparison.\n\n"
+        "Completed seed/config runs per row: %s.\n"
+        "Skipped incomplete CSV files: %d.\n\n"
         "Largest FedFisher gain: %s %s %s, %+0.2f accuracy points.\n"
         "Smallest FedFisher gain: %s %s %s, %+0.2f accuracy points.\n"
         % (
+            n_label(compare_rows),
+            len(skipped_files),
             best["model"],
             best["split"],
             best["method"],
@@ -413,7 +470,7 @@ def main():
     args = parse_args()
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    seed_rows = read_seed_rows(args.input_dir)
+    seed_rows, skipped_files = read_seed_rows(args.input_dir)
     if not seed_rows:
         raise RuntimeError("No original synthetic result CSV files found")
     compare_rows = build_compare_rows(seed_rows)
@@ -421,8 +478,10 @@ def main():
     draw_accuracy_bars(compare_rows, output_dir / "original_accuracy_bars.svg")
     draw_gain_heatmap(compare_rows, output_dir / "original_gain_heatmap.svg")
     draw_seed_pairs(seed_rows, output_dir / "original_seed_pairs.svg")
-    write_readme(compare_rows, output_dir / "README.md")
+    write_readme(compare_rows, output_dir / "README.md", args.input_dir, skipped_files)
     print("Wrote original FedFisher figures to %s" % output_dir)
+    if skipped_files:
+        print("Skipped %d incomplete CSV files" % len(skipped_files))
 
 
 if __name__ == "__main__":

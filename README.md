@@ -1,61 +1,203 @@
-# FedFisher: Leveraging Fisher Information for One-Shot Federated Learning
+# FedFisher Binary Tabular Pipeline
 
-This repository provides the code for the paper "FedFisher: Leveraging Fisher Information for One-Shot Federated Learning" by Divyansh Jhunjhunwala, Shiqiang Wang, and Gauri Joshi, published in AISTATS 2024.
+This repository is adapted from the FedFisher codebase for one-shot federated
+learning. The pipeline in this branch is scoped to binary tabular
+classification, with a synthetic generator for sanity checks and a CSV loader
+for local datasets.
 
+The original image datasets and image models have been removed. The remaining
+entry points are:
 
-# Instructions
-
-Our results can be replicated by running the file `main.py`. The file takes the following arguments.
-
-### Required Arguments
-
-• `--dataset`: Choice of dataset. Possible choices are `FashionMNIST`, `SVHN`, `CIFAR10`, `CINIC10`, `CIFAR100`, and `GTSRB`. Note that for `CINIC10`, the train and test data first needs to be downloaded from https://github.com/BayesWatch/cinic-10.
-
-• `--model`: The model to use. Possible choices are `LeNet`, `CNN`, and `ResNet18`.
-
-• `--algs_to_run`: The one-shot algorithms to run. Note that you can specify more than one algorithm. Possible choices are `fedavg`, `otfusion`, `pfnm`, `regmean`, `dense`, `fisher_merge`, `fedfisher_diag` and `fedfisher_kfac`.
-
-### Default arguments
-
-• `--seed`: Seed for reproducibility. The default value is 0.
-
-• `--alpha`: Heterogeneity parameter when splitting the dataset across clients. The default value is 0.1.
-
-• `--num_clients`: Number of clients in the setup. The default value is 5.
-
-• `--num_rounds`: Number of rounds of local training and aggregation. The default value is 1.
-
-• `--local_epochs`: Number of local epochs run by clients. The default value is 30. 
-
-• `--use_pretrained`: Whether to use a pre-trained model or not. The default value is False.
-
-An example of a command to run `main.py` is given below:
-
-```bash
-python main.py --dataset 'FashionMNIST' --model 'LeNet' --local_epochs 30 --algs_to_run 'fedfisher_kfac' 'fedavg'              
+```text
+data.py                                      # SyntheticBinary and LocalBinaryCSV data loaders
+models.py                                    # SyntheticMLP and SyntheticMLPDeep
+main.py                                      # one-shot FL runner
+scripts/run_synthetic_original_fedfisher.slurm
+scripts/run_synthetic_original_fedfisher_1000seeds.slurm
+scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
+scripts/summarize_synthetic_original.py
+scripts/plot_synthetic_original.py
+scripts/plot_synthetic_alpha_sweep.py
 ```
 
+FedFisher aggregation remains on the original implementation path:
 
+```text
+run_one_shot_algs.py
+algs/fisher_avg.py
+utils/compress_fisher.py
+```
 
-# Notes
+## Install
 
-• The `pfnm` algorithm only works with `LeNet` and `CNN` models.
+Clone the repository and install the minimal dependencies in your own Python
+environment:
 
-• The `--use_pretrained` only works when using the `ResNet18` model. We have also provided the pre-trained checkpoint `resnet_18_tiny_imagenet_40.pt` which is a ResNet18 model pre-trained on downsampled 32x32 TinyImageNet dataset. 
+```bash
+git clone git@github.com:Ziqi-Gao/FedFisher.git
+cd FedFisher
+pip install -r requirements.txt
+```
 
-• We are using a modified `ResNet18` architecture without BatchNorm layers to be compatible with all algorithms.
+The checked-in code does not include local datasets, generated outputs, logs,
+or cluster-specific paths.
 
-# Requirements
+## Main Arguments
 
-Requirements can be found in the requirements.txt file.
+Required arguments:
 
-# References
+- `--dataset`: `SyntheticBinary` or `LocalBinaryCSV`.
+- `--model`: `SyntheticMLP` or `SyntheticMLPDeep`.
+- `--algs_to_run`: one or more algorithms. The synthetic pipeline is intended
+  for `fedavg`, `fedfisher_diag`, and `fedfisher_kfac`.
 
-• The code for `otfusion` algorithm is adopted from https://github.com/sidak/otfusion.
+Useful optional arguments:
 
-• The code for `regmean` algorithm is adopted from https://github.com/bloomberg/dataless-model-merging.
+- `--seed`: random seed, default `0`.
+- `--alpha`: Dirichlet concentration for non-IID splitting, default `0.1`.
+- `--num_clients`: number of clients, default `5`.
+- `--num_rounds`: local-training and aggregation rounds, default `1`.
+- `--local_epochs`: local client epochs, default `30`.
+- `--synthetic_split`: `iid` or `noniid`, default `noniid`.
+- `--synthetic_num_train`: training examples, default `10000`.
+- `--synthetic_num_test`: test examples, default `10000`.
+- `--synthetic_dim`: feature dimension, default `100`.
+- `--synthetic_signal_dim`: number of informative coordinates, default `10`.
+- `--synthetic_signal_strength`: class-mean signal norm, default `0.7`.
+- `--synthetic_noise_std`: Gaussian noise standard deviation, default `1.0`.
 
-• The code for `pfnm` algorithm is adopted from https://github.com/IBM/FedMA.
+Synthetic sanity-check example:
 
-• The code for `dense` algorithm is adopted from https://github.com/zj-jayzhang/DENSE.
+```bash
+python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac
+```
 
+## Using Local Data
+
+Use `LocalBinaryCSV` when you clone the repository and want to run the pipeline
+on your own local data. The loader expects numeric CSV files:
+
+- labels must be encoded as `0` and `1`
+- all non-label, non-client columns are used as model features
+- train and test feature columns must match
+- local data files can live anywhere; putting them under `data/` keeps them
+  ignored by Git
+
+If your training CSV already has a client column, pass it with
+`--local_client_col`. The pipeline will use those groups as federated clients.
+The test CSV should contain the same feature columns and label column, without
+the client column.
+
+```bash
+python main.py \
+  --dataset LocalBinaryCSV \
+  --local_train_csv data/my_train.csv \
+  --local_test_csv data/my_test.csv \
+  --local_has_header \
+  --local_label_col label \
+  --local_client_col client_id \
+  --model SyntheticMLP \
+  --local_epochs 30 \
+  --output_dir results/my_local_run \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac
+```
+
+If your training CSV does not have client IDs, the pipeline will create clients
+from the global training set. Use IID partitioning:
+
+```bash
+python main.py \
+  --dataset LocalBinaryCSV \
+  --local_train_csv data/my_train.csv \
+  --local_test_csv data/my_test.csv \
+  --local_has_header \
+  --local_label_col label \
+  --local_partition iid \
+  --num_clients 5 \
+  --model SyntheticMLP \
+  --output_dir results/my_local_iid \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac
+```
+
+Or use Dirichlet non-IID partitioning controlled by `--alpha`:
+
+```bash
+python main.py \
+  --dataset LocalBinaryCSV \
+  --local_train_csv data/my_train.csv \
+  --local_test_csv data/my_test.csv \
+  --local_has_header \
+  --local_label_col label \
+  --local_partition noniid \
+  --alpha 0.1 \
+  --num_clients 5 \
+  --model SyntheticMLPDeep \
+  --output_dir results/my_local_noniid \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac
+```
+
+For CSVs without a header, omit `--local_has_header` and pass a zero-based
+column index. The default label column is `-1`, meaning the last column.
+
+## Slurm Runs
+
+Small run:
+
+```bash
+sbatch scripts/run_synthetic_original_fedfisher.slurm
+```
+
+1000-seed IID/non-IID run:
+
+```bash
+sbatch scripts/run_synthetic_original_fedfisher_1000seeds.slurm
+```
+
+1000-seed alpha sweep:
+
+```bash
+sbatch scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
+```
+
+The Slurm scripts intentionally omit account and partition directives. Pass
+cluster-specific settings with `sbatch --account ... --partition ...` or your
+site defaults.
+
+## Results
+
+Outputs are written under:
+
+```text
+synthetic_binary_experiment/outputs/original_fedfisher*
+```
+
+Logs are written under:
+
+```text
+synthetic_binary_experiment/logs/original_fedfisher*
+```
+
+Summarize and plot:
+
+```bash
+python scripts/summarize_synthetic_original.py \
+  --input-dir synthetic_binary_experiment/outputs/original_fedfisher \
+  --output synthetic_binary_experiment/outputs/original_fedfisher/summary.csv
+
+python scripts/plot_synthetic_original.py
+python scripts/plot_synthetic_alpha_sweep.py
+```
+
+## Notes
+
+- Generated outputs, logs, caches, and `__pycache__` files should not be
+  committed unless explicitly requested.
+- Keep FedFisher implementation changes separate from dataset/model plumbing.
+- `algs/fisher_avg.py` and `utils/compress_fisher.py` are the FedFisher
+  implementation files to keep stable when packaging this synthetic pipeline.

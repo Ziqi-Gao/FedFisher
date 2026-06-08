@@ -1,51 +1,49 @@
+import csv
+
 import numpy as np
-import os
 import torch
-from torchvision import datasets, transforms
-from torch.utils.data import DataLoader, Dataset
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset
 
 
 def __getDirichletData__(y, n, alpha, num_c):
+    min_size = 0
+    N = len(y)
+    net_dataidx_map = {}
+    p_client = np.zeros((n, num_c))
 
-        min_size = 0
-        N = len(y)
-        net_dataidx_map = {}
-        p_client = np.zeros((n,num_c))
+    for i in range(n):
+        p_client[i] = np.random.dirichlet(np.repeat(alpha, num_c))
+    idx_batch = [[] for _ in range(n)]
 
-        for i in range(n):
-          p_client[i] = np.random.dirichlet(np.repeat(alpha,num_c))
-        idx_batch = [[] for _ in range(n)]
+    for k in range(num_c):
+        idx_k = np.where(y == k)[0]
+        np.random.shuffle(idx_k)
+        proportions = p_client[:, k]
+        proportions = proportions / proportions.sum()
+        proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
+        idx_batch = [idx_j + idx.tolist() for idx_j, idx in zip(idx_batch, np.split(idx_k, proportions))]
 
-        for k in range(num_c):
-            idx_k = np.where(y == k)[0]
-            np.random.shuffle(idx_k)
-            proportions = p_client[:,k]
-            proportions = proportions / proportions.sum()
-            proportions = (np.cumsum(proportions) * len(idx_k)).astype(int)[:-1]
-            idx_batch = [idx_j + idx.tolist() for idx_j, idx in zip(idx_batch, np.split(idx_k, proportions))]
+    for j in range(n):
+        np.random.shuffle(idx_batch[j])
+        net_dataidx_map[j] = idx_batch[j]
 
-        for j in range(n):
-            np.random.shuffle(idx_batch[j])
-            net_dataidx_map[j] = idx_batch[j]
+    net_cls_counts = {}
+    for net_i, dataidx in net_dataidx_map.items():
+        unq, unq_cnt = np.unique(y[dataidx], return_counts=True)
+        tmp = {unq[i]: unq_cnt[i] for i in range(len(unq))}
+        net_cls_counts[net_i] = tmp
 
-        net_cls_counts = {}
+    local_sizes = []
+    for i in range(n):
+        local_sizes.append(len(net_dataidx_map[i]))
+    local_sizes = np.array(local_sizes)
+    weights = local_sizes / np.sum(local_sizes)
 
-        for net_i, dataidx in net_dataidx_map.items():
-            unq, unq_cnt = np.unique(y[dataidx], return_counts=True)
-            tmp = {unq[i]: unq_cnt[i] for i in range(len(unq))}
-            net_cls_counts[net_i] = tmp
+    print("Data statistics: %s" % str(net_cls_counts))
+    print("Data ratio: %s" % str(weights))
 
-        local_sizes = []
-        for i in range(n):
-            local_sizes.append(len(net_dataidx_map[i]))
-        local_sizes = np.array(local_sizes)
-        weights = local_sizes / np.sum(local_sizes)
+    return idx_batch, net_cls_counts
 
-        print('Data statistics: %s' % str(net_cls_counts))
-        print('Data ratio: %s' % str(weights))
-
-        return idx_batch, net_cls_counts
 
 def _sample_synthetic_binary(num_samples, positive_prior, mu, noise_std, rng):
     num_pos = int(round(num_samples * positive_prior))
@@ -74,6 +72,7 @@ def _get_synthetic_binary_dataset(
 ):
     if signal_dim < 1 or signal_dim > dim:
         raise ValueError("synthetic_signal_dim must be in [1, synthetic_dim]")
+
     rng = np.random.default_rng(seed)
     mu = np.zeros(dim, dtype=np.float32)
     mu[:signal_dim] = signal_strength / np.sqrt(signal_dim)
@@ -88,25 +87,16 @@ def _get_synthetic_binary_dataset(
             y_client = torch.LongTensor(y_train[ind])
             print("Client ", i, " Training examples: ", len(x_client))
             dataset_train.append(TensorDataset(x_client, y_client))
-    else:
-        if split == "iid":
-            priors = [0.5] * n_client
-        elif split == "mild":
-            if n_client != 5:
-                raise ValueError("synthetic_split='mild' currently expects num_clients=5")
-            priors = [0.30, 0.40, 0.50, 0.60, 0.70]
-        else:
-            raise ValueError("synthetic_split must be one of: iid, mild, noniid")
-
+    elif split == "iid":
         base = num_train // n_client
         remainder = num_train % n_client
         dataset_train = []
         client_counts = {}
         xs = []
         ys = []
-        for i, prior in enumerate(priors):
+        for i in range(n_client):
             size = base + (1 if i < remainder else 0)
-            x_client, y_client = _sample_synthetic_binary(size, prior, mu, noise_std, rng)
+            x_client, y_client = _sample_synthetic_binary(size, 0.5, mu, noise_std, rng)
             xs.append(x_client)
             ys.append(y_client)
             y_unique, y_counts = np.unique(y_client, return_counts=True)
@@ -118,10 +108,146 @@ def _get_synthetic_binary_dataset(
         net_cls_counts = client_counts
         weights = np.array([len(dataset) for dataset in dataset_train], dtype=np.float64)
         weights = weights / weights.sum()
-        print('Data statistics: %s' % str(net_cls_counts))
-        print('Data ratio: %s' % str(weights))
+        print("Data statistics: %s" % str(net_cls_counts))
+        print("Data ratio: %s" % str(weights))
+    else:
+        raise ValueError("synthetic_split must be one of: iid, noniid")
 
     x_test, y_test = _sample_synthetic_binary(num_test, 0.5, mu, noise_std, rng)
+    dataset_train_global = TensorDataset(torch.Tensor(x_train), torch.LongTensor(y_train))
+    dataset_test_global = TensorDataset(torch.Tensor(x_test), torch.LongTensor(y_test))
+    return dataset_train, dataset_train_global, dataset_test_global, net_cls_counts
+
+
+def _resolve_column(column, header, num_cols, option_name):
+    try:
+        idx = int(column)
+    except ValueError:
+        if header is None:
+            raise ValueError("%s must be an integer when local_has_header is false" % option_name)
+        if column not in header:
+            raise ValueError("%s=%s is not present in the CSV header" % (option_name, column))
+        idx = header.index(column)
+
+    if idx < 0:
+        idx += num_cols
+    if idx < 0 or idx >= num_cols:
+        raise ValueError("%s index %d is outside the CSV column range" % (option_name, idx))
+    return idx
+
+
+def _read_local_binary_csv(path, label_col, has_header, client_col=None):
+    rows = []
+    with open(path, newline="") as handle:
+        reader = csv.reader(handle)
+        header = next(reader) if has_header else None
+        for row in reader:
+            if row and any(cell.strip() for cell in row):
+                rows.append(row)
+
+    if not rows:
+        raise ValueError("Local CSV is empty: %s" % path)
+
+    num_cols = len(rows[0])
+    for row in rows:
+        if len(row) != num_cols:
+            raise ValueError("Local CSV has inconsistent column counts: %s" % path)
+
+    label_idx = _resolve_column(label_col, header, num_cols, "local_label_col")
+    client_idx = None
+    if client_col is not None and client_col != "":
+        client_idx = _resolve_column(client_col, header, num_cols, "local_client_col")
+
+    excluded = {label_idx}
+    if client_idx is not None:
+        excluded.add(client_idx)
+    feature_idxs = [idx for idx in range(num_cols) if idx not in excluded]
+    if not feature_idxs:
+        raise ValueError("Local CSV must contain at least one feature column")
+
+    x = np.array([[float(row[idx]) for idx in feature_idxs] for row in rows], dtype=np.float32)
+    y = np.array([int(float(row[label_idx])) for row in rows], dtype=np.int64)
+    labels = set(np.unique(y).tolist())
+    if not labels.issubset({0, 1}):
+        raise ValueError("LocalBinaryCSV labels must be encoded as 0/1")
+
+    client_ids = None
+    if client_idx is not None:
+        client_ids = np.array([row[client_idx] for row in rows])
+
+    return x, y, client_ids
+
+
+def _build_tensor_datasets_from_indices(x_train, y_train, idx_batch):
+    dataset_train = []
+    net_cls_counts = {}
+    for i, ind in enumerate(idx_batch):
+        x_client = torch.Tensor(x_train[ind])
+        y_client = torch.LongTensor(y_train[ind])
+        print("Client ", i, " Training examples: ", len(x_client))
+        dataset_train.append(TensorDataset(x_client, y_client))
+        y_unique, y_counts = np.unique(y_train[ind], return_counts=True)
+        net_cls_counts[i] = {y_unique[j]: y_counts[j] for j in range(len(y_unique))}
+
+    weights = np.array([len(dataset) for dataset in dataset_train], dtype=np.float64)
+    weights = weights / weights.sum()
+    print("Data statistics: %s" % str(net_cls_counts))
+    print("Data ratio: %s" % str(weights))
+    return dataset_train, net_cls_counts
+
+
+def _get_local_binary_csv_dataset(
+    n_client,
+    alpha,
+    local_train_csv,
+    local_test_csv,
+    local_label_col,
+    local_has_header,
+    local_partition,
+    local_client_col,
+    seed,
+):
+    if local_train_csv is None or local_test_csv is None:
+        raise ValueError("LocalBinaryCSV requires local_train_csv and local_test_csv")
+
+    x_train, y_train, client_ids = _read_local_binary_csv(
+        local_train_csv,
+        local_label_col,
+        local_has_header,
+        client_col=local_client_col,
+    )
+    x_test, y_test, _ = _read_local_binary_csv(
+        local_test_csv,
+        local_label_col,
+        local_has_header,
+        client_col=None,
+    )
+
+    if x_train.shape[1] != x_test.shape[1]:
+        raise ValueError("Train/test feature dimensions differ")
+
+    if client_ids is not None:
+        client_values = sorted(np.unique(client_ids).tolist())
+        idx_batch = [np.where(client_ids == client_id)[0].tolist() for client_id in client_values]
+        dataset_train, net_cls_counts = _build_tensor_datasets_from_indices(x_train, y_train, idx_batch)
+    elif local_partition == "noniid":
+        np.random.seed(seed)
+        idx_batch, net_cls_counts = __getDirichletData__(y_train, n_client, alpha, 2)
+        dataset_train = []
+        for i, ind in enumerate(idx_batch):
+            x_client = torch.Tensor(x_train[ind])
+            y_client = torch.LongTensor(y_train[ind])
+            print("Client ", i, " Training examples: ", len(x_client))
+            dataset_train.append(TensorDataset(x_client, y_client))
+    elif local_partition == "iid":
+        rng = np.random.default_rng(seed)
+        indices = np.arange(len(y_train))
+        rng.shuffle(indices)
+        idx_batch = [ind.tolist() for ind in np.array_split(indices, n_client)]
+        dataset_train, net_cls_counts = _build_tensor_datasets_from_indices(x_train, y_train, idx_batch)
+    else:
+        raise ValueError("local_partition must be one of: iid, noniid")
+
     dataset_train_global = TensorDataset(torch.Tensor(x_train), torch.LongTensor(y_train))
     dataset_test_global = TensorDataset(torch.Tensor(x_test), torch.LongTensor(y_test))
     return dataset_train, dataset_train_global, dataset_test_global, net_cls_counts
@@ -140,15 +266,15 @@ def get_dataset(
     synthetic_signal_dim=10,
     synthetic_signal_strength=0.7,
     synthetic_noise_std=1.0,
+    local_train_csv=None,
+    local_test_csv=None,
+    local_label_col="-1",
+    local_has_header=False,
+    local_partition="noniid",
+    local_client_col=None,
     seed=0,
 ):
-
-    trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=[0.491, 0.482, 0.447], std=[0.247, 0.243, 0.262])])
-    trans_fashionmnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-    trans_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-
-    if(datatype=='SyntheticBinary'):
+    if datatype == "SyntheticBinary":
         return _get_synthetic_binary_dataset(
             n_client=n_client,
             alpha=alpha,
@@ -161,73 +287,17 @@ def get_dataset(
             noise_std=synthetic_noise_std,
             seed=seed,
         )
+    if datatype == "LocalBinaryCSV":
+        return _get_local_binary_csv_dataset(
+            n_client=n_client,
+            alpha=alpha,
+            local_train_csv=local_train_csv,
+            local_test_csv=local_test_csv,
+            local_label_col=local_label_col,
+            local_has_header=local_has_header,
+            local_partition=local_partition,
+            local_client_col=local_client_col,
+            seed=seed,
+        )
 
-    if(datatype=='CIFAR10' or datatype=='SVHN' or datatype == 'GTSRB' or datatype=='CIFAR100' or datatype =='FashionMNIST' or datatype == 'CINIC10'):
-    
-        if(datatype=='CIFAR10'):
-            dataset_train_global = datasets.CIFAR10('./data/cifar10', train=True, download=True, transform=trans_cifar)
-            dataset_test_global = datasets.CIFAR10('./data/cifar10', train=False, download=True, transform=trans_cifar)
-
-        if(datatype=='SVHN'):
-            dataset_train_global = datasets.SVHN('./data/svhn', split="train",download=True, transform=transforms.Compose([transforms.ToTensor()]))
-            dataset_test_global = datasets.SVHN('./data/svhn', split="test",download = True, transform=transforms.Compose([transforms.ToTensor()]))
-
-        if(datatype == 'GTSRB'):
-            transform = transforms.Compose([transforms.ToTensor(), transforms.Resize((32, 32)), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
-            dataset_train_global = datasets.GTSRB('./data/gtsrb', split="train",download=True, transform=transform)
-            dataset_test_global = datasets.GTSRB('./data/gtsrb', split="test",download = True, transform=transform)
-
-        if(datatype=='CINIC10'):
-            cinic_mean = [0.47889522, 0.47227842, 0.43047404]
-            cinic_std = [0.24205776, 0.23828046, 0.25874835]
-            cinic_train_dir = './data/cinic_train'
-            cinic_test_dir = './data/cinic_test'
-            if not os.path.isdir(cinic_train_dir) and os.path.isdir('./data/train'):
-                cinic_train_dir = './data/train'
-            if not os.path.isdir(cinic_test_dir) and os.path.isdir('./data/test'):
-                cinic_test_dir = './data/test'
-            dataset_train_global = datasets.ImageFolder(cinic_train_dir,transform=transforms.Compose([transforms.ToTensor(),transforms.Normalize(mean=cinic_mean,std=cinic_std)]))
-            dataset_test_global = datasets.ImageFolder(cinic_test_dir,transform=transforms.Compose([transforms.ToTensor(),transforms.Normalize(mean=cinic_mean,std=cinic_std)]))
-
-        elif(datatype=='CIFAR100'):
-            dataset_train_global = datasets.CIFAR100('./data/cifar100', train=True, download=True, transform=trans_cifar)
-            dataset_test_global = datasets.CIFAR100('./data/cifar100', train=False, download=True, transform=trans_cifar)
-
-        elif(datatype=='FashionMNIST'):
-            dataset_train_global = datasets.FashionMNIST('./data/fashionmnist', train=True, download=True, transform=trans_fashionmnist)
-            dataset_test_global = datasets.FashionMNIST('./data/fashionmnist', train=False, download=True, transform=trans_fashionmnist)
-
-        train_loader = DataLoader(dataset_train_global, batch_size=len(dataset_train_global))
-        test_loader  = DataLoader(dataset_test_global, batch_size=len(dataset_test_global))
-        X_train = next(iter(train_loader))[0].numpy()
-        Y_train = next(iter(train_loader))[1].numpy()
-        inds, net_cls_counts = __getDirichletData__(Y_train, n_client, alpha, n_c)
-        dataset_train=[]
-        for (i,ind) in enumerate(inds):
-
-            ind = inds[i]
-            x = X_train[ind]
-            y = Y_train[ind]
-            x_train = torch.Tensor(x)
-            y_train = torch.LongTensor(y)
-
-            print ("Client ", i, " Training examples: " , len(x_train))
-            dataset_train_torch = TensorDataset(x_train,y_train)
-            dataset_train.append(dataset_train_torch)
-    
-    return dataset_train, dataset_train_global, dataset_test_global, net_cls_counts
-    
-
-
-
-
-
-
-
-    
-
-    
-
-
-
-
+    raise ValueError("Only SyntheticBinary and LocalBinaryCSV are supported in this pipeline")

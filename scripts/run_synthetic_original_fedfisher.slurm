@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=fedfisher_synth_orig
-#SBATCH --account=p32737
-#SBATCH --partition=gengpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
@@ -12,7 +10,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="${REPO_ROOT:-/gpfs/projects/p32737/del6500_home/FedFisher}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "${REPO_ROOT}"
 
 mkdir -p synthetic_binary_experiment/logs/original_fedfisher
@@ -47,7 +45,7 @@ echo "output_dir=${OUTPUT_DIR}"
 echo "seed=${seed} split=${split} model=${model}"
 echo "started_at=$(date)"
 
-"${PYTHON_BIN}" -c "import torch, torchvision, nngeometry; print('env_ok python torch=%s torchvision=%s cuda=%s' % (torch.__version__, torchvision.__version__, torch.cuda.is_available())); assert torch.cuda.is_available(), 'CUDA is not available on this allocated node'"
+"${PYTHON_BIN}" -c "import torch, nngeometry; print('env_ok python torch=%s cuda=%s' % (torch.__version__, torch.cuda.is_available())); assert torch.cuda.is_available(), 'CUDA is not available on this allocated node'"
 
 "${PYTHON_BIN}" main.py \
   --dataset SyntheticBinary \
