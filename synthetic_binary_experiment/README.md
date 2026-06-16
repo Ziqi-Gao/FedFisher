@@ -85,6 +85,7 @@ scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
 scripts/summarize_synthetic_original.py
 scripts/plot_synthetic_original.py
 scripts/plot_synthetic_alpha_sweep.py
+utils/feature_importance.py
 ```
 
 ## Models
@@ -116,6 +117,35 @@ fedfisher_kfac
 
 The FedFisher update logic is the original code path in `run_one_shot_algs.py`
 and `algs/fisher_avg.py`.
+
+## Feature Importance / Signal Recovery
+
+The parent `main.py` supports an optional `--feature_importance` analysis for
+SyntheticBinary. This ranks input dimensions after each trained global model is
+obtained and evaluates whether the top-ranked dimensions recover the known
+signal coordinates. By construction, dimensions
+`0, ..., synthetic_signal_dim - 1` are informative for the binary label, while
+the remaining dimensions are Gaussian noise.
+
+This is a supervised feature-selection / signal-dimension-recovery experiment,
+not a causal treatment-effect or HTE experiment. The main score is
+permutation-ablation loss increase on the held-out test set. Auxiliary scores
+include zero ablation, first-layer weight norm, aggregated-local-Fisher-weighted
+first-layer importance, and final-global-model Fisher-weighted first-layer
+importance.
+
+Feature-importance outputs are additional CSVs only and do not change the
+standard one-shot result CSV:
+
+```text
+<run_prefix>_feature_importance.csv
+<run_prefix>_feature_importance_summary.csv
+```
+
+A centralized `pooled` baseline is included in these feature-importance outputs
+by default. It trains the same model on the full global training set and gives a
+reference for how well the current model and scoring methods can recover the
+known signal dimensions without federated splitting or one-shot aggregation.
 
 ## Slurm Runs
 

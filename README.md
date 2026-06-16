@@ -12,6 +12,7 @@ entry points are:
 data.py                                      # SyntheticBinary and LocalBinaryCSV data loaders
 models.py                                    # SyntheticMLP and SyntheticMLPDeep
 main.py                                      # one-shot FL runner
+utils/feature_importance.py                  # signal-dimension recovery utilities
 scripts/run_synthetic_original_fedfisher.slurm
 scripts/run_synthetic_original_fedfisher_1000seeds.slurm
 scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
@@ -65,6 +66,12 @@ Useful optional arguments:
 - `--synthetic_signal_dim`: number of informative coordinates, default `10`.
 - `--synthetic_signal_strength`: class-mean signal norm, default `0.7`.
 - `--synthetic_noise_std`: Gaussian noise standard deviation, default `1.0`.
+- `--feature_importance`: run supervised signal-dimension recovery for trained
+  global models, default off.
+- `--feature_importance_repeats`: permutation repeats per feature, default `5`.
+- `--feature_importance_modes`: ablation modes, default `permute zero`.
+- `--feature_importance_no_pooled_baseline`: skip the centralized pooled
+  feature-importance baseline.
 
 Synthetic sanity-check example:
 
@@ -76,6 +83,60 @@ python main.py \
   --alpha 0.1 \
   --local_epochs 30 \
   --algs_to_run fedavg fedfisher_diag fedfisher_kfac
+```
+
+## Feature Importance / Signal Recovery
+
+The SyntheticBinary generator makes the first `synthetic_signal_dim` input
+coordinates informative for the binary label and the remaining coordinates
+Gaussian noise. The feature-importance experiment ranks input dimensions using
+trained global MLPs and evaluates whether the ranking recovers the known signal
+coordinates `{0, ..., synthetic_signal_dim - 1}`. This is a supervised feature
+selection / signal recovery experiment, not a causal treatment-effect or HTE
+experiment.
+
+Methods include:
+
+- `ablation_permute_loss`: primary score; permute one test-set input column and
+  measure the cross-entropy loss increase.
+- `ablation_zero_loss`: set one test-set input column to zero and measure loss
+  increase.
+- `weight_norm`: first-layer input-column weight norm.
+- `fisher_weighted`: first-layer weight norm weighted by the aggregated local
+  diagonal Fisher already computed during federated training.
+- `global_fisher_weighted`: first-layer weight norm weighted by diagonal Fisher
+  recomputed for the final global model on the global training set.
+
+When `--feature_importance` is enabled, outputs are additional files only:
+
+```text
+<run_prefix>_feature_importance.csv
+<run_prefix>_feature_importance_summary.csv
+```
+
+The detailed file contains one row per feature and method. The summary file
+reports signal recovery metrics such as top-k hits, precision, signal/noise
+ranks, and AUROC. A centralized `pooled` baseline is included by default in
+these feature-importance outputs so the federated models can be compared with a
+model trained directly on all training examples.
+
+Smoke-test command:
+
+```bash
+python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --synthetic_num_train 10000 \
+  --synthetic_num_test 10000 \
+  --synthetic_dim 100 \
+  --synthetic_signal_dim 10 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --feature_importance \
+  --feature_importance_repeats 5 \
+  --output_dir synthetic_binary_experiment/outputs/feature_importance
 ```
 
 ## Using Local Data

@@ -13,6 +13,11 @@ from models import get_model
 from train_model import LocalUpdate
 from run_one_shot_algs import get_one_shot_model
 from utils.compute_accuracy import test_img
+from utils.feature_importance import (
+    add_model_feature_importance,
+    train_pooled_model,
+    write_feature_importance_outputs,
+)
 
 
 parser = argparse.ArgumentParser()
@@ -45,6 +50,19 @@ parser.add_argument("--local_label_col", type=str, required=False, default="-1")
 parser.add_argument("--local_has_header", action="store_true")
 parser.add_argument("--local_partition", type=str, required=False, default="noniid", choices=["iid", "noniid"])
 parser.add_argument("--local_client_col", type=str, required=False, default=None)
+parser.add_argument("--feature_importance", action="store_true")
+parser.add_argument("--feature_importance_repeats", type=int, required=False, default=5)
+parser.add_argument(
+    "--feature_importance_modes",
+    nargs="+",
+    type=str,
+    required=False,
+    default=["permute", "zero"],
+    choices=["permute", "zero"],
+)
+parser.add_argument("--feature_importance_output_suffix", type=str, required=False, default="feature_importance")
+parser.add_argument("--feature_importance_batch_size", type=int, required=False, default=1024)
+parser.add_argument("--feature_importance_no_pooled_baseline", action="store_true")
 
 args_parser = parser.parse_args()
 
@@ -106,6 +124,15 @@ filename_csv = filename + ".csv"
 print("Writing results to", filename_csv)
 
 dict_results = {}
+feature_importance_enabled = args_parser.feature_importance and dataset == "SyntheticBinary"
+if args_parser.feature_importance and dataset != "SyntheticBinary":
+    print("Feature importance is currently only available for SyntheticBinary; skipping it.")
+
+feature_detail_rows = []
+feature_summary_rows = []
+feature_detail_csv = filename + "_" + args_parser.feature_importance_output_suffix + ".csv"
+feature_summary_csv = filename + "_" + args_parser.feature_importance_output_suffix + "_summary.csv"
+latest_feature_context = None
 
 for alg in algs_to_run:
     print("Running algorithm", alg)
@@ -150,6 +177,7 @@ for alg in algs_to_run:
         "model": model_name,
         "n_c": n_c,
         "synthetic_dim": input_dim,
+        "feature_importance_batch_size": args_parser.feature_importance_batch_size,
     }
 
     torch.manual_seed(seed)
@@ -229,6 +257,46 @@ for alg in algs_to_run:
     dict_results[alg + "_test_loss_" + str(seed) + "_" + str(t)] = test_loss
     dict_results[alg + "_test_acc_" + str(seed) + "_" + str(t)] = test_acc
 
+    latest_feature_context = {
+        "args": args,
+        "dataset_train_global": dataset_train_global,
+        "dataset_test_global": dataset_test_global,
+    }
+    if feature_importance_enabled:
+        F_diag_sum_for_importance = torch.zeros_like(F_diag_list[0])
+        for F_diag in F_diag_list:
+            F_diag_sum_for_importance += F_diag
+        feature_metadata = {
+            "seed": seed,
+            "alg": alg,
+            "model": model_name,
+            "split": args_parser.synthetic_split,
+            "alpha": alpha,
+            "synthetic_dim": args["synthetic_dim"],
+            "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+        }
+        add_model_feature_importance(
+            feature_detail_rows,
+            feature_summary_rows,
+            alg,
+            net_glob,
+            F_diag_sum_for_importance,
+            dataset_train_global,
+            dataset_test_global,
+            args,
+            feature_metadata,
+            args_parser.feature_importance_modes,
+            args_parser.feature_importance_repeats,
+            seed,
+            args_parser.feature_importance_batch_size,
+        )
+        write_feature_importance_outputs(
+            feature_detail_rows,
+            feature_summary_rows,
+            feature_detail_csv,
+            feature_summary_csv,
+        )
+
     with open(filename_csv, "w") as csv_file:
         writer = csv.writer(csv_file)
         for i in dict_results.keys():
@@ -239,3 +307,48 @@ with open(filename_csv, "w") as csv_file:
     writer = csv.writer(csv_file)
     for i in dict_results.keys():
         writer.writerow([i, dict_results[i]])
+
+if (
+    feature_importance_enabled
+    and not args_parser.feature_importance_no_pooled_baseline
+    and latest_feature_context is not None
+):
+    print("Running pooled baseline for feature importance")
+    args = latest_feature_context["args"]
+    dataset_train_global = latest_feature_context["dataset_train_global"]
+    dataset_test_global = latest_feature_context["dataset_test_global"]
+    torch.manual_seed(seed)
+    random.seed(seed)
+    pooled_model = train_pooled_model(args, dataset_train_global)
+    test_acc, test_loss = test_img(pooled_model, dataset_test_global, args)
+    print("Pooled Test Acc. ", test_acc, "Test Loss", test_loss)
+    feature_metadata = {
+        "seed": seed,
+        "alg": "pooled",
+        "model": model_name,
+        "split": args_parser.synthetic_split,
+        "alpha": alpha,
+        "synthetic_dim": args["synthetic_dim"],
+        "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+    }
+    add_model_feature_importance(
+        feature_detail_rows,
+        feature_summary_rows,
+        "pooled",
+        pooled_model,
+        None,
+        dataset_train_global,
+        dataset_test_global,
+        args,
+        feature_metadata,
+        args_parser.feature_importance_modes,
+        args_parser.feature_importance_repeats,
+        seed,
+        args_parser.feature_importance_batch_size,
+    )
+    write_feature_importance_outputs(
+        feature_detail_rows,
+        feature_summary_rows,
+        feature_detail_csv,
+        feature_summary_csv,
+    )

@@ -50,6 +50,8 @@ Parent-repository additions:
 - `scripts/summarize_synthetic_original.py`: result summarizer.
 - `scripts/plot_synthetic_original.py`: IID/non-IID visualization script.
 - `scripts/plot_synthetic_alpha_sweep.py`: alpha sweep visualization script.
+- `utils/feature_importance.py`: optional supervised signal-dimension recovery
+  utilities for trained global models.
 
 Do not change original FedFisher update logic when working on this path. The
 goal is to keep `LocalUpdate`, `run_one_shot_algs.py`, and `algs/fisher_avg.py`
@@ -74,6 +76,25 @@ fedavg
 fedfisher_diag
 fedfisher_kfac
 ```
+
+Optional feature-importance analysis:
+
+```bash
+./.conda/bin/python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --feature_importance \
+  --output_dir synthetic_binary_experiment/outputs/feature_importance
+```
+
+This analysis ranks input dimensions and checks whether the known signal set
+`{0, ..., synthetic_signal_dim - 1}` is recovered. Keep the language framed as
+supervised feature selection / signal recovery. Do not describe it as a causal
+treatment-effect or HTE experiment.
 
 Small Slurm runner:
 
