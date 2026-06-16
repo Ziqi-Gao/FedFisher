@@ -7,10 +7,14 @@ PyTorch reimplementation has been removed.
 ## Scope
 
 - Keep the synthetic task on the original FedFisher code path.
-- Generated synthetic outputs should go under
+- Generated synthetic original-pipeline outputs should go under
   `synthetic_binary_experiment/outputs/original_fedfisher*`.
-- Generated synthetic logs should go under
+- Generated prediction-intervention outputs should go under
+  `synthetic_binary_experiment/outputs/prediction_intervention*`.
+- Generated synthetic original-pipeline logs should go under
   `synthetic_binary_experiment/logs/original_fedfisher*`.
+- Generated prediction-intervention logs should go under
+  `synthetic_binary_experiment/logs/prediction_intervention*`.
 - Do not modify original FedFisher algorithm code unless the user explicitly
   asks. In particular, avoid changing:
   - `run_one_shot_algs.py`
@@ -50,8 +54,10 @@ Parent-repository additions:
 - `scripts/summarize_synthetic_original.py`: result summarizer.
 - `scripts/plot_synthetic_original.py`: IID/non-IID visualization script.
 - `scripts/plot_synthetic_alpha_sweep.py`: alpha sweep visualization script.
-- `utils/feature_importance.py`: optional supervised signal-dimension recovery
-  utilities for trained global models.
+- `utils/feature_importance.py`: legacy optional supervised signal-dimension
+  recovery utilities for trained global models.
+- `utils/prediction_intervention.py`: model-output feature intervention
+  utilities for trained prediction models.
 
 Do not change original FedFisher update logic when working on this path. The
 goal is to keep `LocalUpdate`, `run_one_shot_algs.py`, and `algs/fisher_avg.py`
@@ -77,7 +83,26 @@ fedfisher_diag
 fedfisher_kfac
 ```
 
-Optional feature-importance analysis:
+Preferred prediction-intervention analysis:
+
+```bash
+./.conda/bin/python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --prediction_intervention \
+  --output_dir synthetic_binary_experiment/outputs/prediction_intervention
+```
+
+This analysis modifies one input coordinate at a time on the held-out test set
+and scores features by changes in the trained model's own predictions. Do not
+use true-label loss as the main score for this path. Keep the language framed
+as model-based feature intervention or prediction intervention.
+
+Legacy supervised feature-importance analysis:
 
 ```bash
 ./.conda/bin/python main.py \

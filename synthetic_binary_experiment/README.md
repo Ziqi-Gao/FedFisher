@@ -71,6 +71,7 @@ synthetic_binary_experiment/
     original_fedfisher/                       # original-pipeline outputs
     original_fedfisher_1000seeds/
     original_fedfisher_alpha_sweep_1000seeds/
+    prediction_intervention/                  # model-output feature effects
 ```
 
 Related parent-repository files:
@@ -86,6 +87,7 @@ scripts/summarize_synthetic_original.py
 scripts/plot_synthetic_original.py
 scripts/plot_synthetic_alpha_sweep.py
 utils/feature_importance.py
+utils/prediction_intervention.py
 ```
 
 ## Models
@@ -118,7 +120,50 @@ fedfisher_kfac
 The FedFisher update logic is the original code path in `run_one_shot_algs.py`
 and `algs/fisher_avg.py`.
 
-## Feature Importance / Signal Recovery
+## Prediction Intervention / Signal Recovery
+
+The preferred signal-recovery analysis is enabled with
+`--prediction_intervention`. It first trains the FL/MLP prediction models, then
+uses the trained model on the independent SyntheticBinary test set. For each
+input dimension, one column is modified while all other dimensions are fixed.
+The feature effect is the change in the trained model's own predicted label,
+class-1 probability, or binary logit score.
+
+The intervention scores do not use true labels. Labels are only used to report
+baseline test accuracy and to evaluate whether the ranking recovers the known
+signal dimensions `0, ..., synthetic_signal_dim - 1`.
+
+Primary metrics are `permute + margin_drop` and `permute +
+abs_logit_change`; `flip_rate` is useful as an intuitive auxiliary metric.
+Outputs are additional CSVs and do not change the standard one-shot result CSV:
+
+```text
+<run_prefix>_prediction_intervention.csv
+<run_prefix>_prediction_intervention_summary.csv
+<run_prefix>_prediction_intervention_model_summary.csv
+```
+
+Example:
+
+```bash
+python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --synthetic_num_train 10000 \
+  --synthetic_num_test 10000 \
+  --synthetic_dim 100 \
+  --synthetic_signal_dim 10 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --prediction_intervention \
+  --prediction_intervention_modes permute zero \
+  --prediction_intervention_repeats 5 \
+  --output_dir synthetic_binary_experiment/outputs/prediction_intervention
+```
+
+## Legacy Supervised Feature Importance
 
 The parent `main.py` supports an optional `--feature_importance` analysis for
 SyntheticBinary. This ranks input dimensions after each trained global model is

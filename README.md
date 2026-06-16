@@ -12,7 +12,8 @@ entry points are:
 data.py                                      # SyntheticBinary and LocalBinaryCSV data loaders
 models.py                                    # SyntheticMLP and SyntheticMLPDeep
 main.py                                      # one-shot FL runner
-utils/feature_importance.py                  # signal-dimension recovery utilities
+utils/feature_importance.py                  # legacy supervised signal-dimension recovery utilities
+utils/prediction_intervention.py             # model-output prediction intervention utilities
 scripts/run_synthetic_original_fedfisher.slurm
 scripts/run_synthetic_original_fedfisher_1000seeds.slurm
 scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
@@ -72,6 +73,16 @@ Useful optional arguments:
 - `--feature_importance_modes`: ablation modes, default `permute zero`.
 - `--feature_importance_no_pooled_baseline`: skip the centralized pooled
   feature-importance baseline.
+- `--prediction_intervention`: run model-based feature intervention on the
+  held-out SyntheticBinary test set, default off.
+- `--prediction_intervention_modes`: intervention modes, default
+  `permute zero`.
+- `--prediction_intervention_repeats`: permutation repeats per feature,
+  default `5`.
+- `--prediction_intervention_include_local_models`: also run the intervention
+  analysis for each trained local client model.
+- `--prediction_intervention_no_pooled_baseline`: skip the centralized pooled
+  prediction-intervention baseline.
 
 Synthetic sanity-check example:
 
@@ -85,7 +96,67 @@ python main.py \
   --algs_to_run fedavg fedfisher_diag fedfisher_kfac
 ```
 
-## Feature Importance / Signal Recovery
+## Prediction Intervention / Signal Recovery
+
+The main signal-recovery analysis is a model-based feature intervention. The
+pipeline first trains the FL/MLP prediction models. On the independent
+SyntheticBinary test set, each input dimension is modified one at a time while
+all other dimensions are fixed. The outcome is the trained model's own predicted
+label, class-1 probability, and binary logit score. The feature effect is the
+prediction change caused by that intervention.
+
+This analysis does not use true labels to compute feature scores. Labels are
+used only for reporting baseline test accuracy and for checking whether the
+ranking recovers the known signal coordinates `{0, ..., synthetic_signal_dim -
+1}`.
+
+Metrics include:
+
+- `abs_logit_change`: mean absolute change in `z1 - z0`.
+- `signed_logit_change`: mean signed change in `z1 - z0`; ranked by absolute
+  value.
+- `abs_prob_change`: mean absolute change in class-1 probability.
+- `signed_prob_change`: mean signed change in class-1 probability; ranked by
+  absolute value.
+- `flip_rate`: fraction of examples whose predicted label changes.
+- `margin_drop`: drop in confidence for the model's original predicted class;
+  ranked by absolute value.
+
+Recommended primary rankings are `permute + margin_drop` and
+`permute + abs_logit_change`. `flip_rate` is an intuitive auxiliary metric.
+
+When `--prediction_intervention` is enabled, outputs are additional files only:
+
+```text
+<run_prefix>_prediction_intervention.csv
+<run_prefix>_prediction_intervention_summary.csv
+<run_prefix>_prediction_intervention_model_summary.csv
+```
+
+A centralized `pooled` baseline is included by default so the federated models
+can be compared with a model trained directly on all training examples.
+
+Smoke-test command:
+
+```bash
+python main.py \
+  --dataset SyntheticBinary \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --synthetic_num_train 10000 \
+  --synthetic_num_test 10000 \
+  --synthetic_dim 100 \
+  --synthetic_signal_dim 10 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --prediction_intervention \
+  --prediction_intervention_modes permute zero \
+  --prediction_intervention_repeats 5 \
+  --output_dir synthetic_binary_experiment/outputs/prediction_intervention
+```
+
+## Legacy Supervised Feature Importance
 
 The SyntheticBinary generator makes the first `synthetic_signal_dim` input
 coordinates informative for the binary label and the remaining coordinates

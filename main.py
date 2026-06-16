@@ -18,6 +18,11 @@ from utils.feature_importance import (
     train_pooled_model,
     write_feature_importance_outputs,
 )
+from utils.prediction_intervention import (
+    add_model_prediction_intervention,
+    train_pooled_prediction_model,
+    write_prediction_intervention_outputs,
+)
 
 
 parser = argparse.ArgumentParser()
@@ -63,6 +68,25 @@ parser.add_argument(
 parser.add_argument("--feature_importance_output_suffix", type=str, required=False, default="feature_importance")
 parser.add_argument("--feature_importance_batch_size", type=int, required=False, default=1024)
 parser.add_argument("--feature_importance_no_pooled_baseline", action="store_true")
+parser.add_argument("--prediction_intervention", action="store_true")
+parser.add_argument(
+    "--prediction_intervention_modes",
+    nargs="+",
+    type=str,
+    required=False,
+    default=["permute", "zero"],
+    choices=["permute", "zero"],
+)
+parser.add_argument("--prediction_intervention_repeats", type=int, required=False, default=5)
+parser.add_argument("--prediction_intervention_batch_size", type=int, required=False, default=1024)
+parser.add_argument(
+    "--prediction_intervention_output_suffix",
+    type=str,
+    required=False,
+    default="prediction_intervention",
+)
+parser.add_argument("--prediction_intervention_include_local_models", action="store_true")
+parser.add_argument("--prediction_intervention_no_pooled_baseline", action="store_true")
 
 args_parser = parser.parse_args()
 
@@ -134,6 +158,19 @@ feature_detail_csv = filename + "_" + args_parser.feature_importance_output_suff
 feature_summary_csv = filename + "_" + args_parser.feature_importance_output_suffix + "_summary.csv"
 latest_feature_context = None
 
+prediction_intervention_enabled = args_parser.prediction_intervention and dataset == "SyntheticBinary"
+if args_parser.prediction_intervention and dataset != "SyntheticBinary":
+    print("Prediction intervention is currently only available for SyntheticBinary; skipping it.")
+
+prediction_detail_rows = []
+prediction_summary_rows = []
+prediction_model_summary_rows = []
+prediction_detail_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + ".csv"
+prediction_summary_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + "_summary.csv"
+prediction_model_summary_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + "_model_summary.csv"
+latest_prediction_context = None
+local_prediction_intervention_done = False
+
 for alg in algs_to_run:
     print("Running algorithm", alg)
 
@@ -178,6 +215,7 @@ for alg in algs_to_run:
         "n_c": n_c,
         "synthetic_dim": input_dim,
         "feature_importance_batch_size": args_parser.feature_importance_batch_size,
+        "prediction_intervention_batch_size": args_parser.prediction_intervention_batch_size,
     }
 
     torch.manual_seed(seed)
@@ -262,6 +300,11 @@ for alg in algs_to_run:
         "dataset_train_global": dataset_train_global,
         "dataset_test_global": dataset_test_global,
     }
+    latest_prediction_context = {
+        "args": args,
+        "dataset_train_global": dataset_train_global,
+        "dataset_test_global": dataset_test_global,
+    }
     if feature_importance_enabled:
         F_diag_sum_for_importance = torch.zeros_like(F_diag_list[0])
         for F_diag in F_diag_list:
@@ -295,6 +338,59 @@ for alg in algs_to_run:
             feature_summary_rows,
             feature_detail_csv,
             feature_summary_csv,
+        )
+
+    if prediction_intervention_enabled:
+        prediction_metadata = {
+            "seed": seed,
+            "model": model_name,
+            "split": args_parser.synthetic_split,
+            "alpha": alpha,
+            "synthetic_dim": args["synthetic_dim"],
+            "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+        }
+        prediction_seed = seed + sum(ord(ch) for ch in alg)
+        add_model_prediction_intervention(
+            prediction_detail_rows,
+            prediction_summary_rows,
+            prediction_model_summary_rows,
+            alg,
+            net_glob,
+            dataset_test_global,
+            args,
+            prediction_metadata,
+            args_parser.prediction_intervention_modes,
+            args_parser.prediction_intervention_repeats,
+            prediction_seed,
+        )
+        if (
+            args_parser.prediction_intervention_include_local_models
+            and not local_prediction_intervention_done
+        ):
+            # Local models are trained before aggregation; avoid duplicate rows across algs.
+            for local_idx, local_model in enumerate(models):
+                local_seed = seed + 10000 + local_idx
+                add_model_prediction_intervention(
+                    prediction_detail_rows,
+                    prediction_summary_rows,
+                    prediction_model_summary_rows,
+                    "local_client_" + str(local_idx),
+                    local_model,
+                    dataset_test_global,
+                    args,
+                    prediction_metadata,
+                    args_parser.prediction_intervention_modes,
+                    args_parser.prediction_intervention_repeats,
+                    local_seed,
+                )
+            local_prediction_intervention_done = True
+        write_prediction_intervention_outputs(
+            prediction_detail_rows,
+            prediction_summary_rows,
+            prediction_model_summary_rows,
+            prediction_detail_csv,
+            prediction_summary_csv,
+            prediction_model_summary_csv,
         )
 
     with open(filename_csv, "w") as csv_file:
@@ -351,4 +447,48 @@ if (
         feature_summary_rows,
         feature_detail_csv,
         feature_summary_csv,
+    )
+
+if (
+    prediction_intervention_enabled
+    and not args_parser.prediction_intervention_no_pooled_baseline
+    and latest_prediction_context is not None
+):
+    print("Running pooled baseline for prediction intervention")
+    args = latest_prediction_context["args"]
+    dataset_train_global = latest_prediction_context["dataset_train_global"]
+    dataset_test_global = latest_prediction_context["dataset_test_global"]
+    torch.manual_seed(seed)
+    random.seed(seed)
+    pooled_model = train_pooled_prediction_model(args, dataset_train_global)
+    test_acc, test_loss = test_img(pooled_model, dataset_test_global, args)
+    print("Pooled Prediction Test Acc. ", test_acc, "Test Loss", test_loss)
+    prediction_metadata = {
+        "seed": seed,
+        "model": model_name,
+        "split": args_parser.synthetic_split,
+        "alpha": alpha,
+        "synthetic_dim": args["synthetic_dim"],
+        "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+    }
+    add_model_prediction_intervention(
+        prediction_detail_rows,
+        prediction_summary_rows,
+        prediction_model_summary_rows,
+        "pooled",
+        pooled_model,
+        dataset_test_global,
+        args,
+        prediction_metadata,
+        args_parser.prediction_intervention_modes,
+        args_parser.prediction_intervention_repeats,
+        seed + 20000,
+    )
+    write_prediction_intervention_outputs(
+        prediction_detail_rows,
+        prediction_summary_rows,
+        prediction_model_summary_rows,
+        prediction_detail_csv,
+        prediction_summary_csv,
+        prediction_model_summary_csv,
     )
