@@ -1,0 +1,17 @@
+model_type,split,method,accuracy_mean_pct,accuracy_std_pct,gain_over_fedavg_mean_pct,gain_over_fedavg_std_pct,gap_to_pool_mean_pct,gap_to_pool_std_pct,seed_wins,selected_step_mean,selected_step_nonzero,fisher_val_score_mean_pct,n,uplink_scalars
+lr,iid,pool,75.4320,0.5672,0.0540,0.1692,0.0000,0.0000,0,,,,5,0
+lr,iid,fedavg_oneshot,75.3780,0.6597,0.0000,0.0000,-0.0540,0.1692,0,,,,5,1010
+lr,iid,fedfisher_diag,75.3780,0.6597,0.0000,0.0000,-0.0540,0.1692,0,0.0000,0,75.3600,5,2020
+lr,iid,fedfisher_full,75.4160,0.5780,0.0380,0.1862,-0.0160,0.2283,3,,,,5,205030
+lr,noniid,pool,75.6860,0.3520,2.2000,2.9493,0.0000,0.0000,0,,,,5,0
+lr,noniid,fedavg_oneshot,73.4860,3.0178,0.0000,0.0000,-2.2000,2.9493,0,,,,5,1010
+lr,noniid,fedfisher_diag,73.2700,2.2201,-0.2160,1.7226,-2.4160,2.3065,1,60.0000,2,74.9200,5,2020
+lr,noniid,fedfisher_full,61.6220,11.2489,-11.8640,9.4094,-14.0640,11.1651,0,,,,5,205030
+mlp,iid,pool,74.9180,0.4453,2.2780,0.4200,0.0000,0.0000,0,,,,5,0
+mlp,iid,fedavg_oneshot,72.6400,0.4700,0.0000,0.0000,-2.2780,0.4200,0,,,,5,43050
+mlp,iid,fedfisher_diag,72.5240,0.5567,-0.1160,0.2774,-2.3940,0.5888,1,100.0000,4,77.5600,5,86100
+mlp,iid,fedfisher_kfac,72.1780,0.6378,-0.4620,0.4336,-2.7400,0.7430,1,380.0000,5,77.9600,5,146245
+mlp,noniid,pool,75.2420,0.3752,15.3260,5.6980,0.0000,0.0000,0,,,,5,0
+mlp,noniid,fedavg_oneshot,59.9160,5.8968,0.0000,0.0000,-15.3260,5.6980,0,,,,5,43050
+mlp,noniid,fedfisher_diag,65.3380,6.0913,5.4220,1.8670,-9.9040,5.9285,5,940.0000,5,71.4000,5,86100
+mlp,noniid,fedfisher_kfac,64.1940,8.0841,4.2780,4.0234,-11.0480,7.9755,4,580.0000,4,66.6800,5,146245

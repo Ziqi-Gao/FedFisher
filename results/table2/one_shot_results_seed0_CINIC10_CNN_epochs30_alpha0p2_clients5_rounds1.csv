@@ -1,0 +1,18 @@
+local_model_test_accuracies_0.2_0,"[36.124443, 31.464445, 44.954445, 30.497778, 49.16111]"
+local_model_test_losses_0.2_0,"[6.651923221757677, 3.4561697668711346, 3.7278918898847366, 6.721881193145117, 2.5446792954550848]"
+fedavg_test_loss_0_0,2.019157812754313
+fedavg_test_acc_0_0,37.645557
+otfusion_test_loss_0_0,2.301465938780043
+otfusion_test_acc_0_0,36.148888
+pfnm_test_loss_0_0,2.1812714993370905
+pfnm_test_acc_0_0,37.84
+regmean_test_loss_0_0,1.8525671504338583
+regmean_test_acc_0_0,38.045555
+dense_test_loss_0_0,1.990372014957004
+dense_test_acc_0_0,37.69
+fisher_merge_test_loss_0_0,9.054647772884369
+fisher_merge_test_acc_0_0,34.17889
+fedfisher_diag_test_loss_0_0,2.0150481694539386
+fedfisher_diag_test_acc_0_0,37.84
+fedfisher_kfac_test_loss_0_0,2.13193558778233
+fedfisher_kfac_test_acc_0_0,42.944443

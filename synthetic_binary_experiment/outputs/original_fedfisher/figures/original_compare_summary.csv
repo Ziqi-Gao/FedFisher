@@ -1,0 +1,13 @@
+model,split,method,n,accuracy_mean_pct,accuracy_std_pct,gain_over_fedavg_mean_pct,gain_over_fedavg_std_pct,seed_wins
+SyntheticMLP,iid,fedavg,5,72.6800,0.5234,0.0000,0.0000,0
+SyntheticMLP,iid,fedfisher_diag,5,72.3160,0.5093,-0.3640,0.2950,1
+SyntheticMLP,iid,fedfisher_kfac,5,71.9280,0.7666,-0.7520,0.6592,0
+SyntheticMLP,noniid,fedavg,5,64.8220,3.7053,0.0000,0.0000,0
+SyntheticMLP,noniid,fedfisher_diag,5,70.1440,1.4154,5.3220,3.0847,5
+SyntheticMLP,noniid,fedfisher_kfac,5,68.3720,1.6855,3.5500,3.5967,4
+SyntheticMLPDeep,iid,fedavg,5,73.1540,0.2620,0.0000,0.0000,0
+SyntheticMLPDeep,iid,fedfisher_diag,5,72.0720,1.3819,-1.0820,1.5305,1
+SyntheticMLPDeep,iid,fedfisher_kfac,5,72.4460,0.6295,-0.7080,0.4684,0
+SyntheticMLPDeep,noniid,fedavg,5,61.9880,5.7981,0.0000,0.0000,0
+SyntheticMLPDeep,noniid,fedfisher_diag,5,70.6540,0.9372,8.6660,5.4375,5
+SyntheticMLPDeep,noniid,fedfisher_kfac,5,70.1420,1.9111,8.1540,5.9430,5
