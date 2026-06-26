@@ -95,7 +95,7 @@ def evaluate_logits_loss_acc_margin(model, x, y, device=None, batch_size=1024):
     }
 
 
-def input_ablation_importance(model, dataset, args, mode="permute", repeats=5, seed=0):
+def input_ablation_importance(model, dataset, args, mode="permute", repeats=5, seed=0, candidate_indices=None):
     """Rank input dimensions by test-time supervised ablation importance.
 
     This is a supervised feature-selection / signal-recovery diagnostic: it
@@ -119,7 +119,10 @@ def input_ablation_importance(model, dataset, args, mode="permute", repeats=5, s
     accuracy_drop = np.zeros(dim, dtype=np.float64)
     margin_drop = np.zeros(dim, dtype=np.float64)
 
-    for feature_idx in range(dim):
+    if candidate_indices is None:
+        candidate_indices = range(dim)
+
+    for feature_idx in candidate_indices:
         feature_loss = []
         feature_acc_drop = []
         feature_margin_drop = []
@@ -202,30 +205,59 @@ def compute_diagonal_fisher(model, dataset, args, batch_size=None):
     return fisher.get_diag().detach()
 
 
-def rank_features(importance):
+def _normalize_indices(indices, dim, option_name):
+    if indices is None:
+        return np.arange(dim, dtype=np.int64)
+    normalized = np.array(list(indices), dtype=np.int64)
+    if normalized.size == 0:
+        raise ValueError("%s must not be empty" % option_name)
+    if np.any(normalized < 0) or np.any(normalized >= dim):
+        raise ValueError("%s contains indices outside the feature range" % option_name)
+    if len(np.unique(normalized)) != len(normalized):
+        raise ValueError("%s contains duplicate indices" % option_name)
+    return normalized
+
+
+def rank_features(importance, candidate_indices=None):
     scores = np.asarray(importance, dtype=np.float64)
-    order = np.argsort(-np.nan_to_num(scores, nan=-np.inf), kind="mergesort")
+    candidates = _normalize_indices(candidate_indices, len(scores), "candidate_indices")
+    candidate_scores = scores[candidates]
+    order = candidates[np.argsort(-np.nan_to_num(candidate_scores, nan=-np.inf), kind="mergesort")]
     ranks = np.empty(len(scores), dtype=np.int64)
-    ranks[order] = np.arange(1, len(scores) + 1)
+    ranks.fill(0)
+    ranks[order] = np.arange(1, len(order) + 1)
     return ranks
 
 
-def evaluate_signal_recovery(importance, signal_dim):
+def evaluate_signal_recovery(importance, signal_dim, signal_indices=None, candidate_indices=None):
     """Evaluate whether top-ranked dimensions recover the known signal set."""
     scores = np.asarray(importance, dtype=np.float64)
-    if signal_dim < 1 or signal_dim > len(scores):
-        raise ValueError("signal_dim must be in [1, len(importance)]")
+    candidates = _normalize_indices(candidate_indices, len(scores), "candidate_indices")
+    if signal_indices is None:
+        if signal_dim < 1 or signal_dim > len(candidates):
+            raise ValueError("signal_dim must be in [1, len(candidate_indices)]")
+        signals = candidates[:signal_dim]
+    else:
+        signals = _normalize_indices(signal_indices, len(scores), "signal_indices")
+        if len(signals) != signal_dim:
+            raise ValueError("signal_indices length must match signal_dim")
+        if not set(signals.tolist()).issubset(set(candidates.tolist())):
+            raise ValueError("signal_indices must be a subset of candidate_indices")
 
     signal_mask = np.zeros(len(scores), dtype=bool)
-    signal_mask[:signal_dim] = True
-    ranks = rank_features(scores)
-    topk = np.argsort(-np.nan_to_num(scores, nan=-np.inf), kind="mergesort")[:signal_dim]
+    signal_mask[signals] = True
+    candidate_scores = scores[candidates]
+    ranks = rank_features(scores, candidate_indices=candidates)
+    topk = candidates[np.argsort(-np.nan_to_num(candidate_scores, nan=-np.inf), kind="mergesort")[:signal_dim]]
     topk_hits = int(signal_mask[topk].sum())
 
-    signal_ranks = ranks[signal_mask]
-    noise_ranks = ranks[~signal_mask]
-    signal_scores = scores[signal_mask]
-    noise_scores = scores[~signal_mask]
+    noise_mask = np.zeros(len(scores), dtype=bool)
+    noise_mask[candidates] = True
+    noise_mask[signals] = False
+    signal_ranks = ranks[signals]
+    noise_ranks = ranks[noise_mask]
+    signal_scores = scores[signals]
+    noise_scores = scores[noise_mask]
     if len(noise_scores) == 0:
         auroc = float("nan")
     else:
@@ -257,16 +289,36 @@ def write_feature_importance_outputs(detail_rows, summary_rows, detail_path, sum
             writer.writerows(summary_rows)
 
 
-def _add_importance_method_rows(detail_rows, summary_rows, metadata, method, importance):
-    ranks = rank_features(importance)
+def _add_importance_method_rows(
+    detail_rows,
+    summary_rows,
+    metadata,
+    method,
+    importance,
+    signal_indices=None,
+    candidate_indices=None,
+):
+    candidates = _normalize_indices(candidate_indices, len(importance), "candidate_indices")
     signal_dim = metadata["synthetic_signal_dim"]
-    metrics = evaluate_signal_recovery(importance, signal_dim)
-    for feature_idx, score in enumerate(importance):
+    if signal_indices is None:
+        signals = candidates[:signal_dim]
+    else:
+        signals = _normalize_indices(signal_indices, len(importance), "signal_indices")
+    signal_set = set(signals.tolist())
+    ranks = rank_features(importance, candidate_indices=candidates)
+    metrics = evaluate_signal_recovery(
+        importance,
+        signal_dim,
+        signal_indices=signals,
+        candidate_indices=candidates,
+    )
+    for feature_idx in candidates:
+        score = importance[feature_idx]
         row = dict(metadata)
         row.update(
             {
-                "feature_idx": feature_idx,
-                "is_signal": int(feature_idx < signal_dim),
+                "feature_idx": int(feature_idx),
+                "is_signal": int(feature_idx in signal_set),
                 "method": method,
                 "importance": float(score),
                 "rank": int(ranks[feature_idx]),
@@ -294,6 +346,8 @@ def add_model_feature_importance(
     repeats,
     seed,
     batch_size,
+    signal_indices=None,
+    candidate_indices=None,
 ):
     """Run supervised signal-dimension recovery for one trained global model.
 
@@ -310,6 +364,8 @@ def add_model_feature_importance(
         metadata,
         "weight_norm",
         first_layer_weight_importance(model),
+        signal_indices=signal_indices,
+        candidate_indices=candidate_indices,
     )
 
     if f_diag_sum_for_importance is not None:
@@ -319,6 +375,8 @@ def add_model_feature_importance(
             metadata,
             "fisher_weighted",
             fisher_weighted_first_layer_importance(model, f_diag_sum_for_importance),
+            signal_indices=signal_indices,
+            candidate_indices=candidate_indices,
         )
 
     final_f_diag = compute_diagonal_fisher(
@@ -333,6 +391,8 @@ def add_model_feature_importance(
         metadata,
         "global_fisher_weighted",
         fisher_weighted_first_layer_importance(model, final_f_diag),
+        signal_indices=signal_indices,
+        candidate_indices=candidate_indices,
     )
 
     for mode in modes:
@@ -344,6 +404,7 @@ def add_model_feature_importance(
             mode=mode,
             repeats=repeats,
             seed=mode_seed,
+            candidate_indices=candidate_indices,
         )
         _add_importance_method_rows(
             detail_rows,
@@ -351,6 +412,8 @@ def add_model_feature_importance(
             metadata,
             "ablation_" + mode + "_loss",
             ablation_scores["loss"],
+            signal_indices=signal_indices,
+            candidate_indices=candidate_indices,
         )
         _add_importance_method_rows(
             detail_rows,
@@ -358,6 +421,8 @@ def add_model_feature_importance(
             metadata,
             "ablation_" + mode + "_margin",
             ablation_scores["margin_drop"],
+            signal_indices=signal_indices,
+            candidate_indices=candidate_indices,
         )
         _add_importance_method_rows(
             detail_rows,
@@ -365,6 +430,8 @@ def add_model_feature_importance(
             metadata,
             "ablation_" + mode + "_acc_drop",
             ablation_scores["accuracy_drop"],
+            signal_indices=signal_indices,
+            candidate_indices=candidate_indices,
         )
 
 

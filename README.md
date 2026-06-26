@@ -9,7 +9,7 @@ The original image datasets and image models have been removed. The remaining
 entry points are:
 
 ```text
-data.py                                      # SyntheticBinary and LocalBinaryCSV data loaders
+data.py                                      # SyntheticBinary, SyntheticEffectModifier, and LocalBinaryCSV data loaders
 models.py                                    # SyntheticMLP and SyntheticMLPDeep
 main.py                                      # one-shot FL runner
 utils/feature_importance.py                  # legacy supervised signal-dimension recovery utilities
@@ -17,6 +17,7 @@ utils/prediction_intervention.py             # model-output prediction intervent
 scripts/run_synthetic_original_fedfisher.slurm
 scripts/run_synthetic_original_fedfisher_1000seeds.slurm
 scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
+scripts/run_synthetic_effect_modifier_1000seeds.slurm
 scripts/summarize_synthetic_original.py
 scripts/plot_synthetic_original.py
 scripts/plot_synthetic_alpha_sweep.py
@@ -48,7 +49,8 @@ or cluster-specific paths.
 
 Required arguments:
 
-- `--dataset`: `SyntheticBinary` or `LocalBinaryCSV`.
+- `--dataset`: `SyntheticBinary`, `SyntheticEffectModifier`, or
+  `LocalBinaryCSV`.
 - `--model`: `SyntheticMLP` or `SyntheticMLPDeep`.
 - `--algs_to_run`: one or more algorithms. The synthetic pipeline is intended
   for `fedavg`, `fedfisher_diag`, and `fedfisher_kfac`.
@@ -67,6 +69,14 @@ Useful optional arguments:
 - `--synthetic_signal_dim`: number of informative coordinates, default `10`.
 - `--synthetic_signal_strength`: class-mean signal norm, default `0.7`.
 - `--synthetic_noise_std`: Gaussian noise standard deviation, default `1.0`.
+- `--effect_modifier_covariate_dim`: number of raw covariates for
+  `SyntheticEffectModifier`, default `100`.
+- `--effect_modifier_signal_dim`: number of true effect modifiers, default
+  `10`.
+- `--effect_modifier_signal_strength`: interaction signal norm, default `2.0`.
+- `--effect_modifier_intercept`: binary-outcome logit intercept, default `0.0`.
+- `--effect_modifier_treatment_prob`: treatment assignment probability,
+  default `0.5`.
 - `--feature_importance`: run supervised signal-dimension recovery for trained
   global models, default off.
 - `--feature_importance_repeats`: permutation repeats per feature, default `5`.
@@ -154,6 +164,54 @@ python main.py \
   --prediction_intervention_modes permute zero \
   --prediction_intervention_repeats 5 \
   --output_dir synthetic_binary_experiment/outputs/prediction_intervention
+```
+
+## Effect-Modifier Interaction Recovery
+
+`SyntheticEffectModifier` is an additive binary-outcome simulation for testing
+whether the trained models recover treatment-by-covariate interaction signals.
+It does not replace `SyntheticBinary`.
+
+The generated input is:
+
+```text
+[A, X1, ..., Xp, A*X1, ..., A*Xp]
+```
+
+The outcome logit contains no raw `X` main effects and no treatment main effect:
+
+```text
+logit P(Y = 1 | A, X) = intercept + sum_{j in S} gamma_j * A * Xj
+```
+
+With defaults, `p=100` and `|S|=10`, so the interaction block is zero-indexed
+`101..200` and the true effect-modifier interaction columns are `101..110`.
+Recovery metrics rank only the interaction block `A*X1..A*Xp`; raw `X` columns
+are not used to evaluate effect-modifier recovery.
+
+Smoke-test command:
+
+```bash
+python main.py \
+  --dataset SyntheticEffectModifier \
+  --model SyntheticMLP \
+  --synthetic_split noniid \
+  --alpha 0.1 \
+  --effect_modifier_covariate_dim 100 \
+  --effect_modifier_signal_dim 10 \
+  --effect_modifier_signal_strength 2.0 \
+  --local_epochs 30 \
+  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
+  --prediction_intervention \
+  --prediction_intervention_modes permute zero \
+  --prediction_intervention_repeats 5 \
+  --output_dir effect_modifier_experiment/outputs/prediction_intervention
+```
+
+Large-array runner:
+
+```bash
+sbatch scripts/run_synthetic_effect_modifier_1000seeds.slurm
 ```
 
 ## Legacy Supervised Feature Importance

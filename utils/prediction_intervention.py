@@ -132,7 +132,7 @@ def _model_level_summary(outputs, y):
     }
 
 
-def prediction_intervention_importance(model, dataset, args, modes, repeats, seed):
+def prediction_intervention_importance(model, dataset, args, modes, repeats, seed, candidate_indices=None):
     """Measure feature effects through prediction changes on held-out inputs.
 
     This is a model-based feature intervention diagnostic: after the model is
@@ -154,18 +154,21 @@ def prediction_intervention_importance(model, dataset, args, modes, repeats, see
     generator = torch.Generator(device="cpu")
     generator.manual_seed(seed)
 
+    if candidate_indices is None:
+        candidate_indices = range(dim)
+
     for mode in modes:
         repeat_count = 1 if mode == "zero" else max(1, int(repeats))
         mode_results = {
-            "abs_logit_change": np.zeros(dim, dtype=np.float64),
-            "signed_logit_change": np.zeros(dim, dtype=np.float64),
-            "abs_prob_change": np.zeros(dim, dtype=np.float64),
-            "signed_prob_change": np.zeros(dim, dtype=np.float64),
-            "flip_rate": np.zeros(dim, dtype=np.float64),
-            "margin_drop": np.zeros(dim, dtype=np.float64),
+            "abs_logit_change": np.full(dim, np.nan, dtype=np.float64),
+            "signed_logit_change": np.full(dim, np.nan, dtype=np.float64),
+            "abs_prob_change": np.full(dim, np.nan, dtype=np.float64),
+            "signed_prob_change": np.full(dim, np.nan, dtype=np.float64),
+            "flip_rate": np.full(dim, np.nan, dtype=np.float64),
+            "margin_drop": np.full(dim, np.nan, dtype=np.float64),
         }
 
-        for feature_idx in range(dim):
+        for feature_idx in candidate_indices:
             repeated = {metric: [] for metric in mode_results.keys()}
             for _ in range(repeat_count):
                 x_changed = make_intervened_X(
@@ -212,30 +215,59 @@ def _ranking_values(importance, metric):
     return scores
 
 
-def rank_features(importance, metric):
+def _normalize_indices(indices, dim, option_name):
+    if indices is None:
+        return np.arange(dim, dtype=np.int64)
+    normalized = np.array(list(indices), dtype=np.int64)
+    if normalized.size == 0:
+        raise ValueError("%s must not be empty" % option_name)
+    if np.any(normalized < 0) or np.any(normalized >= dim):
+        raise ValueError("%s contains indices outside the feature range" % option_name)
+    if len(np.unique(normalized)) != len(normalized):
+        raise ValueError("%s contains duplicate indices" % option_name)
+    return normalized
+
+
+def rank_features(importance, metric, candidate_indices=None):
     scores = _ranking_values(importance, metric)
-    order = np.argsort(-np.nan_to_num(scores, nan=-np.inf), kind="mergesort")
+    candidates = _normalize_indices(candidate_indices, len(scores), "candidate_indices")
+    candidate_scores = scores[candidates]
+    order = candidates[np.argsort(-np.nan_to_num(candidate_scores, nan=-np.inf), kind="mergesort")]
     ranks = np.empty(len(scores), dtype=np.int64)
-    ranks[order] = np.arange(1, len(scores) + 1)
+    ranks.fill(0)
+    ranks[order] = np.arange(1, len(order) + 1)
     return ranks
 
 
-def evaluate_signal_recovery(importance, signal_dim, metric):
+def evaluate_signal_recovery(importance, signal_dim, metric, signal_indices=None, candidate_indices=None):
     """Evaluate whether top-ranked dimensions recover the known signal set."""
     scores = _ranking_values(importance, metric)
-    if signal_dim < 1 or signal_dim > len(scores):
-        raise ValueError("signal_dim must be in [1, len(importance)]")
+    candidates = _normalize_indices(candidate_indices, len(scores), "candidate_indices")
+    if signal_indices is None:
+        if signal_dim < 1 or signal_dim > len(candidates):
+            raise ValueError("signal_dim must be in [1, len(candidate_indices)]")
+        signals = candidates[:signal_dim]
+    else:
+        signals = _normalize_indices(signal_indices, len(scores), "signal_indices")
+        if len(signals) != signal_dim:
+            raise ValueError("signal_indices length must match signal_dim")
+        if not set(signals.tolist()).issubset(set(candidates.tolist())):
+            raise ValueError("signal_indices must be a subset of candidate_indices")
 
     signal_mask = np.zeros(len(scores), dtype=bool)
-    signal_mask[:signal_dim] = True
-    ranks = rank_features(importance, metric)
-    topk = np.argsort(-np.nan_to_num(scores, nan=-np.inf), kind="mergesort")[:signal_dim]
+    signal_mask[signals] = True
+    candidate_scores = scores[candidates]
+    ranks = rank_features(importance, metric, candidate_indices=candidates)
+    topk = candidates[np.argsort(-np.nan_to_num(candidate_scores, nan=-np.inf), kind="mergesort")[:signal_dim]]
     topk_hits = int(signal_mask[topk].sum())
 
-    signal_ranks = ranks[signal_mask]
-    noise_ranks = ranks[~signal_mask]
-    signal_scores = scores[signal_mask]
-    noise_scores = scores[~signal_mask]
+    noise_mask = np.zeros(len(scores), dtype=bool)
+    noise_mask[candidates] = True
+    noise_mask[signals] = False
+    signal_ranks = ranks[signals]
+    noise_ranks = ranks[noise_mask]
+    signal_scores = scores[signals]
+    noise_scores = scores[noise_mask]
     if len(noise_scores) == 0:
         auroc = float("nan")
     else:
@@ -254,16 +286,38 @@ def evaluate_signal_recovery(importance, signal_dim, metric):
     }
 
 
-def _add_metric_rows(detail_rows, summary_rows, metadata, intervention_mode, metric, importance):
-    ranks = rank_features(importance, metric)
+def _add_metric_rows(
+    detail_rows,
+    summary_rows,
+    metadata,
+    intervention_mode,
+    metric,
+    importance,
+    signal_indices=None,
+    candidate_indices=None,
+):
+    candidates = _normalize_indices(candidate_indices, len(importance), "candidate_indices")
     signal_dim = metadata["synthetic_signal_dim"]
-    metrics = evaluate_signal_recovery(importance, signal_dim, metric)
-    for feature_idx, score in enumerate(importance):
+    if signal_indices is None:
+        signals = candidates[:signal_dim]
+    else:
+        signals = _normalize_indices(signal_indices, len(importance), "signal_indices")
+    signal_set = set(signals.tolist())
+    ranks = rank_features(importance, metric, candidate_indices=candidates)
+    metrics = evaluate_signal_recovery(
+        importance,
+        signal_dim,
+        metric,
+        signal_indices=signals,
+        candidate_indices=candidates,
+    )
+    for feature_idx in candidates:
+        score = importance[feature_idx]
         row = dict(metadata)
         row.update(
             {
-                "feature_idx": feature_idx,
-                "is_signal": int(feature_idx < signal_dim),
+                "feature_idx": int(feature_idx),
+                "is_signal": int(feature_idx in signal_set),
                 "intervention_mode": intervention_mode,
                 "metric": metric,
                 "importance": float(score),
@@ -290,6 +344,8 @@ def add_model_prediction_intervention(
     modes,
     repeats,
     seed,
+    signal_indices=None,
+    candidate_indices=None,
 ):
     print("Computing prediction intervention for", model_source)
     model_metadata = dict(metadata)
@@ -301,6 +357,7 @@ def add_model_prediction_intervention(
         modes=modes,
         repeats=repeats,
         seed=seed,
+        candidate_indices=candidate_indices,
     )
 
     summary_row = dict(model_metadata)
@@ -316,6 +373,8 @@ def add_model_prediction_intervention(
                 mode,
                 metric,
                 importance,
+                signal_indices=signal_indices,
+                candidate_indices=candidate_indices,
             )
 
 

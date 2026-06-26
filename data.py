@@ -119,6 +119,115 @@ def _get_synthetic_binary_dataset(
     return dataset_train, dataset_train_global, dataset_test_global, net_cls_counts
 
 
+def _sample_synthetic_effect_modifier(
+    num_samples,
+    covariate_dim,
+    modifier_dim,
+    signal_strength,
+    intercept,
+    treatment_prob,
+    rng,
+):
+    x_cov = rng.normal(loc=0.0, scale=1.0, size=(num_samples, covariate_dim)).astype(np.float32)
+    treatment = rng.binomial(1, treatment_prob, size=num_samples).astype(np.float32)
+    interactions = treatment[:, None] * x_cov
+
+    modifier_weights = np.zeros(covariate_dim, dtype=np.float32)
+    modifier_weights[:modifier_dim] = signal_strength / np.sqrt(modifier_dim)
+    modifier_weights[1:modifier_dim:2] *= -1.0
+
+    logits = intercept + interactions.dot(modifier_weights)
+    probabilities = 1.0 / (1.0 + np.exp(-logits))
+    y = rng.binomial(1, probabilities).astype(np.int64)
+    features = np.concatenate([treatment[:, None], x_cov, interactions], axis=1)
+    return features.astype(np.float32), y
+
+
+def _get_synthetic_effect_modifier_dataset(
+    n_client,
+    alpha,
+    split,
+    num_train,
+    num_test,
+    covariate_dim,
+    modifier_dim,
+    signal_strength,
+    intercept,
+    treatment_prob,
+    seed,
+):
+    if modifier_dim < 1 or modifier_dim > covariate_dim:
+        raise ValueError("effect_modifier_signal_dim must be in [1, effect_modifier_covariate_dim]")
+    if treatment_prob <= 0.0 or treatment_prob >= 1.0:
+        raise ValueError("effect_modifier_treatment_prob must be between 0 and 1")
+
+    rng = np.random.default_rng(seed)
+    if split == "noniid":
+        x_train, y_train = _sample_synthetic_effect_modifier(
+            num_train,
+            covariate_dim,
+            modifier_dim,
+            signal_strength,
+            intercept,
+            treatment_prob,
+            rng,
+        )
+        np.random.seed(seed)
+        inds, net_cls_counts = __getDirichletData__(y_train, n_client, alpha, 2)
+        dataset_train = []
+        for i, ind in enumerate(inds):
+            x_client = torch.Tensor(x_train[ind])
+            y_client = torch.LongTensor(y_train[ind])
+            print("Client ", i, " Training examples: ", len(x_client))
+            dataset_train.append(TensorDataset(x_client, y_client))
+    elif split == "iid":
+        base = num_train // n_client
+        remainder = num_train % n_client
+        dataset_train = []
+        client_counts = {}
+        xs = []
+        ys = []
+        for i in range(n_client):
+            size = base + (1 if i < remainder else 0)
+            x_client, y_client = _sample_synthetic_effect_modifier(
+                size,
+                covariate_dim,
+                modifier_dim,
+                signal_strength,
+                intercept,
+                treatment_prob,
+                rng,
+            )
+            xs.append(x_client)
+            ys.append(y_client)
+            y_unique, y_counts = np.unique(y_client, return_counts=True)
+            client_counts[i] = {y_unique[j]: y_counts[j] for j in range(len(y_unique))}
+            print("Client ", i, " Training examples: ", size)
+            dataset_train.append(TensorDataset(torch.Tensor(x_client), torch.LongTensor(y_client)))
+        x_train = np.concatenate(xs, axis=0)
+        y_train = np.concatenate(ys, axis=0)
+        net_cls_counts = client_counts
+        weights = np.array([len(dataset) for dataset in dataset_train], dtype=np.float64)
+        weights = weights / weights.sum()
+        print("Data statistics: %s" % str(net_cls_counts))
+        print("Data ratio: %s" % str(weights))
+    else:
+        raise ValueError("synthetic_split must be one of: iid, noniid")
+
+    x_test, y_test = _sample_synthetic_effect_modifier(
+        num_test,
+        covariate_dim,
+        modifier_dim,
+        signal_strength,
+        intercept,
+        treatment_prob,
+        rng,
+    )
+    dataset_train_global = TensorDataset(torch.Tensor(x_train), torch.LongTensor(y_train))
+    dataset_test_global = TensorDataset(torch.Tensor(x_test), torch.LongTensor(y_test))
+    return dataset_train, dataset_train_global, dataset_test_global, net_cls_counts
+
+
 def _resolve_column(column, header, num_cols, option_name):
     try:
         idx = int(column)
@@ -266,6 +375,11 @@ def get_dataset(
     synthetic_signal_dim=10,
     synthetic_signal_strength=0.7,
     synthetic_noise_std=1.0,
+    effect_modifier_covariate_dim=100,
+    effect_modifier_signal_dim=10,
+    effect_modifier_signal_strength=2.0,
+    effect_modifier_intercept=0.0,
+    effect_modifier_treatment_prob=0.5,
     local_train_csv=None,
     local_test_csv=None,
     local_label_col="-1",
@@ -287,6 +401,20 @@ def get_dataset(
             noise_std=synthetic_noise_std,
             seed=seed,
         )
+    if datatype == "SyntheticEffectModifier":
+        return _get_synthetic_effect_modifier_dataset(
+            n_client=n_client,
+            alpha=alpha,
+            split=synthetic_split,
+            num_train=synthetic_num_train,
+            num_test=synthetic_num_test,
+            covariate_dim=effect_modifier_covariate_dim,
+            modifier_dim=effect_modifier_signal_dim,
+            signal_strength=effect_modifier_signal_strength,
+            intercept=effect_modifier_intercept,
+            treatment_prob=effect_modifier_treatment_prob,
+            seed=seed,
+        )
     if datatype == "LocalBinaryCSV":
         return _get_local_binary_csv_dataset(
             n_client=n_client,
@@ -300,4 +428,4 @@ def get_dataset(
             seed=seed,
         )
 
-    raise ValueError("Only SyntheticBinary and LocalBinaryCSV are supported in this pipeline")
+    raise ValueError("Only SyntheticBinary, SyntheticEffectModifier, and LocalBinaryCSV are supported in this pipeline")

@@ -27,7 +27,12 @@ from utils.prediction_intervention import (
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--dataset", type=str, required=True, choices=["SyntheticBinary", "LocalBinaryCSV"])
+parser.add_argument(
+    "--dataset",
+    type=str,
+    required=True,
+    choices=["SyntheticBinary", "SyntheticEffectModifier", "LocalBinaryCSV"],
+)
 parser.add_argument("--model", type=str, required=True, choices=["SyntheticMLP", "SyntheticMLPDeep"])
 parser.add_argument(
     "--algs_to_run",
@@ -49,6 +54,11 @@ parser.add_argument("--synthetic_dim", type=int, required=False, default=100)
 parser.add_argument("--synthetic_signal_dim", type=int, required=False, default=10)
 parser.add_argument("--synthetic_signal_strength", type=float, required=False, default=0.7)
 parser.add_argument("--synthetic_noise_std", type=float, required=False, default=1.0)
+parser.add_argument("--effect_modifier_covariate_dim", type=int, required=False, default=100)
+parser.add_argument("--effect_modifier_signal_dim", type=int, required=False, default=10)
+parser.add_argument("--effect_modifier_signal_strength", type=float, required=False, default=2.0)
+parser.add_argument("--effect_modifier_intercept", type=float, required=False, default=0.0)
+parser.add_argument("--effect_modifier_treatment_prob", type=float, required=False, default=0.5)
 parser.add_argument("--local_train_csv", type=str, required=False, default=None)
 parser.add_argument("--local_test_csv", type=str, required=False, default=None)
 parser.add_argument("--local_label_col", type=str, required=False, default="-1")
@@ -102,11 +112,32 @@ output_dir = args_parser.output_dir
 print_every_test = 1
 print_every_train = 1
 n_c = 2
+SYNTHETIC_RECOVERY_DATASETS = {"SyntheticBinary", "SyntheticEffectModifier"}
 
-alpha_tag = str(alpha).replace(".", "p")
+
+def float_tag(value):
+    return str(value).replace(".", "p").replace("-", "m")
+
+
+def get_recovery_indices(dataset_name, parsed_args, input_dim):
+    if dataset_name == "SyntheticEffectModifier":
+        covariate_dim = parsed_args.effect_modifier_covariate_dim
+        signal_dim = parsed_args.effect_modifier_signal_dim
+        expected_dim = 1 + 2 * covariate_dim
+        if input_dim != expected_dim:
+            raise ValueError("SyntheticEffectModifier input dimension should be %d, got %d" % (expected_dim, input_dim))
+        interaction_start = 1 + covariate_dim
+        candidate_indices = list(range(interaction_start, interaction_start + covariate_dim))
+        signal_indices = list(range(interaction_start, interaction_start + signal_dim))
+        return signal_dim, signal_indices, candidate_indices
+
+    return parsed_args.synthetic_signal_dim, None, None
+
+
+alpha_tag = float_tag(alpha)
 if dataset == "SyntheticBinary":
-    signal_tag = str(args_parser.synthetic_signal_strength).replace(".", "p")
-    noise_tag = str(args_parser.synthetic_noise_std).replace(".", "p")
+    signal_tag = float_tag(args_parser.synthetic_signal_strength)
+    noise_tag = float_tag(args_parser.synthetic_noise_std)
     filename_extra = (
         "_split"
         + args_parser.synthetic_split
@@ -122,6 +153,28 @@ if dataset == "SyntheticBinary":
         + signal_tag
         + "_noise"
         + noise_tag
+    )
+elif dataset == "SyntheticEffectModifier":
+    strength_tag = float_tag(args_parser.effect_modifier_signal_strength)
+    intercept_tag = float_tag(args_parser.effect_modifier_intercept)
+    treat_tag = float_tag(args_parser.effect_modifier_treatment_prob)
+    filename_extra = (
+        "_split"
+        + args_parser.synthetic_split
+        + "_train"
+        + str(args_parser.synthetic_num_train)
+        + "_test"
+        + str(args_parser.synthetic_num_test)
+        + "_xdim"
+        + str(args_parser.effect_modifier_covariate_dim)
+        + "_emdim"
+        + str(args_parser.effect_modifier_signal_dim)
+        + "_emstr"
+        + strength_tag
+        + "_intercept"
+        + intercept_tag
+        + "_treat"
+        + treat_tag
     )
 else:
     filename_extra = "_partition" + args_parser.local_partition
@@ -148,9 +201,9 @@ filename_csv = filename + ".csv"
 print("Writing results to", filename_csv)
 
 dict_results = {}
-feature_importance_enabled = args_parser.feature_importance and dataset == "SyntheticBinary"
-if args_parser.feature_importance and dataset != "SyntheticBinary":
-    print("Feature importance is currently only available for SyntheticBinary; skipping it.")
+feature_importance_enabled = args_parser.feature_importance and dataset in SYNTHETIC_RECOVERY_DATASETS
+if args_parser.feature_importance and dataset not in SYNTHETIC_RECOVERY_DATASETS:
+    print("Feature importance is currently only available for synthetic datasets; skipping it.")
 
 feature_detail_rows = []
 feature_summary_rows = []
@@ -158,9 +211,9 @@ feature_detail_csv = filename + "_" + args_parser.feature_importance_output_suff
 feature_summary_csv = filename + "_" + args_parser.feature_importance_output_suffix + "_summary.csv"
 latest_feature_context = None
 
-prediction_intervention_enabled = args_parser.prediction_intervention and dataset == "SyntheticBinary"
-if args_parser.prediction_intervention and dataset != "SyntheticBinary":
-    print("Prediction intervention is currently only available for SyntheticBinary; skipping it.")
+prediction_intervention_enabled = args_parser.prediction_intervention and dataset in SYNTHETIC_RECOVERY_DATASETS
+if args_parser.prediction_intervention and dataset not in SYNTHETIC_RECOVERY_DATASETS:
+    print("Prediction intervention is currently only available for synthetic datasets; skipping it.")
 
 prediction_detail_rows = []
 prediction_summary_rows = []
@@ -188,6 +241,11 @@ for alg in algs_to_run:
         synthetic_signal_dim=args_parser.synthetic_signal_dim,
         synthetic_signal_strength=args_parser.synthetic_signal_strength,
         synthetic_noise_std=args_parser.synthetic_noise_std,
+        effect_modifier_covariate_dim=args_parser.effect_modifier_covariate_dim,
+        effect_modifier_signal_dim=args_parser.effect_modifier_signal_dim,
+        effect_modifier_signal_strength=args_parser.effect_modifier_signal_strength,
+        effect_modifier_intercept=args_parser.effect_modifier_intercept,
+        effect_modifier_treatment_prob=args_parser.effect_modifier_treatment_prob,
         local_train_csv=args_parser.local_train_csv,
         local_test_csv=args_parser.local_test_csv,
         local_label_col=args_parser.local_label_col,
@@ -201,6 +259,11 @@ for alg in algs_to_run:
     ind = np.random.choice(len(dataset_train_global), val_size, replace=False)
     dataset_val = torch.utils.data.Subset(dataset_train_global, ind)
     input_dim = dataset_train_global.tensors[0].shape[1]
+    recovery_signal_dim, recovery_signal_indices, recovery_candidate_indices = get_recovery_indices(
+        dataset,
+        args_parser,
+        input_dim,
+    )
 
     args = {
         "bs": 64,
@@ -299,11 +362,17 @@ for alg in algs_to_run:
         "args": args,
         "dataset_train_global": dataset_train_global,
         "dataset_test_global": dataset_test_global,
+        "recovery_signal_dim": recovery_signal_dim,
+        "recovery_signal_indices": recovery_signal_indices,
+        "recovery_candidate_indices": recovery_candidate_indices,
     }
     latest_prediction_context = {
         "args": args,
         "dataset_train_global": dataset_train_global,
         "dataset_test_global": dataset_test_global,
+        "recovery_signal_dim": recovery_signal_dim,
+        "recovery_signal_indices": recovery_signal_indices,
+        "recovery_candidate_indices": recovery_candidate_indices,
     }
     if feature_importance_enabled:
         F_diag_sum_for_importance = torch.zeros_like(F_diag_list[0])
@@ -316,7 +385,7 @@ for alg in algs_to_run:
             "split": args_parser.synthetic_split,
             "alpha": alpha,
             "synthetic_dim": args["synthetic_dim"],
-            "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+            "synthetic_signal_dim": recovery_signal_dim,
         }
         add_model_feature_importance(
             feature_detail_rows,
@@ -332,6 +401,8 @@ for alg in algs_to_run:
             args_parser.feature_importance_repeats,
             seed,
             args_parser.feature_importance_batch_size,
+            signal_indices=recovery_signal_indices,
+            candidate_indices=recovery_candidate_indices,
         )
         write_feature_importance_outputs(
             feature_detail_rows,
@@ -347,7 +418,7 @@ for alg in algs_to_run:
             "split": args_parser.synthetic_split,
             "alpha": alpha,
             "synthetic_dim": args["synthetic_dim"],
-            "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+            "synthetic_signal_dim": recovery_signal_dim,
         }
         prediction_seed = seed + sum(ord(ch) for ch in alg)
         add_model_prediction_intervention(
@@ -362,6 +433,8 @@ for alg in algs_to_run:
             args_parser.prediction_intervention_modes,
             args_parser.prediction_intervention_repeats,
             prediction_seed,
+            signal_indices=recovery_signal_indices,
+            candidate_indices=recovery_candidate_indices,
         )
         if (
             args_parser.prediction_intervention_include_local_models
@@ -382,6 +455,8 @@ for alg in algs_to_run:
                     args_parser.prediction_intervention_modes,
                     args_parser.prediction_intervention_repeats,
                     local_seed,
+                    signal_indices=recovery_signal_indices,
+                    candidate_indices=recovery_candidate_indices,
                 )
             local_prediction_intervention_done = True
         write_prediction_intervention_outputs(
@@ -413,6 +488,9 @@ if (
     args = latest_feature_context["args"]
     dataset_train_global = latest_feature_context["dataset_train_global"]
     dataset_test_global = latest_feature_context["dataset_test_global"]
+    recovery_signal_dim = latest_feature_context["recovery_signal_dim"]
+    recovery_signal_indices = latest_feature_context["recovery_signal_indices"]
+    recovery_candidate_indices = latest_feature_context["recovery_candidate_indices"]
     torch.manual_seed(seed)
     random.seed(seed)
     pooled_model = train_pooled_model(args, dataset_train_global)
@@ -425,7 +503,7 @@ if (
         "split": args_parser.synthetic_split,
         "alpha": alpha,
         "synthetic_dim": args["synthetic_dim"],
-        "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+        "synthetic_signal_dim": recovery_signal_dim,
     }
     add_model_feature_importance(
         feature_detail_rows,
@@ -441,6 +519,8 @@ if (
         args_parser.feature_importance_repeats,
         seed,
         args_parser.feature_importance_batch_size,
+        signal_indices=recovery_signal_indices,
+        candidate_indices=recovery_candidate_indices,
     )
     write_feature_importance_outputs(
         feature_detail_rows,
@@ -458,6 +538,9 @@ if (
     args = latest_prediction_context["args"]
     dataset_train_global = latest_prediction_context["dataset_train_global"]
     dataset_test_global = latest_prediction_context["dataset_test_global"]
+    recovery_signal_dim = latest_prediction_context["recovery_signal_dim"]
+    recovery_signal_indices = latest_prediction_context["recovery_signal_indices"]
+    recovery_candidate_indices = latest_prediction_context["recovery_candidate_indices"]
     torch.manual_seed(seed)
     random.seed(seed)
     pooled_model = train_pooled_prediction_model(args, dataset_train_global)
@@ -469,7 +552,7 @@ if (
         "split": args_parser.synthetic_split,
         "alpha": alpha,
         "synthetic_dim": args["synthetic_dim"],
-        "synthetic_signal_dim": args_parser.synthetic_signal_dim,
+        "synthetic_signal_dim": recovery_signal_dim,
     }
     add_model_prediction_intervention(
         prediction_detail_rows,
@@ -483,6 +566,8 @@ if (
         args_parser.prediction_intervention_modes,
         args_parser.prediction_intervention_repeats,
         seed + 20000,
+        signal_indices=recovery_signal_indices,
+        candidate_indices=recovery_candidate_indices,
     )
     write_prediction_intervention_outputs(
         prediction_detail_rows,
