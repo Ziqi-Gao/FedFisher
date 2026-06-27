@@ -24,9 +24,13 @@ experiment.
 - The model input is `[A, X1, ..., Xp, A*X1, ..., A*Xp]`.
 - The outcome logit depends only on selected treatment-by-covariate interaction
   columns.
-- Effect-modifier recovery must rank only the interaction block
-  `A*X1, ..., A*Xp`.
-- Do not report effect-modifier recovery from raw `X` columns alone.
+- Primary effect-modifier recovery must rank raw covariates `X1, ..., Xp` by
+  how much perturbing each `Xi` changes the model-estimated treatment contrast
+  `tau_hat(X) = score(A=1, X) - score(A=0, X)`.
+- Counterfactual inputs for `tau_hat(X)` must be internally consistent:
+  `[1, X, X]` for treatment and `[0, X, 0]` for control.
+- Direct intervention on `A*X1, ..., A*Xp` may be reported only as a secondary
+  diagnostic, not as the primary effect-modifier recovery result.
 
 ## Defaults
 
@@ -35,7 +39,8 @@ experiment.
 - `effect_modifier_signal_strength = 2.0`
 - `effect_modifier_intercept = 0.0`
 - `effect_modifier_treatment_prob = 0.5`
-- With defaults, true interaction signal columns are zero-indexed `101..110`.
+- With defaults, true raw effect-modifier columns are zero-indexed `1..10`;
+  their interaction columns are zero-indexed `101..110`.
 
 ## Validation
 
