@@ -38,9 +38,24 @@ default `p=100`, input columns are zero-indexed as:
 101..200 = A*X1..A*X100
 ```
 
-Therefore the true effect-modifier interaction columns are `101..110`. Recovery
-metrics rank only the candidate interaction columns `101..200`; raw `X` columns
-are not used to evaluate effect-modifier recovery.
+Therefore the true effect modifiers are the raw covariates `X1..X10`, which
+correspond to input columns `1..10`. Primary recovery uses
+`treatment_contrast_intervention`: for each held-out raw covariate vector `X`,
+the trained model is evaluated on internally consistent counterfactual inputs:
+
+```text
+input_A1 = [1, X1, ..., Xp, X1, ..., Xp]
+input_A0 = [0, X1, ..., Xp, 0, ..., 0]
+```
+
+The estimated treatment contrast is the logit-scale difference
+`tau_hat(X) = score(input_A1) - score(input_A0)`, where
+`score = logit_Y1 - logit_Y0`. Each raw covariate `Xi` is permuted or zeroed,
+the counterfactual inputs are rebuilt from the modified raw `X`, and `Xi` is
+ranked by the mean absolute change in `tau_hat(X)`. Probability-scale
+treatment contrast is also reported. Direct interaction-column intervention on
+`A*X1..A*Xp` may still be written as a secondary diagnostic, but it is not the
+primary effect-modifier recovery result.
 
 ## Federated Settings
 
@@ -51,8 +66,8 @@ The experiment reuses the existing settings:
   class-wise Dirichlet allocation with `--alpha`.
 
 The intended comparison is whether `fedfisher_diag` or `fedfisher_kfac` recover
-the true interaction signals better than `fedavg`, especially under non-IID
-client splits.
+the raw covariates that modify the model-estimated treatment effect better than
+`fedavg`, especially under non-IID client splits.
 
 ## Smoke Command
 
@@ -73,9 +88,12 @@ client splits.
   --output_dir effect_modifier_experiment/outputs/prediction_intervention
 ```
 
-Prediction-intervention detail and summary outputs include only interaction
-candidate rows for this dataset. The standard one-shot accuracy CSV is still
-written separately.
+Prediction-intervention detail and summary outputs use
+`tau_intervention_logit` as the primary metric over raw covariate columns
+`1..p`, with `tau_intervention_prob` as an auxiliary probability-scale metric.
+Rows prefixed with `direct_interaction_` are secondary diagnostics over the
+interaction block. The standard one-shot accuracy CSV is still written
+separately.
 
 ## Slurm Run
 
