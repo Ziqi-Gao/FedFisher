@@ -126,6 +126,8 @@ def get_recovery_indices(dataset_name, parsed_args, input_dim):
         expected_dim = 1 + 2 * covariate_dim
         if input_dim != expected_dim:
             raise ValueError("SyntheticEffectModifier input dimension should be %d, got %d" % (expected_dim, input_dim))
+        # Legacy feature importance and direct_interaction diagnostics use the
+        # interaction block; tau-intervention computes raw-X indices separately.
         interaction_start = 1 + covariate_dim
         candidate_indices = list(range(interaction_start, interaction_start + covariate_dim))
         signal_indices = list(range(interaction_start, interaction_start + signal_dim))
@@ -279,6 +281,8 @@ for alg in algs_to_run:
         "synthetic_dim": input_dim,
         "feature_importance_batch_size": args_parser.feature_importance_batch_size,
         "prediction_intervention_batch_size": args_parser.prediction_intervention_batch_size,
+        "effect_modifier_covariate_dim": args_parser.effect_modifier_covariate_dim,
+        "effect_modifier_signal_dim": args_parser.effect_modifier_signal_dim,
     }
 
     torch.manual_seed(seed)

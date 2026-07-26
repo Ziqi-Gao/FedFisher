@@ -119,6 +119,55 @@ def make_intervened_X(x, feature_idx, mode, generator=None):
     return x_changed
 
 
+def _effect_modifier_covariate_dim(args, input_dim):
+    covariate_dim = int(args.get("effect_modifier_covariate_dim", (input_dim - 1) // 2))
+    expected_dim = 1 + (2 * covariate_dim)
+    if input_dim != expected_dim:
+        raise ValueError(
+            "SyntheticEffectModifier input dimension should be %d, got %d"
+            % (expected_dim, input_dim)
+        )
+    return covariate_dim
+
+
+def _effect_modifier_raw_indices(covariate_dim):
+    return list(range(1, 1 + covariate_dim))
+
+
+def _effect_modifier_interaction_indices(covariate_dim):
+    interaction_start = 1 + covariate_dim
+    return list(range(interaction_start, interaction_start + covariate_dim))
+
+
+def make_treatment_contrast_inputs(raw_x):
+    """Build consistent A=1 and A=0 inputs from raw SyntheticEffectModifier X."""
+    n, covariate_dim = raw_x.shape
+    input_a1 = torch.zeros(
+        n,
+        1 + (2 * covariate_dim),
+        dtype=raw_x.dtype,
+        device=raw_x.device,
+    )
+    input_a0 = torch.zeros_like(input_a1)
+
+    input_a1[:, 0] = 1.0
+    input_a1[:, 1 : 1 + covariate_dim] = raw_x
+    input_a1[:, 1 + covariate_dim :] = raw_x
+
+    input_a0[:, 1 : 1 + covariate_dim] = raw_x
+    return input_a1, input_a0
+
+
+def predict_treatment_contrast(model, raw_x, batch_size, device):
+    input_a1, input_a0 = make_treatment_contrast_inputs(raw_x)
+    outputs_a1 = predict_outputs(model, input_a1, batch_size=batch_size, device=device)
+    outputs_a0 = predict_outputs(model, input_a0, batch_size=batch_size, device=device)
+    return {
+        "tau_logit": outputs_a1["score"] - outputs_a0["score"],
+        "tau_prob": outputs_a1["p1"] - outputs_a0["p1"],
+    }
+
+
 def _model_level_summary(outputs, y):
     yhat = outputs["yhat"]
     p1 = outputs["p1"]
@@ -208,9 +257,86 @@ def prediction_intervention_importance(model, dataset, args, modes, repeats, see
     }
 
 
+def treatment_contrast_intervention_importance(
+    model,
+    dataset,
+    args,
+    modes,
+    repeats,
+    seed,
+    candidate_indices=None,
+):
+    """Rank raw covariates by changes in estimated treatment contrast tau_hat(X)."""
+    device = args.get("device", next(model.parameters()).device)
+    batch_size = args.get("prediction_intervention_batch_size", args.get("bs", 1024))
+    x, y = collect_tensor_dataset(dataset, device=None)
+    base_outputs = predict_outputs(model, x, batch_size=batch_size, device=device)
+
+    dim = x.shape[1]
+    covariate_dim = _effect_modifier_covariate_dim(args, dim)
+    raw_x = x[:, 1 : 1 + covariate_dim]
+    base_tau = predict_treatment_contrast(model, raw_x, batch_size=batch_size, device=device)
+
+    if candidate_indices is None:
+        candidate_indices = _effect_modifier_raw_indices(covariate_dim)
+    candidates = _normalize_indices(candidate_indices, dim, "candidate_indices")
+    raw_index_set = set(_effect_modifier_raw_indices(covariate_dim))
+    if not set(candidates.tolist()).issubset(raw_index_set):
+        raise ValueError("treatment contrast intervention candidate_indices must be raw X columns")
+
+    results = {}
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(seed)
+
+    for mode in modes:
+        repeat_count = 1 if mode == "zero" else max(1, int(repeats))
+        mode_results = {
+            "tau_intervention_logit": np.full(dim, np.nan, dtype=np.float64),
+            "tau_intervention_prob": np.full(dim, np.nan, dtype=np.float64),
+        }
+
+        for feature_idx in candidates:
+            raw_feature_idx = int(feature_idx) - 1
+            repeated = {metric: [] for metric in mode_results.keys()}
+            for _ in range(repeat_count):
+                raw_x_changed = make_intervened_X(
+                    raw_x,
+                    raw_feature_idx,
+                    mode,
+                    generator=generator,
+                )
+                changed_tau = predict_treatment_contrast(
+                    model,
+                    raw_x_changed,
+                    batch_size=batch_size,
+                    device=device,
+                )
+
+                logit_delta = changed_tau["tau_logit"] - base_tau["tau_logit"]
+                prob_delta = changed_tau["tau_prob"] - base_tau["tau_prob"]
+                repeated["tau_intervention_logit"].append(logit_delta.abs().mean().item())
+                repeated["tau_intervention_prob"].append(prob_delta.abs().mean().item())
+
+            for metric, values in repeated.items():
+                mode_results[metric][feature_idx] = float(np.mean(values))
+
+        results[mode] = mode_results
+
+    return {
+        "scores": results,
+        "model_summary": _model_level_summary(base_outputs, y),
+    }
+
+
+def _is_signed_rank_metric(metric):
+    return metric in SIGNED_RANK_METRICS or any(
+        metric.endswith("_" + signed_metric) for signed_metric in SIGNED_RANK_METRICS
+    )
+
+
 def _ranking_values(importance, metric):
     scores = np.asarray(importance, dtype=np.float64)
-    if metric in SIGNED_RANK_METRICS:
+    if _is_signed_rank_metric(metric):
         scores = np.abs(scores)
     return scores
 
@@ -347,9 +473,79 @@ def add_model_prediction_intervention(
     signal_indices=None,
     candidate_indices=None,
 ):
-    print("Computing prediction intervention for", model_source)
     model_metadata = dict(metadata)
     model_metadata["model_source"] = model_source
+
+    if args.get("dataset") == "SyntheticEffectModifier":
+        input_dim = int(metadata["synthetic_dim"])
+        covariate_dim = _effect_modifier_covariate_dim(args, input_dim)
+        raw_candidate_indices = _effect_modifier_raw_indices(covariate_dim)
+        raw_signal_indices = raw_candidate_indices[: metadata["synthetic_signal_dim"]]
+
+        print("Computing treatment contrast intervention for", model_source)
+        intervention = treatment_contrast_intervention_importance(
+            model,
+            dataset_test_global,
+            args,
+            modes=modes,
+            repeats=repeats,
+            seed=seed,
+            candidate_indices=raw_candidate_indices,
+        )
+
+        summary_row = dict(model_metadata)
+        summary_row.update(intervention["model_summary"])
+        model_summary_rows.append(summary_row)
+
+        for mode, mode_scores in intervention["scores"].items():
+            for metric, importance in mode_scores.items():
+                _add_metric_rows(
+                    detail_rows,
+                    summary_rows,
+                    model_metadata,
+                    mode,
+                    metric,
+                    importance,
+                    signal_indices=raw_signal_indices,
+                    candidate_indices=raw_candidate_indices,
+                )
+
+        print("Computing direct interaction diagnostic for", model_source)
+        direct_candidate_indices = (
+            candidate_indices
+            if candidate_indices is not None
+            else _effect_modifier_interaction_indices(covariate_dim)
+        )
+        direct_signal_indices = (
+            signal_indices
+            if signal_indices is not None
+            else list(direct_candidate_indices)[: metadata["synthetic_signal_dim"]]
+        )
+        diagnostic = prediction_intervention_importance(
+            model,
+            dataset_test_global,
+            args,
+            modes=modes,
+            repeats=repeats,
+            seed=seed,
+            candidate_indices=direct_candidate_indices,
+        )
+
+        for mode, mode_scores in diagnostic["scores"].items():
+            for metric, importance in mode_scores.items():
+                _add_metric_rows(
+                    detail_rows,
+                    summary_rows,
+                    model_metadata,
+                    mode,
+                    "direct_interaction_" + metric,
+                    importance,
+                    signal_indices=direct_signal_indices,
+                    candidate_indices=direct_candidate_indices,
+                )
+        return
+
+    print("Computing prediction intervention for", model_source)
     intervention = prediction_intervention_importance(
         model,
         dataset_test_global,
