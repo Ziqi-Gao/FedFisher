@@ -1,29 +1,24 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=fedfisher_em_1000
-#SBATCH --account=p32737
-#SBATCH --partition=gengpu
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=14:00:00
 #SBATCH --array=0-49
-#SBATCH --chdir=/gpfs/projects/p32737/del6500_home/FedFisher
-#SBATCH --output=/gpfs/projects/p32737/del6500_home/FedFisher/effect_modifier_experiment/logs/prediction_intervention_1000seeds/%x_%A_%a.out
-#SBATCH --error=/gpfs/projects/p32737/del6500_home/FedFisher/effect_modifier_experiment/logs/prediction_intervention_1000seeds/%x_%A_%a.err
+#SBATCH --output=slurm-%x-%A_%a.out
+#SBATCH --error=slurm-%x-%A_%a.err
 
 set -euo pipefail
 
 # Slurm executes a copied script from its spool directory, so BASH_SOURCE[0]
 # cannot be used to recover the repository path inside the allocation.
-REPO_ROOT="${REPO_ROOT:-/gpfs/projects/p32737/del6500_home/FedFisher}"
+REPO_ROOT="${REPO_ROOT:-${SLURM_SUBMIT_DIR:-$(pwd)}}"
 cd "${REPO_ROOT}"
 
-LOG_DIR="effect_modifier_experiment/logs/prediction_intervention_1000seeds"
 OUTPUT_DIR="${OUTPUT_DIR:-effect_modifier_experiment/outputs/prediction_intervention_1000seeds}"
-mkdir -p "${LOG_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
-PYTHON_BIN="${PYTHON_BIN:-./.conda/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 task_id="${SLURM_ARRAY_TASK_ID:?SLURM_ARRAY_TASK_ID is required}"
 seed_offset="${SEED_OFFSET:-0}"

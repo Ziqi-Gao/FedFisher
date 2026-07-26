@@ -72,7 +72,7 @@ the raw covariates that modify the model-estimated treatment effect better than
 ## Smoke Command
 
 ```bash
-./.conda/bin/python main.py \
+python main.py \
   --dataset SyntheticEffectModifier \
   --model SyntheticMLP \
   --synthetic_split noniid \
@@ -97,12 +97,19 @@ separately.
 
 ## Slurm Run
 
+Submit from the repository root:
+
 ```bash
 sbatch scripts/run_synthetic_effect_modifier_1000seeds.slurm
 ```
 
 By default this runs `SyntheticMLP` and `SyntheticMLPDeep`, both `iid` and
 `noniid`, 1000 seeds, and `fedavg`, `fedfisher_diag`, `fedfisher_kfac`.
+Scheduler account, partition, and other site-specific options are intentionally
+not stored in the repository; pass them to `sbatch` when required by the local
+cluster. The job uses `python` by default. Set `PYTHON_BIN` before submission
+to select another interpreter, and set `REPO_ROOT` or `OUTPUT_DIR` to override
+their portable defaults.
 
 Generated outputs and logs are ignored by Git under:
 

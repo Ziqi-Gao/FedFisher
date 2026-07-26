@@ -185,9 +185,11 @@ logit P(Y = 1 | A, X) = intercept + sum_{j in S} gamma_j * A * Xj
 ```
 
 With defaults, `p=100` and `|S|=10`, so the interaction block is zero-indexed
-`101..200` and the true effect-modifier interaction columns are `101..110`.
-Recovery metrics rank only the interaction block `A*X1..A*Xp`; raw `X` columns
-are not used to evaluate effect-modifier recovery.
+`101..200`. The true effect modifiers are raw covariates `X1..X10`, represented
+by input columns `1..10`. Primary recovery perturbs each raw `Xi`, rebuilds the
+internally consistent inputs `[1, X, X]` and `[0, X, 0]`, and ranks `Xi` by the
+change in the model-estimated treatment contrast. Direct intervention on
+interaction columns `101..200` is retained only as a secondary diagnostic.
 
 Smoke-test command:
 
