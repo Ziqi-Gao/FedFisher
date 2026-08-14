@@ -4,13 +4,46 @@
 import csv
 import html
 import math
+import os
 from collections import defaultdict
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-INPUT_DIR = ROOT / "effect_modifier_experiment" / "outputs" / "prediction_intervention_1000seeds"
-RESULTS_DIR = ROOT / "results" / "effect_modifier"
+DATA_ROOT = Path("/data/del6500/FedFisher")
+
+
+def resolve_bound_path(path, relative_root, label):
+    resolved_data_root = DATA_ROOT.resolve(strict=True)
+    allowed_root = resolved_data_root / relative_root
+    resolved = path.resolve(strict=False)
+    if resolved != allowed_root and allowed_root not in resolved.parents:
+        raise ValueError("%s resolves outside %s: %s" % (label, allowed_root, resolved))
+    return resolved
+
+
+INPUT_DIR = resolve_bound_path(
+    Path(
+        os.environ.get(
+            "EFFECT_MODIFIER_INPUT_DIR",
+            DATA_ROOT
+            / "effect_modifier_experiment"
+            / "outputs"
+            / "prediction_intervention_ablation_control_300seeds",
+        )
+    ),
+    Path("effect_modifier_experiment") / "outputs",
+    "input directory",
+)
+RESULTS_DIR = resolve_bound_path(
+    Path(
+        os.environ.get(
+            "EFFECT_MODIFIER_RESULTS_DIR",
+            DATA_ROOT / "results" / "effect_modifier",
+        )
+    ),
+    Path("results"),
+    "results directory",
+)
 
 METHOD_ORDER = ["fedavg", "fedfisher_diag", "fedfisher_kfac", "pooled"]
 METHOD_LABELS = {
@@ -105,7 +138,13 @@ def format_value(value):
     return value
 
 
+def ensure_safe_output_file(path):
+    if path.is_symlink():
+        raise ValueError("Refusing to overwrite symlink: %s" % path)
+
+
 def write_csv(path, rows, fields):
+    ensure_safe_output_file(path)
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -153,6 +192,49 @@ def linear_scale(domain_min, domain_max, range_min, range_max):
     return scale
 
 
+def adaptive_axis(values, errors=None, target_ticks=6, hard_min=None, hard_max=None):
+    """Return a readable panel-specific axis that includes the plotted errors."""
+    errors = errors or [0.0] * len(values)
+    lows = [value - error for value, error in zip(values, errors)]
+    highs = [value + error for value, error in zip(values, errors)]
+    data_min = min(lows)
+    data_max = max(highs)
+    span = data_max - data_min
+    if math.isclose(span, 0.0):
+        span = max(abs(data_max) * 0.05, 0.01)
+
+    padded_min = data_min - 0.12 * span
+    padded_max = data_max + 0.12 * span
+    raw_step = (padded_max - padded_min) / max(1, target_ticks - 1)
+    exponent = math.floor(math.log10(raw_step))
+    fraction = raw_step / (10 ** exponent)
+    if fraction < 1.5:
+        nice_fraction = 1.0
+    elif fraction < 3.5:
+        nice_fraction = 2.0
+    elif fraction < 7.5:
+        nice_fraction = 5.0
+    else:
+        nice_fraction = 10.0
+    step = nice_fraction * (10 ** exponent)
+
+    axis_min = math.floor(padded_min / step) * step
+    axis_max = math.ceil(padded_max / step) * step
+    if hard_min is not None:
+        axis_min = max(hard_min, axis_min)
+    if hard_max is not None:
+        axis_max = min(hard_max, axis_max)
+    if math.isclose(axis_min, axis_max):
+        axis_min = data_min - step
+        axis_max = data_max + step
+
+    tick_count = int(round((axis_max - axis_min) / step))
+    ticks = [axis_min + index * step for index in range(tick_count + 1)]
+    if not ticks or ticks[-1] < axis_max - step * 1e-6:
+        ticks.append(axis_max)
+    return axis_min, axis_max, ticks
+
+
 def draw_legend(body, x, y, methods=METHOD_ORDER):
     cursor = x
     for method in methods:
@@ -192,9 +274,36 @@ def draw_y_axis(body, x, y_top, y_bottom, vmin, vmax, ticks, label, tick_fmt):
 
 def aggregate_recovery():
     files = sorted(INPUT_DIR.glob("*_prediction_intervention_summary.csv"))
+    exact_recovery = defaultdict(list)
+    for path in files:
+        with path.open(newline="") as handle:
+            for row in csv.DictReader(handle):
+                if row["intervention_mode"] != "permute" or row["metric"] not in set(METRIC_ORDER):
+                    continue
+                key = tuple(
+                    row[field]
+                    for field in [
+                        "model_source",
+                        "model",
+                        "split",
+                        "synthetic_signal_dim",
+                        "intervention_mode",
+                        "metric",
+                    ]
+                )
+                exact_recovery[key].append(
+                    float(row["topk_hits"]) == float(row["synthetic_signal_dim"])
+                )
     rows = aggregate_csv_files(
         files,
-        ["model_source", "model", "split", "intervention_mode", "metric"],
+        [
+            "model_source",
+            "model",
+            "split",
+            "synthetic_signal_dim",
+            "intervention_mode",
+            "metric",
+        ],
         [
             "topk_hits",
             "topk_precision",
@@ -205,10 +314,31 @@ def aggregate_recovery():
         ],
         lambda row: row["intervention_mode"] == "permute" and row["metric"] in set(METRIC_ORDER),
     )
+    for row in rows:
+        key = tuple(
+            row[field]
+            for field in [
+                "model_source",
+                "model",
+                "split",
+                "synthetic_signal_dim",
+                "intervention_mode",
+                "metric",
+            ]
+        )
+        outcomes = exact_recovery[key]
+        success_count = sum(outcomes)
+        proportion = success_count / len(outcomes)
+        row["perfect_topk_recovery_count"] = success_count
+        row["perfect_topk_recovery_pct"] = proportion * 100.0
+        row["perfect_topk_recovery_se_pct"] = (
+            math.sqrt(proportion * (1.0 - proportion) / len(outcomes)) * 100.0
+        )
     fields = [
         "model_source",
         "model",
         "split",
+        "synthetic_signal_dim",
         "intervention_mode",
         "metric",
         "n",
@@ -216,6 +346,9 @@ def aggregate_recovery():
         "topk_hits_std",
         "topk_hits_se",
         "topk_precision_mean",
+        "perfect_topk_recovery_count",
+        "perfect_topk_recovery_pct",
+        "perfect_topk_recovery_se_pct",
         "mean_signal_rank_mean",
         "median_signal_rank_mean",
         "mean_noise_rank_mean",
@@ -261,6 +394,10 @@ def aggregate_model_summary():
 
 
 def plot_signal_recovery(rows):
+    signal_dims = {int(float(row["synthetic_signal_dim"])) for row in rows}
+    if len(signal_dims) != 1:
+        raise ValueError("effect-modifier visualization expects one signal dimension")
+    signal_dim = signal_dims.pop()
     lookup = {
         (row["model"], row["split"], row["model_source"], row["metric"]): row
         for row in rows
@@ -272,7 +409,7 @@ def plot_signal_recovery(rows):
         body,
         32,
         60,
-        "1000 seeds; non-IID split; tau intervention ranks raw covariates by treatment-effect contrast changes.",
+        f"300 seeds; non-IID split; panel-specific y-axes highlight Top-{signal_dim} recovery and AUROC differences.",
         "subtitle",
     )
     add_text(
@@ -285,18 +422,32 @@ def plot_signal_recovery(rows):
     draw_legend(body, 585, 54)
 
     panels = [
-        ("A", "SyntheticMLP", "topk_hits", "Top-10 signal hits", 0, 10, [0, 2, 4, 6, 8, 10], "{:.0f}"),
-        ("B", "SyntheticMLPDeep", "topk_hits", "Top-10 signal hits", 0, 10, [0, 2, 4, 6, 8, 10], "{:.0f}"),
-        ("C", "SyntheticMLP", "auroc", "AUROC", 0.5, 1.0, [0.50, 0.60, 0.70, 0.80, 0.90, 1.00], "{:.2f}"),
-        ("D", "SyntheticMLPDeep", "auroc", "AUROC", 0.5, 1.0, [0.50, 0.60, 0.70, 0.80, 0.90, 1.00], "{:.2f}"),
+        ("A", "SyntheticMLP", "topk_hits", f"Top-{signal_dim} signal hits", "{:.2f}"),
+        ("B", "SyntheticMLPDeep", "topk_hits", f"Top-{signal_dim} signal hits", "{:.2f}"),
+        ("C", "SyntheticMLP", "auroc", "AUROC", "{:.3f}"),
+        ("D", "SyntheticMLPDeep", "auroc", "AUROC", "{:.3f}"),
     ]
     panel_positions = [(95, 110), (610, 110), (95, 405), (610, 405)]
     panel_w, panel_h = 390, 220
     bar_w = 24
 
-    for (panel, model, value_name, y_label, vmin, vmax, ticks, tick_fmt), (px, py) in zip(panels, panel_positions):
+    for (panel, model, value_name, y_label, tick_fmt), (px, py) in zip(panels, panel_positions):
         add_text(body, px - 48, py - 16, panel, "panel")
         add_text(body, px + panel_w / 2, py - 16, MODEL_LABELS[model], "panel", "middle")
+        panel_rows = [
+            lookup[(model, "noniid", method, metric)]
+            for metric in METRIC_ORDER
+            for method in METHOD_ORDER
+        ]
+        panel_values = [float(row[f"{value_name}_mean"]) for row in panel_rows]
+        panel_errors = [float(row.get(f"{value_name}_se", 0.0)) for row in panel_rows]
+        hard_max = signal_dim if value_name == "topk_hits" else 1.0
+        vmin, vmax, ticks = adaptive_axis(
+            panel_values,
+            panel_errors,
+            hard_min=0.0,
+            hard_max=hard_max,
+        )
         y = draw_y_axis(body, px, py, py + panel_h, vmin, vmax, ticks, y_label, tick_fmt)
         group_w = panel_w / len(METRIC_ORDER)
         for metric_i, metric in enumerate(METRIC_ORDER):
@@ -321,11 +472,99 @@ def plot_signal_recovery(rows):
                     f'<line x1="{x - 4:.1f}" y1="{err_top:.1f}" x2="{x + 4:.1f}" y2="{err_top:.1f}" '
                     f'stroke="#111827" stroke-width="1"/>'
                 )
-                value_text = f"{value:.1f}" if value_name == "topk_hits" else f"{value:.2f}"
+                value_text = f"{value:.3f}" if value_name == "auroc" else f"{value:.2f}"
                 add_text(body, x, yy - 6, value_text, "value", "middle")
             add_text(body, center, py + panel_h + 30, METRIC_LABELS[metric], "axis", "middle")
 
-    (RESULTS_DIR / "effect_modifier_signal_recovery.svg").write_text(svg_page(width, height, body))
+    output_path = RESULTS_DIR / "effect_modifier_signal_recovery.svg"
+    ensure_safe_output_file(output_path)
+    output_path.write_text(svg_page(width, height, body))
+
+
+def plot_exact_recovery(rows):
+    metric = "tau_intervention_logit"
+    lookup = {
+        (row["model"], row["split"], row["model_source"], row["metric"]): row
+        for row in rows
+    }
+    width, height = 1120, 600
+    body = []
+    add_text(body, 32, 38, "Exact Top-2 effect-modifier recovery", "title")
+    add_text(
+        body,
+        32,
+        60,
+        "Percentage of 300 seeds whose Top-2 features are exactly X1 and X2; permute + tau logit change.",
+        "subtitle",
+    )
+    draw_legend(body, 585, 38)
+
+    panel_positions = [(95, 115), (610, 115)]
+    panel_w, panel_h = 390, 335
+    bar_w = 24
+    for panel_idx, (model, (px, py)) in enumerate(zip(MODEL_ORDER, panel_positions)):
+        add_text(body, px - 48, py - 18, chr(ord("A") + panel_idx), "panel")
+        add_text(body, px + panel_w / 2, py - 18, MODEL_LABELS[model], "panel", "middle")
+        panel_rows = [
+            lookup[(model, split, method, metric)]
+            for split in SPLIT_ORDER
+            for method in METHOD_ORDER
+        ]
+        panel_values = [float(row["perfect_topk_recovery_pct"]) for row in panel_rows]
+        panel_errors = [float(row["perfect_topk_recovery_se_pct"]) for row in panel_rows]
+        vmin, vmax, ticks = adaptive_axis(
+            panel_values,
+            panel_errors,
+            hard_min=0.0,
+            hard_max=100.0,
+        )
+        y = draw_y_axis(
+            body,
+            px,
+            py,
+            py + panel_h,
+            vmin,
+            vmax,
+            ticks,
+            "Simulations selecting both (%)",
+            "{:.0f}",
+        )
+        group_w = panel_w / len(SPLIT_ORDER)
+        for split_i, split in enumerate(SPLIT_ORDER):
+            center = px + group_w * (split_i + 0.5)
+            for method_i, method in enumerate(METHOD_ORDER):
+                row = lookup[(model, split, method, metric)]
+                value = float(row["perfect_topk_recovery_pct"])
+                se = float(row["perfect_topk_recovery_se_pct"])
+                x = center + (method_i - 1.5) * (bar_w + 8)
+                yy = y(value)
+                body.append(
+                    f'<rect x="{x - bar_w / 2:.1f}" y="{yy:.1f}" width="{bar_w:.1f}" '
+                    f'height="{py + panel_h - yy:.1f}" fill="{METHOD_COLORS[method]}" rx="2"/>'
+                )
+                err_top = y(min(vmax, value + se))
+                err_bottom = y(max(vmin, value - se))
+                body.append(
+                    f'<line x1="{x:.1f}" y1="{err_top:.1f}" x2="{x:.1f}" y2="{err_bottom:.1f}" '
+                    f'stroke="#111827" stroke-width="1"/>'
+                )
+                body.append(
+                    f'<line x1="{x - 4:.1f}" y1="{err_top:.1f}" x2="{x + 4:.1f}" y2="{err_top:.1f}" '
+                    f'stroke="#111827" stroke-width="1"/>'
+                )
+                add_text(body, x, yy - 6, f"{value:.1f}%", "value", "middle")
+            add_text(body, center, py + panel_h + 30, SPLIT_LABELS[split], "axis", "middle")
+
+    add_text(
+        body,
+        32,
+        560,
+        "Error bars show binomial standard errors; panel-specific y-axes emphasize within-model differences.",
+        "subtitle",
+    )
+    output_path = RESULTS_DIR / "effect_modifier_exact_recovery.svg"
+    ensure_safe_output_file(output_path)
+    output_path.write_text(svg_page(width, height, body))
 
 
 def plot_model_accuracy(rows):
@@ -340,7 +579,7 @@ def plot_model_accuracy(rows):
         body,
         32,
         60,
-        "Held-out test accuracy averaged across 1000 seeds; same trained models used for prediction intervention.",
+        "Held-out accuracy across 300 seeds; panel-specific y-axes highlight method differences.",
         "subtitle",
     )
     draw_legend(body, 585, 54)
@@ -351,14 +590,27 @@ def plot_model_accuracy(rows):
     for panel_idx, (model, (px, py)) in enumerate(zip(MODEL_ORDER, panel_positions)):
         add_text(body, px - 48, py - 18, chr(ord("A") + panel_idx), "panel")
         add_text(body, px + panel_w / 2, py - 18, MODEL_LABELS[model], "panel", "middle")
+        panel_rows = [
+            lookup[(model, split, method)]
+            for split in SPLIT_ORDER
+            for method in METHOD_ORDER
+        ]
+        panel_values = [float(row["baseline_accuracy_pct_mean"]) for row in panel_rows]
+        panel_errors = [float(row["baseline_accuracy_pct_se"]) for row in panel_rows]
+        vmin, vmax, ticks = adaptive_axis(
+            panel_values,
+            panel_errors,
+            hard_min=0.0,
+            hard_max=100.0,
+        )
         y = draw_y_axis(
             body,
             px,
             py,
             py + panel_h,
-            55,
-            76,
-            [55, 60, 65, 70, 75],
+            vmin,
+            vmax,
+            ticks,
             "Accuracy (%)",
             "{:.0f}",
         )
@@ -375,8 +627,8 @@ def plot_model_accuracy(rows):
                     f'<rect x="{x - bar_w / 2:.1f}" y="{yy:.1f}" width="{bar_w:.1f}" '
                     f'height="{py + panel_h - yy:.1f}" fill="{METHOD_COLORS[method]}" rx="2"/>'
                 )
-                err_top = y(min(76, value + se))
-                err_bottom = y(max(55, value - se))
+                err_top = y(min(vmax, value + se))
+                err_bottom = y(max(vmin, value - se))
                 body.append(
                     f'<line x1="{x:.1f}" y1="{err_top:.1f}" x2="{x:.1f}" y2="{err_bottom:.1f}" '
                     f'stroke="#111827" stroke-width="1"/>'
@@ -388,32 +640,44 @@ def plot_model_accuracy(rows):
                 add_text(body, x, yy - 6, f"{value:.1f}", "value", "middle")
             add_text(body, center, py + panel_h + 30, SPLIT_LABELS[split], "axis", "middle")
 
-    (RESULTS_DIR / "effect_modifier_model_accuracy.svg").write_text(svg_page(width, height, body))
+    output_path = RESULTS_DIR / "effect_modifier_model_accuracy.svg"
+    ensure_safe_output_file(output_path)
+    output_path.write_text(svg_page(width, height, body))
 
 
 def write_readme():
-    text = """# SyntheticEffectModifier visualizations
+    text = f"""# SyntheticEffectModifier visualizations
 
-Generated by `scripts/make_effect_modifier_visualizations.py` from
-`effect_modifier_experiment/outputs/prediction_intervention_1000seeds`.
+Generated by `scripts/make_effect_modifier_visualizations.py` from `{INPUT_DIR}`.
 
 Files:
 
-- `effect_modifier_signal_recovery.svg`: non-IID tau-intervention signal recovery for `permute + tau_intervention_logit` and `permute + tau_intervention_prob`.
+- `effect_modifier_signal_recovery.svg`: non-IID Top-2 and AUROC recovery for `permute + tau_intervention_logit` and `permute + tau_intervention_prob`.
+- `effect_modifier_exact_recovery.svg`: percentage of seeds whose Top-2 features are exactly the two true effect modifiers, for `permute + tau_intervention_logit`.
 - `effect_modifier_model_accuracy.svg`: held-out model accuracy for IID and non-IID splits.
-- `effect_modifier_prediction_primary_metrics_summary.csv`: aggregated tau-intervention recovery metrics over raw covariates.
+- `effect_modifier_prediction_primary_metrics_summary.csv`: aggregated tau-intervention recovery metrics, including exact Top-2 recovery, over all 100 raw covariates.
 - `effect_modifier_prediction_model_summary.csv`: aggregated model accuracy and score statistics.
 
-Raw per-seed CSVs and logs stay under the ignored `effect_modifier_experiment/outputs/`
-and `effect_modifier_experiment/logs/` directories.
+Durable summaries are stored under `{RESULTS_DIR}`. Runtime caches and scheduler
+logs remain under `/scr/del6500/FedFisher`.
 """
-    (RESULTS_DIR / "README.md").write_text(text)
+    output_path = RESULTS_DIR / "README.md"
+    ensure_safe_output_file(output_path)
+    output_path.write_text(text)
 
 
 def main():
     if not INPUT_DIR.exists():
         raise SystemExit(f"missing input directory: {INPUT_DIR}")
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    if RESULTS_DIR.resolve(strict=True) != RESULTS_DIR:
+        raise SystemExit("results directory changed after creation: %s" % RESULTS_DIR)
+    unsafe_symlink = next(
+        (entry for entry in RESULTS_DIR.rglob("*") if entry.is_symlink()),
+        None,
+    )
+    if unsafe_symlink is not None:
+        raise SystemExit("results tree may not contain symlinks: %s" % unsafe_symlink)
     recovery_rows = aggregate_recovery()
     if not recovery_rows:
         raise SystemExit(
@@ -422,6 +686,7 @@ def main():
         )
     model_rows = aggregate_model_summary()
     plot_signal_recovery(recovery_rows)
+    plot_exact_recovery(recovery_rows)
     plot_model_accuracy(model_rows)
     write_readme()
     print(f"Wrote SyntheticEffectModifier visualizations to {RESULTS_DIR}")

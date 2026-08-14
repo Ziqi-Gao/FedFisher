@@ -17,7 +17,10 @@ utils/prediction_intervention.py             # model-output prediction intervent
 scripts/run_synthetic_original_fedfisher.slurm
 scripts/run_synthetic_original_fedfisher_1000seeds.slurm
 scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
-scripts/run_synthetic_effect_modifier_1000seeds.slurm
+scripts/setup_lab_server_env.sh
+scripts/launch_synthetic_effect_modifier_300seeds_local.sh
+scripts/status_synthetic_effect_modifier_local.sh
+scripts/run_synthetic_effect_modifier_1000seeds.slurm  # legacy Slurm export
 scripts/summarize_synthetic_original.py
 scripts/plot_synthetic_original.py
 scripts/plot_synthetic_alpha_sweep.py
@@ -33,17 +36,21 @@ utils/compress_fisher.py
 
 ## Install
 
-Clone the repository and install the minimal dependencies in your own Python
-environment:
+On the current lab server, create the isolated Blackwell-compatible environment
+under the protocol-approved scratch root:
 
 ```bash
-git clone git@github.com:Ziqi-Gao/FedFisher.git
-cd FedFisher
-pip install -r requirements.txt
+bash scripts/setup_lab_server_env.sh
 ```
 
-The checked-in code does not include local datasets, generated outputs, logs,
-or cluster-specific paths.
+This installs PyTorch 2.7.1 with CUDA 12.8 because the server's RTX PRO 6000
+Blackwell GPUs require `sm_120` kernels. The environment and package caches are
+regenerable files under `/scr/del6500/FedFisher`; code stays in the repository
+and durable experiment outputs stay under `/data/del6500/FedFisher`.
+
+For another compatible host, `pip install -r requirements.txt` installs the
+same pinned dependencies. The checked-in code does not include generated data,
+outputs, environments, or logs.
 
 ## Main Arguments
 
@@ -59,24 +66,35 @@ Useful optional arguments:
 
 - `--seed`: random seed, default `0`.
 - `--alpha`: Dirichlet concentration for non-IID splitting, default `0.1`.
-- `--num_clients`: number of clients, default `5`.
+- `--num_clients`: number of sites; defaults to `10` for
+  `SyntheticEffectModifier` and `5` otherwise.
 - `--num_rounds`: local-training and aggregation rounds, default `1`.
 - `--local_epochs`: local client epochs, default `30`.
 - `--synthetic_split`: `iid` or `noniid`, default `noniid`.
-- `--synthetic_num_train`: training examples, default `10000`.
-- `--synthetic_num_test`: test examples, default `10000`.
-- `--synthetic_dim`: feature dimension, default `100`.
-- `--synthetic_signal_dim`: number of informative coordinates, default `10`.
-- `--synthetic_signal_strength`: class-mean signal norm, default `0.7`.
-- `--synthetic_noise_std`: Gaussian noise standard deviation, default `1.0`.
-- `--effect_modifier_covariate_dim`: number of raw covariates for
-  `SyntheticEffectModifier`, default `100`.
-- `--effect_modifier_signal_dim`: number of true effect modifiers, default
-  `10`.
+- `--synthetic_num_train`: SyntheticBinary training examples, default `10000`.
+- `--synthetic_num_test`: held-out test examples, default `10000`.
+- `--synthetic_dim`: SyntheticBinary feature dimension, default `100`.
+- `--synthetic_signal_dim`: number of SyntheticBinary informative coordinates,
+  default `10`.
+- `--synthetic_signal_strength`: SyntheticBinary class-mean signal norm,
+  default `0.7`.
+- `--synthetic_noise_std`: SyntheticBinary Gaussian noise standard deviation,
+  default `1.0`.
+- `--effect_modifier_covariate_dim`: number of raw covariates, default `100`.
+- `--effect_modifier_signal_dim`: number of true effect modifiers, default `2`.
 - `--effect_modifier_signal_strength`: interaction signal norm, default `2.0`.
+- `--effect_modifier_main_effect_strength`: prognostic main-effect norm,
+  default `1.0`.
+- `--effect_modifier_confounding_strength`: treatment-assignment coefficient
+  norm, default `1.0`.
 - `--effect_modifier_intercept`: binary-outcome logit intercept, default `0.0`.
-- `--effect_modifier_treatment_prob`: treatment assignment probability,
+- `--effect_modifier_treatment_prob`: treatment probability at `X1=X2=0`,
   default `0.5`.
+- `--effect_modifier_propensity_clip`: lower/upper treatment-propensity overlap
+  bound, default `0.05`.
+- `--effect_modifier_site_min_samples` and
+  `--effect_modifier_site_max_samples`: inclusive per-site training-size range,
+  defaults `500` and `1000`.
 - `--feature_importance`: run supervised signal-dimension recovery for trained
   global models, default off.
 - `--feature_importance_repeats`: permutation repeats per feature, default `5`.
@@ -168,28 +186,37 @@ python main.py \
 
 ## Effect-Modifier Interaction Recovery
 
-`SyntheticEffectModifier` is an additive binary-outcome simulation for testing
-whether the trained models recover treatment-by-covariate interaction signals.
-It does not replace `SyntheticBinary`.
+`SyntheticEffectModifier` tests whether the trained models recover two true
+treatment effect modifiers in the presence of observed confounding, first-order
+outcome effects, unequal site sizes, and 98 noise covariates.
 
-The generated input is:
-
-```text
-[A, X1, ..., Xp, A*X1, ..., A*Xp]
-```
-
-The outcome logit contains no raw `X` main effects and no treatment main effect:
+The generated input remains:
 
 ```text
-logit P(Y = 1 | A, X) = intercept + sum_{j in S} gamma_j * A * Xj
+[A, X1, ..., X100, A*X1, ..., A*X100]
 ```
 
-With defaults, `p=100` and `|S|=10`, so the interaction block is zero-indexed
-`101..200`. The true effect modifiers are raw covariates `X1..X10`, represented
-by input columns `1..10`. Primary recovery perturbs each raw `Xi`, rebuilds the
-internally consistent inputs `[1, X, X]` and `[0, X, 0]`, and ranks `Xi` by the
-change in the model-estimated treatment contrast. Direct intervention on
-interaction columns `101..200` is retained only as a secondary diagnostic.
+Treatment assignment and outcome generation are:
+
+```text
+logit P(A = 1 | X) =
+  logit(base_treatment_prob) + confounding_strength / sqrt(2) * (X1 + X2)
+
+logit P(Y = 1 | A, X) =
+  intercept
+  + main_effect_strength / sqrt(2) * (X1 + X2)
+  + signal_strength / sqrt(2) * (A*X1 - A*X2)
+```
+
+Treatment propensities are clipped to preserve overlap. `X1` and `X2` are the
+only observed confounders, prognostic variables, and true effect modifiers;
+`X3..X100` and their treatment interactions are noise. The default 10 site
+sizes are independently sampled from the integers `500..1000`.
+
+Primary recovery perturbs each raw `Xi`, rebuilds consistent counterfactual
+inputs `[1, X, X]` and `[0, X, 0]`, and ranks changes in the model-estimated
+treatment contrast. Evaluation reports Top-2 recovery and AUROC over all 100 raw
+covariates. Direct interaction-column intervention remains secondary.
 
 Smoke-test command:
 
@@ -197,24 +224,37 @@ Smoke-test command:
 python main.py \
   --dataset SyntheticEffectModifier \
   --model SyntheticMLP \
+  --num_clients 10 \
   --synthetic_split noniid \
   --alpha 0.1 \
   --effect_modifier_covariate_dim 100 \
-  --effect_modifier_signal_dim 10 \
+  --effect_modifier_signal_dim 2 \
   --effect_modifier_signal_strength 2.0 \
+  --effect_modifier_main_effect_strength 1.0 \
+  --effect_modifier_confounding_strength 1.0 \
+  --effect_modifier_propensity_clip 0.05 \
+  --effect_modifier_site_min_samples 500 \
+  --effect_modifier_site_max_samples 1000 \
   --local_epochs 30 \
   --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
   --prediction_intervention \
   --prediction_intervention_modes permute zero \
   --prediction_intervention_repeats 5 \
-  --output_dir effect_modifier_experiment/outputs/prediction_intervention
+  --output_dir /data/del6500/FedFisher/effect_modifier_experiment/outputs/prediction_intervention
 ```
 
-Large-array runner:
+Current lab-server runner:
 
 ```bash
-sbatch scripts/run_synthetic_effect_modifier_1000seeds.slurm
+bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
+bash scripts/status_synthetic_effect_modifier_local.sh
 ```
+
+The current host has no Slurm service. The launcher therefore uses four
+detached, resumable GNU Screen workers and waits for existing GPU processes to
+finish before starting. See `effect_modifier_experiment/README.md` for the exact
+data contract, capacity-constrained IID/non-IID partitioning, evaluation,
+recovery, and storage paths.
 
 ## Legacy Supervised Feature Importance
 
@@ -337,7 +377,12 @@ python main.py \
 For CSVs without a header, omit `--local_has_header` and pass a zero-based
 column index. The default label column is `-1`, meaning the last column.
 
-## Slurm Runs
+## Legacy Quest Slurm Runs
+
+The following runners belong to the original SyntheticBinary Quest workflow.
+They are retained for reproducibility but are not valid submission commands on
+`fsmzhaolabgpu1`, where Slurm is not installed. The current effect-modifier
+experiment uses the local launcher documented above.
 
 Small run:
 
@@ -357,9 +402,10 @@ sbatch scripts/run_synthetic_original_fedfisher_1000seeds.slurm
 sbatch scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
 ```
 
-The Slurm scripts intentionally omit account and partition directives. Pass
-cluster-specific settings with `sbatch --account ... --partition ...` or your
-site defaults.
+These legacy scripts are not normalized: some embed Quest account, partition,
+and GPFS paths while others expect them at submission time. Review and adapt
+them only when exporting an old SyntheticBinary workflow to a real Slurm
+cluster; do not invoke them on the current lab server.
 
 ## Results
 

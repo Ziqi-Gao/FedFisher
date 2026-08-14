@@ -3,12 +3,16 @@ import copy
 import csv
 import os
 import random
+from pathlib import Path
 
 import numpy as np
 import torch
 from torch.nn.utils import parameters_to_vector
 
-from data import get_dataset
+from data import (
+    build_effect_modifier_site_evaluation_datasets,
+    get_dataset,
+)
 from models import get_model
 from train_model import LocalUpdate
 from run_one_shot_algs import get_one_shot_model
@@ -43,7 +47,7 @@ parser.add_argument(
 )
 parser.add_argument("--seed", type=int, required=False, default=0)
 parser.add_argument("--alpha", type=float, required=False, default=0.1)
-parser.add_argument("--num_clients", type=int, required=False, default=5)
+parser.add_argument("--num_clients", type=int, required=False, default=None)
 parser.add_argument("--num_rounds", type=int, required=False, default=1)
 parser.add_argument("--local_epochs", type=int, required=False, default=30)
 parser.add_argument("--output_dir", type=str, required=False, default=".")
@@ -55,10 +59,19 @@ parser.add_argument("--synthetic_signal_dim", type=int, required=False, default=
 parser.add_argument("--synthetic_signal_strength", type=float, required=False, default=0.7)
 parser.add_argument("--synthetic_noise_std", type=float, required=False, default=1.0)
 parser.add_argument("--effect_modifier_covariate_dim", type=int, required=False, default=100)
-parser.add_argument("--effect_modifier_signal_dim", type=int, required=False, default=10)
+parser.add_argument("--effect_modifier_signal_dim", type=int, required=False, default=2)
 parser.add_argument("--effect_modifier_signal_strength", type=float, required=False, default=2.0)
+parser.add_argument("--effect_modifier_main_effect_strength", type=float, required=False, default=1.0)
+parser.add_argument("--effect_modifier_confounding_strength", type=float, required=False, default=1.0)
 parser.add_argument("--effect_modifier_intercept", type=float, required=False, default=0.0)
 parser.add_argument("--effect_modifier_treatment_prob", type=float, required=False, default=0.5)
+parser.add_argument("--effect_modifier_propensity_clip", type=float, required=False, default=0.05)
+parser.add_argument("--effect_modifier_site_min_samples", type=int, required=False, default=500)
+parser.add_argument("--effect_modifier_site_max_samples", type=int, required=False, default=1000)
+parser.add_argument("--effect_modifier_site_gaussian_shift", action="store_true")
+parser.add_argument("--effect_modifier_site_gaussian_mean_span", type=float, default=0.75)
+parser.add_argument("--effect_modifier_site_gaussian_std_low", type=float, default=0.75)
+parser.add_argument("--effect_modifier_site_gaussian_std_high", type=float, default=1.25)
 parser.add_argument("--local_train_csv", type=str, required=False, default=None)
 parser.add_argument("--local_test_csv", type=str, required=False, default=None)
 parser.add_argument("--local_label_col", type=str, required=False, default="-1")
@@ -95,10 +108,48 @@ parser.add_argument(
     required=False,
     default="prediction_intervention",
 )
+parser.add_argument(
+    "--prediction_intervention_scope",
+    type=str,
+    default="global",
+    choices=["global", "site"],
+    help="Permute globally or independently within site-local held-out shards.",
+)
 parser.add_argument("--prediction_intervention_include_local_models", action="store_true")
 parser.add_argument("--prediction_intervention_no_pooled_baseline", action="store_true")
 
 args_parser = parser.parse_args()
+
+if args_parser.effect_modifier_site_gaussian_shift and args_parser.dataset != "SyntheticEffectModifier":
+    parser.error("--effect_modifier_site_gaussian_shift requires SyntheticEffectModifier")
+if args_parser.prediction_intervention_scope == "site" and args_parser.dataset != "SyntheticEffectModifier":
+    parser.error("--prediction_intervention_scope site requires SyntheticEffectModifier")
+if args_parser.prediction_intervention_scope == "site" and not args_parser.prediction_intervention:
+    parser.error("--prediction_intervention_scope site requires --prediction_intervention")
+if (
+    args_parser.effect_modifier_site_gaussian_shift
+    and args_parser.prediction_intervention_scope == "site"
+):
+    parser.error(
+        "--effect_modifier_site_gaussian_shift and "
+        "--prediction_intervention_scope site are mutually exclusive ablations"
+    )
+
+allowed_output_roots = [
+    Path("/home/del6500/projects/FedFisher").resolve(),
+    Path("/data/del6500/FedFisher").resolve(),
+    Path("/scr/del6500/FedFisher").resolve(),
+]
+resolved_output_dir = Path(args_parser.output_dir).resolve(strict=False)
+if not any(
+    resolved_output_dir == root or root in resolved_output_dir.parents
+    for root in allowed_output_roots
+):
+    parser.error(
+        "--output_dir resolves outside the allowed FedFisher roots: %s"
+        % resolved_output_dir
+    )
+args_parser.output_dir = str(resolved_output_dir)
 
 seed = args_parser.seed
 dataset = args_parser.dataset
@@ -107,6 +158,8 @@ algs_to_run = args_parser.algs_to_run
 local_epochs = args_parser.local_epochs
 alpha = args_parser.alpha
 num_clients = args_parser.num_clients
+if num_clients is None:
+    num_clients = 10 if dataset == "SyntheticEffectModifier" else 5
 num_rounds = args_parser.num_rounds
 output_dir = args_parser.output_dir
 print_every_test = 1
@@ -136,6 +189,57 @@ def get_recovery_indices(dataset_name, parsed_args, input_dim):
     return parsed_args.synthetic_signal_dim, None, None
 
 
+def write_site_gaussian_manifest(path, datasets, parsed_args):
+    fields = [
+        "seed",
+        "model",
+        "split",
+        "alpha",
+        "site_idx",
+        "num_examples",
+        "label_0_count",
+        "label_1_count",
+        "gaussian_mean",
+        "gaussian_std",
+        "empirical_raw_mean",
+        "empirical_raw_std",
+        "empirical_x1_mean",
+        "empirical_x1_std",
+        "empirical_x2_mean",
+        "empirical_x2_std",
+    ]
+    rows = []
+    covariate_dim = parsed_args.effect_modifier_covariate_dim
+    for site_idx, site_dataset in enumerate(datasets):
+        features, labels = site_dataset.tensors
+        raw_x = features[:, 1 : 1 + covariate_dim]
+        label_counts = torch.bincount(labels, minlength=2)
+        rows.append(
+            {
+                "seed": seed,
+                "model": model_name,
+                "split": parsed_args.synthetic_split,
+                "alpha": alpha,
+                "site_idx": site_idx,
+                "num_examples": len(site_dataset),
+                "label_0_count": int(label_counts[0]),
+                "label_1_count": int(label_counts[1]),
+                "gaussian_mean": site_dataset.site_gaussian_mean,
+                "gaussian_std": site_dataset.site_gaussian_std,
+                "empirical_raw_mean": float(raw_x.mean()),
+                "empirical_raw_std": float(raw_x.std(unbiased=False)),
+                "empirical_x1_mean": float(raw_x[:, 0].mean()),
+                "empirical_x1_std": float(raw_x[:, 0].std(unbiased=False)),
+                "empirical_x2_mean": float(raw_x[:, 1].mean()),
+                "empirical_x2_std": float(raw_x[:, 1].std(unbiased=False)),
+            }
+        )
+    with open(path, "w", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 alpha_tag = float_tag(alpha)
 if dataset == "SyntheticBinary":
     signal_tag = float_tag(args_parser.synthetic_signal_strength)
@@ -158,13 +262,20 @@ if dataset == "SyntheticBinary":
     )
 elif dataset == "SyntheticEffectModifier":
     strength_tag = float_tag(args_parser.effect_modifier_signal_strength)
+    main_effect_tag = float_tag(args_parser.effect_modifier_main_effect_strength)
+    confounding_tag = float_tag(args_parser.effect_modifier_confounding_strength)
     intercept_tag = float_tag(args_parser.effect_modifier_intercept)
     treat_tag = float_tag(args_parser.effect_modifier_treatment_prob)
+    propensity_clip_tag = float_tag(args_parser.effect_modifier_propensity_clip)
     filename_extra = (
         "_split"
         + args_parser.synthetic_split
-        + "_train"
-        + str(args_parser.synthetic_num_train)
+        + "_sites"
+        + str(num_clients)
+        + "_smin"
+        + str(args_parser.effect_modifier_site_min_samples)
+        + "_smax"
+        + str(args_parser.effect_modifier_site_max_samples)
         + "_test"
         + str(args_parser.synthetic_num_test)
         + "_xdim"
@@ -173,6 +284,12 @@ elif dataset == "SyntheticEffectModifier":
         + str(args_parser.effect_modifier_signal_dim)
         + "_emstr"
         + strength_tag
+        + "_mainstr"
+        + main_effect_tag
+        + "_confstr"
+        + confounding_tag
+        + "_pclip"
+        + propensity_clip_tag
         + "_intercept"
         + intercept_tag
         + "_treat"
@@ -180,11 +297,22 @@ elif dataset == "SyntheticEffectModifier":
     )
 else:
     filename_extra = "_partition" + args_parser.local_partition
+
+if dataset == "SyntheticEffectModifier":
+    if args_parser.effect_modifier_site_gaussian_shift:
+        filename_extra += "_sg"
+    if args_parser.prediction_intervention_scope == "site":
+        filename_extra += "_lp"
+
+# Keep effect-modifier output basenames below Linux's 255-byte component limit
+# even after the longest prediction-intervention suffix is appended. All DGP
+# parameters remain encoded in filename_extra and in the output rows.
+dataset_filename_tag = "SEM" if dataset == "SyntheticEffectModifier" else dataset
 filename_base = (
     "one_shot_results_seed"
     + str(seed)
     + "_"
-    + dataset
+    + dataset_filename_tag
     + "_"
     + model_name
     + "_epochs"
@@ -200,6 +328,7 @@ filename_base = (
 os.makedirs(output_dir, exist_ok=True)
 filename = os.path.join(output_dir, filename_base)
 filename_csv = filename + ".csv"
+site_gaussian_manifest_csv = filename + "_site_gaussian_manifest.csv"
 print("Writing results to", filename_csv)
 
 dict_results = {}
@@ -220,9 +349,11 @@ if args_parser.prediction_intervention and dataset not in SYNTHETIC_RECOVERY_DAT
 prediction_detail_rows = []
 prediction_summary_rows = []
 prediction_model_summary_rows = []
+prediction_site_summary_rows = []
 prediction_detail_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + ".csv"
 prediction_summary_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + "_summary.csv"
 prediction_model_summary_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + "_model_summary.csv"
+prediction_site_summary_csv = filename + "_" + args_parser.prediction_intervention_output_suffix + "_site_summary.csv"
 latest_prediction_context = None
 local_prediction_intervention_done = False
 
@@ -246,8 +377,17 @@ for alg in algs_to_run:
         effect_modifier_covariate_dim=args_parser.effect_modifier_covariate_dim,
         effect_modifier_signal_dim=args_parser.effect_modifier_signal_dim,
         effect_modifier_signal_strength=args_parser.effect_modifier_signal_strength,
+        effect_modifier_main_effect_strength=args_parser.effect_modifier_main_effect_strength,
+        effect_modifier_confounding_strength=args_parser.effect_modifier_confounding_strength,
         effect_modifier_intercept=args_parser.effect_modifier_intercept,
         effect_modifier_treatment_prob=args_parser.effect_modifier_treatment_prob,
+        effect_modifier_propensity_clip=args_parser.effect_modifier_propensity_clip,
+        effect_modifier_site_min_samples=args_parser.effect_modifier_site_min_samples,
+        effect_modifier_site_max_samples=args_parser.effect_modifier_site_max_samples,
+        effect_modifier_site_gaussian_shift=args_parser.effect_modifier_site_gaussian_shift,
+        effect_modifier_site_gaussian_mean_span=args_parser.effect_modifier_site_gaussian_mean_span,
+        effect_modifier_site_gaussian_std_low=args_parser.effect_modifier_site_gaussian_std_low,
+        effect_modifier_site_gaussian_std_high=args_parser.effect_modifier_site_gaussian_std_high,
         local_train_csv=args_parser.local_train_csv,
         local_test_csv=args_parser.local_test_csv,
         local_label_col=args_parser.local_label_col,
@@ -256,6 +396,26 @@ for alg in algs_to_run:
         local_client_col=args_parser.local_client_col,
         seed=seed,
     )
+
+    site_evaluation_datasets = None
+    if dataset == "SyntheticEffectModifier":
+        site_sizes = [len(site_dataset) for site_dataset in dataset_train]
+        dict_results["effect_modifier_site_train_sizes_" + str(alpha)] = site_sizes
+        dict_results["effect_modifier_total_train_examples_" + str(alpha)] = sum(site_sizes)
+        if args_parser.effect_modifier_site_gaussian_shift and alg == algs_to_run[0]:
+            write_site_gaussian_manifest(
+                site_gaussian_manifest_csv,
+                dataset_train,
+                args_parser,
+            )
+        if args_parser.prediction_intervention_scope == "site":
+            site_evaluation_datasets = build_effect_modifier_site_evaluation_datasets(
+                dataset_test_global,
+                dataset_train,
+                args_parser.synthetic_split,
+                alpha,
+                seed,
+            )
 
     val_size = min(500, len(dataset_train_global))
     ind = np.random.choice(len(dataset_train_global), val_size, replace=False)
@@ -283,6 +443,9 @@ for alg in algs_to_run:
         "prediction_intervention_batch_size": args_parser.prediction_intervention_batch_size,
         "effect_modifier_covariate_dim": args_parser.effect_modifier_covariate_dim,
         "effect_modifier_signal_dim": args_parser.effect_modifier_signal_dim,
+        "effect_modifier_main_effect_strength": args_parser.effect_modifier_main_effect_strength,
+        "effect_modifier_confounding_strength": args_parser.effect_modifier_confounding_strength,
+        "effect_modifier_propensity_clip": args_parser.effect_modifier_propensity_clip,
     }
 
     torch.manual_seed(seed)
@@ -374,6 +537,7 @@ for alg in algs_to_run:
         "args": args,
         "dataset_train_global": dataset_train_global,
         "dataset_test_global": dataset_test_global,
+        "site_evaluation_datasets": site_evaluation_datasets,
         "recovery_signal_dim": recovery_signal_dim,
         "recovery_signal_indices": recovery_signal_indices,
         "recovery_candidate_indices": recovery_candidate_indices,
@@ -439,6 +603,9 @@ for alg in algs_to_run:
             prediction_seed,
             signal_indices=recovery_signal_indices,
             candidate_indices=recovery_candidate_indices,
+            permutation_scope=args_parser.prediction_intervention_scope,
+            site_datasets=site_evaluation_datasets,
+            site_summary_rows=prediction_site_summary_rows,
         )
         if (
             args_parser.prediction_intervention_include_local_models
@@ -461,6 +628,9 @@ for alg in algs_to_run:
                     local_seed,
                     signal_indices=recovery_signal_indices,
                     candidate_indices=recovery_candidate_indices,
+                    permutation_scope=args_parser.prediction_intervention_scope,
+                    site_datasets=site_evaluation_datasets,
+                    site_summary_rows=prediction_site_summary_rows,
                 )
             local_prediction_intervention_done = True
         write_prediction_intervention_outputs(
@@ -470,6 +640,8 @@ for alg in algs_to_run:
             prediction_detail_csv,
             prediction_summary_csv,
             prediction_model_summary_csv,
+            site_summary_rows=prediction_site_summary_rows,
+            site_summary_path=prediction_site_summary_csv,
         )
 
     with open(filename_csv, "w") as csv_file:
@@ -542,6 +714,7 @@ if (
     args = latest_prediction_context["args"]
     dataset_train_global = latest_prediction_context["dataset_train_global"]
     dataset_test_global = latest_prediction_context["dataset_test_global"]
+    site_evaluation_datasets = latest_prediction_context["site_evaluation_datasets"]
     recovery_signal_dim = latest_prediction_context["recovery_signal_dim"]
     recovery_signal_indices = latest_prediction_context["recovery_signal_indices"]
     recovery_candidate_indices = latest_prediction_context["recovery_candidate_indices"]
@@ -572,6 +745,9 @@ if (
         seed + 20000,
         signal_indices=recovery_signal_indices,
         candidate_indices=recovery_candidate_indices,
+        permutation_scope=args_parser.prediction_intervention_scope,
+        site_datasets=site_evaluation_datasets,
+        site_summary_rows=prediction_site_summary_rows,
     )
     write_prediction_intervention_outputs(
         prediction_detail_rows,
@@ -580,4 +756,6 @@ if (
         prediction_detail_csv,
         prediction_summary_csv,
         prediction_model_summary_csv,
+        site_summary_rows=prediction_site_summary_rows,
+        site_summary_path=prediction_site_summary_csv,
     )

@@ -1,0 +1,65 @@
+# Site-Local Permutation Ablation
+
+This is an independent one-change ablation of the control
+`SyntheticEffectModifier` experiment. The generated training and test tensors,
+training procedure, models, algorithms, seeds, and intervention definitions are
+unchanged. Only the domain over which each feature is reshuffled changes from
+the entire held-out test set to each site's own held-out shard.
+
+## Local evaluation contract
+
+For each seed, the unchanged global held-out test set is partitioned into 10
+disjoint shards:
+
+- shard capacities are proportional to the realized training-site sizes;
+- IID runs use a shuffled capacity split;
+- non-IID runs use capacity-constrained outcome-label assignment with the same
+  Dirichlet alpha;
+- every test example belongs to exactly one shard.
+
+Each site receives the trained global model and only its local shard. For every
+raw covariate, the site permutes values within that shard, rebuilds internally
+consistent `[1, X, X]` and `[0, X, 0]` inputs, and measures the change in
+`tau_hat(X)`. Raw site scores are never pooled before intervention. Aggregate
+feature scores are sample-size weighted across sites, then Top-2 recovery and
+AUROC are computed from those aggregate scores.
+
+The same procedure is used for the secondary direct-interaction diagnostic.
+Site-level Top-2/AUROC rows are written separately. Zero intervention is also
+computed locally; because it does not depend on a permutation domain, its
+sample-size-weighted scores should match global zero on the same test union up
+to floating-point reduction error.
+
+## Run
+
+This variant does not enable the site-Gaussian shift.
+
+```bash
+EFFECT_MODIFIER_VARIANT=local_permutation \
+  bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
+EFFECT_MODIFIER_VARIANT=local_permutation \
+  bash scripts/status_synthetic_effect_modifier_local.sh
+```
+
+The existing shared launcher uses seeds 0 through 299, both MLPs, IID and
+non-IID splits,
+`fedavg`, `fedfisher_diag`, `fedfisher_kfac`, and the pooled prediction
+baseline, matching the control run.
+
+Default durable output:
+
+```text
+/data/del6500/FedFisher/effect_modifier_experiment/outputs/local_permutation_300seeds/
+```
+
+Aggregate results are in the normal prediction-intervention CSVs.
+`*_prediction_intervention_site_summary.csv` contains per-site recovery
+metrics and `permutation_scope=site` identifies the ablation in every output
+table.
+
+Use `SEED_START` and `SEED_END` for a bounded smoke run. The shared
+launcher waits for idle GPUs and is resumable through validated per-seed
+completion markers. Its format-v2 `run_manifest.env` binds the output to RUN_ID,
+source provenance, common run configuration, and the explicit variant settings.
+The three comparison manifests must share provenance and common-config hashes. It must not
+be launched on occupied GPUs without separate user authorization.

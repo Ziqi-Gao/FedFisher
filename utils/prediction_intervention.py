@@ -17,6 +17,7 @@ PREDICTION_DETAIL_FIELDS = [
     "alpha",
     "synthetic_dim",
     "synthetic_signal_dim",
+    "permutation_scope",
     "feature_idx",
     "is_signal",
     "intervention_mode",
@@ -33,6 +34,7 @@ PREDICTION_SUMMARY_FIELDS = [
     "alpha",
     "synthetic_dim",
     "synthetic_signal_dim",
+    "permutation_scope",
     "intervention_mode",
     "metric",
     "topk_hits",
@@ -51,11 +53,33 @@ PREDICTION_MODEL_SUMMARY_FIELDS = [
     "alpha",
     "synthetic_dim",
     "synthetic_signal_dim",
+    "permutation_scope",
     "num_examples",
     "baseline_accuracy",
     "predicted_positive_rate",
     "mean_class1_probability",
     "mean_abs_logit_score",
+]
+
+PREDICTION_SITE_SUMMARY_FIELDS = [
+    "seed",
+    "model_source",
+    "model",
+    "split",
+    "alpha",
+    "synthetic_dim",
+    "synthetic_signal_dim",
+    "permutation_scope",
+    "site_idx",
+    "site_num_examples",
+    "intervention_mode",
+    "metric",
+    "topk_hits",
+    "topk_precision",
+    "mean_signal_rank",
+    "median_signal_rank",
+    "mean_noise_rank",
+    "auroc",
 ]
 
 SIGNED_RANK_METRICS = {"signed_logit_change", "signed_prob_change", "margin_drop"}
@@ -328,6 +352,119 @@ def treatment_contrast_intervention_importance(
     }
 
 
+def _site_local_intervention_importance(
+    evaluator,
+    model,
+    site_datasets,
+    args,
+    modes,
+    repeats,
+    seed,
+    candidate_indices,
+):
+    """Evaluate each site independently and aggregate only scalar scores."""
+    if not site_datasets:
+        raise ValueError("site_datasets must contain at least one local evaluation shard")
+
+    site_results = []
+    weights = np.asarray([len(dataset) for dataset in site_datasets], dtype=np.float64)
+    if np.any(weights <= 0):
+        raise ValueError("every local evaluation shard must contain at least one example")
+    weights = weights / weights.sum()
+
+    for site_idx, site_dataset in enumerate(site_datasets):
+        site_result = evaluator(
+            model,
+            site_dataset,
+            args,
+            modes=modes,
+            repeats=repeats,
+            seed=seed + (site_idx + 1) * 100003,
+            candidate_indices=candidate_indices,
+        )
+        site_result["site_idx"] = site_idx
+        site_result["site_num_examples"] = len(site_dataset)
+        site_results.append(site_result)
+
+    aggregate_scores = {}
+    for mode in modes:
+        aggregate_scores[mode] = {}
+        metrics = site_results[0]["scores"][mode].keys()
+        for metric in metrics:
+            site_arrays = np.stack(
+                [result["scores"][mode][metric] for result in site_results],
+                axis=0,
+            )
+            aggregate_scores[mode][metric] = np.average(
+                site_arrays,
+                axis=0,
+                weights=weights,
+            )
+
+    summary_fields = [
+        "baseline_accuracy",
+        "predicted_positive_rate",
+        "mean_class1_probability",
+        "mean_abs_logit_score",
+    ]
+    aggregate_summary = {"num_examples": int(sum(len(dataset) for dataset in site_datasets))}
+    for field in summary_fields:
+        aggregate_summary[field] = float(
+            np.average(
+                [result["model_summary"][field] for result in site_results],
+                weights=weights,
+            )
+        )
+
+    return {
+        "scores": aggregate_scores,
+        "model_summary": aggregate_summary,
+        "site_results": site_results,
+    }
+
+
+def site_local_treatment_contrast_intervention_importance(
+    model,
+    site_datasets,
+    args,
+    modes,
+    repeats,
+    seed,
+    candidate_indices=None,
+):
+    return _site_local_intervention_importance(
+        treatment_contrast_intervention_importance,
+        model,
+        site_datasets,
+        args,
+        modes,
+        repeats,
+        seed,
+        candidate_indices,
+    )
+
+
+def site_local_prediction_intervention_importance(
+    model,
+    site_datasets,
+    args,
+    modes,
+    repeats,
+    seed,
+    candidate_indices=None,
+):
+    return _site_local_intervention_importance(
+        prediction_intervention_importance,
+        model,
+        site_datasets,
+        args,
+        modes,
+        repeats,
+        seed,
+        candidate_indices,
+    )
+
+
 def _is_signed_rank_metric(metric):
     return metric in SIGNED_RANK_METRICS or any(
         metric.endswith("_" + signed_metric) for signed_metric in SIGNED_RANK_METRICS
@@ -458,6 +595,40 @@ def _add_metric_rows(
     summary_rows.append(row)
 
 
+def _add_site_summary_rows(
+    site_summary_rows,
+    site_results,
+    metadata,
+    signal_indices,
+    candidate_indices,
+    metric_prefix="",
+):
+    if site_summary_rows is None:
+        return
+    for site_result in site_results:
+        for mode, mode_scores in site_result["scores"].items():
+            for metric, importance in mode_scores.items():
+                output_metric = metric_prefix + metric
+                recovery = evaluate_signal_recovery(
+                    importance,
+                    metadata["synthetic_signal_dim"],
+                    output_metric,
+                    signal_indices=signal_indices,
+                    candidate_indices=candidate_indices,
+                )
+                row = dict(metadata)
+                row.update(
+                    {
+                        "site_idx": site_result["site_idx"],
+                        "site_num_examples": site_result["site_num_examples"],
+                        "intervention_mode": mode,
+                        "metric": output_metric,
+                    }
+                )
+                row.update(recovery)
+                site_summary_rows.append(row)
+
+
 def add_model_prediction_intervention(
     detail_rows,
     summary_rows,
@@ -472,9 +643,17 @@ def add_model_prediction_intervention(
     seed,
     signal_indices=None,
     candidate_indices=None,
+    permutation_scope="global",
+    site_datasets=None,
+    site_summary_rows=None,
 ):
+    if permutation_scope not in {"global", "site"}:
+        raise ValueError("permutation_scope must be one of: global, site")
+    if permutation_scope == "site" and not site_datasets:
+        raise ValueError("site permutation requires site_datasets")
     model_metadata = dict(metadata)
     model_metadata["model_source"] = model_source
+    model_metadata["permutation_scope"] = permutation_scope
 
     if args.get("dataset") == "SyntheticEffectModifier":
         input_dim = int(metadata["synthetic_dim"])
@@ -483,15 +662,26 @@ def add_model_prediction_intervention(
         raw_signal_indices = raw_candidate_indices[: metadata["synthetic_signal_dim"]]
 
         print("Computing treatment contrast intervention for", model_source)
-        intervention = treatment_contrast_intervention_importance(
-            model,
-            dataset_test_global,
-            args,
-            modes=modes,
-            repeats=repeats,
-            seed=seed,
-            candidate_indices=raw_candidate_indices,
-        )
+        if permutation_scope == "site":
+            intervention = site_local_treatment_contrast_intervention_importance(
+                model,
+                site_datasets,
+                args,
+                modes=modes,
+                repeats=repeats,
+                seed=seed,
+                candidate_indices=raw_candidate_indices,
+            )
+        else:
+            intervention = treatment_contrast_intervention_importance(
+                model,
+                dataset_test_global,
+                args,
+                modes=modes,
+                repeats=repeats,
+                seed=seed,
+                candidate_indices=raw_candidate_indices,
+            )
 
         summary_row = dict(model_metadata)
         summary_row.update(intervention["model_summary"])
@@ -509,6 +699,14 @@ def add_model_prediction_intervention(
                     signal_indices=raw_signal_indices,
                     candidate_indices=raw_candidate_indices,
                 )
+        if permutation_scope == "site":
+            _add_site_summary_rows(
+                site_summary_rows,
+                intervention["site_results"],
+                model_metadata,
+                signal_indices=raw_signal_indices,
+                candidate_indices=raw_candidate_indices,
+            )
 
         print("Computing direct interaction diagnostic for", model_source)
         direct_candidate_indices = (
@@ -521,15 +719,26 @@ def add_model_prediction_intervention(
             if signal_indices is not None
             else list(direct_candidate_indices)[: metadata["synthetic_signal_dim"]]
         )
-        diagnostic = prediction_intervention_importance(
-            model,
-            dataset_test_global,
-            args,
-            modes=modes,
-            repeats=repeats,
-            seed=seed,
-            candidate_indices=direct_candidate_indices,
-        )
+        if permutation_scope == "site":
+            diagnostic = site_local_prediction_intervention_importance(
+                model,
+                site_datasets,
+                args,
+                modes=modes,
+                repeats=repeats,
+                seed=seed,
+                candidate_indices=direct_candidate_indices,
+            )
+        else:
+            diagnostic = prediction_intervention_importance(
+                model,
+                dataset_test_global,
+                args,
+                modes=modes,
+                repeats=repeats,
+                seed=seed,
+                candidate_indices=direct_candidate_indices,
+            )
 
         for mode, mode_scores in diagnostic["scores"].items():
             for metric, importance in mode_scores.items():
@@ -543,6 +752,15 @@ def add_model_prediction_intervention(
                     signal_indices=direct_signal_indices,
                     candidate_indices=direct_candidate_indices,
                 )
+        if permutation_scope == "site":
+            _add_site_summary_rows(
+                site_summary_rows,
+                diagnostic["site_results"],
+                model_metadata,
+                signal_indices=direct_signal_indices,
+                candidate_indices=direct_candidate_indices,
+                metric_prefix="direct_interaction_",
+            )
         return
 
     print("Computing prediction intervention for", model_source)
@@ -581,6 +799,8 @@ def write_prediction_intervention_outputs(
     detail_path,
     summary_path,
     model_summary_path,
+    site_summary_rows=None,
+    site_summary_path=None,
 ):
     if detail_rows:
         with open(detail_path, "w", newline="") as csv_file:
@@ -597,6 +817,11 @@ def write_prediction_intervention_outputs(
             writer = csv.DictWriter(csv_file, fieldnames=PREDICTION_MODEL_SUMMARY_FIELDS)
             writer.writeheader()
             writer.writerows(model_summary_rows)
+    if site_summary_rows and site_summary_path:
+        with open(site_summary_path, "w", newline="") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=PREDICTION_SITE_SUMMARY_FIELDS)
+            writer.writeheader()
+            writer.writerows(site_summary_rows)
 
 
 def train_pooled_prediction_model(args, dataset_train_global):
