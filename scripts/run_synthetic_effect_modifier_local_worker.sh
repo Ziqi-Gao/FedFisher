@@ -54,6 +54,10 @@ validate_run_id_namespace() {
         local_permutation)
             [[ "${RUN_ID}" == local_permutation_* ]]                 || fail "local_permutation RUN_ID must start with local_permutation_"
             ;;
+        site_gaussian_local_permutation)
+            [[ "${RUN_ID}" == site_gaussian_local_permutation_* ]] \
+                || fail "site_gaussian_local_permutation RUN_ID must start with site_gaussian_local_permutation_"
+            ;;
     esac
 }
 
@@ -220,8 +224,25 @@ case "${EFFECT_MODIFIER_VARIANT}" in
         PREDICTION_INTERVENTION_SCOPE=site
         variant_args=(--prediction_intervention_scope site)
         ;;
+    site_gaussian_local_permutation)
+        default_run_id="site_gaussian_local_permutation_300seeds"
+        SITE_GAUSSIAN_SHIFT_ENABLED=1
+        PREDICTION_INTERVENTION_SCOPE=site
+        variant_args=(
+            --effect_modifier_combined_ablation
+            --effect_modifier_site_gaussian_shift
+            --effect_modifier_site_gaussian_mean_span
+            "${EFFECT_MODIFIER_SITE_GAUSSIAN_MEAN_SPAN:-0.75}"
+            --effect_modifier_site_gaussian_std_low
+            "${EFFECT_MODIFIER_SITE_GAUSSIAN_STD_LOW:-0.75}"
+            --effect_modifier_site_gaussian_std_high
+            "${EFFECT_MODIFIER_SITE_GAUSSIAN_STD_HIGH:-1.25}"
+            --prediction_intervention_scope
+            site
+        )
+        ;;
     *)
-        fail "EFFECT_MODIFIER_VARIANT must be control, site_gaussian_shift, or local_permutation"
+        fail "EFFECT_MODIFIER_VARIANT must be control, site_gaussian_shift, local_permutation, or site_gaussian_local_permutation"
         ;;
 esac
 

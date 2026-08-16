@@ -31,9 +31,9 @@ this ablation does not also activate site-local reshuffling.
 
 ## Run
 
-Do not combine this variant with
-`--prediction_intervention_scope site` when running the intended one-change
-ablation.
+This one-change variant intentionally retains global intervention. Use the
+[combined factorial arm](../site_gaussian_local_permutation/README.md), not a
+custom RUN_ID, when site-local intervention must also be enabled.
 
 ```bash
 EFFECT_MODIFIER_VARIANT=site_gaussian_shift \
@@ -61,5 +61,5 @@ Use `SEED_START` and `SEED_END` for a bounded smoke run. The shared
 launcher waits for idle GPUs and is resumable through validated per-seed
 completion markers. Its format-v2 `run_manifest.env` binds the output to RUN_ID,
 source provenance, common run configuration, and the explicit variant settings.
-The three comparison manifests must share provenance and common-config hashes. It must not
+All four factorial manifests must share provenance and common-config hashes. It must not
 be launched on occupied GPUs without separate user authorization.

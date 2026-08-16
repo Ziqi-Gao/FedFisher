@@ -180,18 +180,28 @@ provenance, common configuration, and variant configuration all match. The
 historical control output predates this format, so it is legacy/unvalidated and
 cannot be used by the ablation summary.
 
-## Independent Ablations
+## Factorial Ablations
 
-Two one-change ablations reuse the control's seeds, models, IID/non-IID splits,
-site capacities, algorithms, training hyperparameters, and pooled baseline:
+The experiment now contains a complete 2x2 design over two switches:
 
-- [Site-Gaussian covariate shift](site_gaussian_shift/README.md) changes only
-  the site-specific training covariate proposal distributions.
-- [Site-local permutation](local_permutation/README.md) changes only the
-  held-out reshuffling domain from global to within-site.
+| Variant | Site-Gaussian training proposal | Permutation scope |
+| --- | --- | --- |
+| `control` | off | global |
+| `site_gaussian_shift` | on | global |
+| `local_permutation` | off | site-local |
+| `site_gaussian_local_permutation` | on | site-local |
 
-First rerun the control with the same finalized source tree, then launch the
-two ablations without changing the code between launches:
+The first two ablations remain one-change comparisons against control. The
+[factorial combination](site_gaussian_local_permutation/README.md) directly
+stacks the data shift from
+[site-Gaussian covariate shift](site_gaussian_shift/README.md) with the
+within-site reshuffling from
+[site-local permutation](local_permutation/README.md). Seeds, models, existing
+IID/non-IID splits, site capacities, algorithms, training hyperparameters, the
+common held-out test tensors, and the pooled baseline remain fixed.
+
+For a strict factorial comparison, finalize the source tree and then run all
+four cells without changing the code between launches:
 
 ```bash
 EFFECT_MODIFIER_VARIANT=control \
@@ -200,19 +210,27 @@ EFFECT_MODIFIER_VARIANT=site_gaussian_shift \
   bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
 EFFECT_MODIFIER_VARIANT=local_permutation \
   bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
+EFFECT_MODIFIER_VARIANT=site_gaussian_local_permutation \
+  bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
 ```
 
-None of these launch commands is run automatically. After results exist, compare both
-ablations against the control with:
+None of these launch commands is run automatically. After all results exist,
+run:
 
 ```bash
 python scripts/summarize_effect_modifier_ablations.py
 ```
 
-The summary tool requires all three format-v2 manifests, rejects the legacy
-control, and requires identical `provenance_sha256` and `run_config_sha256`
-values across the three runs. It also verifies each variant's two allowed
-difference flags. It writes `comparison_manifests.csv`, aggregate recovery,
-model diagnostics, paired per-seed deltas, paired delta summaries, and local
-site summaries under
+The summary tool requires all four format-v2 manifests and identical
+`provenance_sha256` and `run_config_sha256` values. It verifies all four switch
+combinations, reports each arm versus control, and writes the per-seed factorial
+interaction `combined - Gaussian - local + control`. Outputs include
+`comparison_manifests.csv`, aggregate recovery and model summaries, paired
+deltas, `factorial_interaction_seed_rows.csv`,
+`factorial_interaction_summary.csv`, and local site summaries under
 `/data/del6500/FedFisher/results/effect_modifier_ablations/` by default.
+
+Because provenance includes the complete source tree, historical three-arm
+outputs from an earlier commit cannot be mixed with a newly implemented
+combined arm in the strict summary. All four cells must be rerun from the same
+final commit.

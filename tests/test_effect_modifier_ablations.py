@@ -21,6 +21,7 @@ from models import SyntheticMLP
 from scripts.summarize_effect_modifier_ablations import (
     RESULTS_ROOT,
     VARIANT_CONTRACT,
+    build_factorial_rows,
     resolve_within,
     validate_comparison_manifests,
 )
@@ -61,7 +62,7 @@ class EffectModifierAblationTests(unittest.TestCase):
             check=False,
         )
 
-    def test_cli_rejects_combined_ablations(self):
+    def test_cli_requires_explicit_combined_ablation_opt_in(self):
         result = self._run_main_parser(
             "--effect_modifier_site_gaussian_shift",
             "--prediction_intervention_scope",
@@ -70,7 +71,29 @@ class EffectModifierAblationTests(unittest.TestCase):
             str(Path(__file__).resolve().parents[1] / "results"),
         )
         self.assertEqual(result.returncode, 2)
-        self.assertIn("mutually exclusive ablations", result.stderr)
+        self.assertIn("requires --effect_modifier_combined_ablation", result.stderr)
+
+    def test_cli_combined_opt_in_reaches_general_validation(self):
+        result = self._run_main_parser(
+            "--effect_modifier_site_gaussian_shift",
+            "--prediction_intervention_scope",
+            "site",
+            "--effect_modifier_combined_ablation",
+            "--output_dir",
+            "/tmp",
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("output_dir resolves outside", result.stderr)
+        self.assertNotIn("requires both", result.stderr)
+
+    def test_cli_rejects_incomplete_combined_opt_in(self):
+        result = self._run_main_parser(
+            "--effect_modifier_combined_ablation",
+            "--output_dir",
+            str(Path(__file__).resolve().parents[1] / "results"),
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("requires both", result.stderr)
 
     def test_cli_rejects_output_outside_allowed_roots(self):
         result = self._run_main_parser("--output_dir", "/tmp")
@@ -115,6 +138,9 @@ class EffectModifierAblationTests(unittest.TestCase):
             "control": root / "prediction_intervention_test_control",
             "site_gaussian_shift": root / "site_gaussian_shift_test",
             "local_permutation": root / "local_permutation_test",
+            "site_gaussian_local_permutation": (
+                root / "site_gaussian_local_permutation_test"
+            ),
         }
         provenance = "a" * 64
         run_config = "b" * 64
@@ -122,6 +148,19 @@ class EffectModifierAblationTests(unittest.TestCase):
             directory.mkdir()
             self._write_test_manifest(directory, variant, provenance, run_config)
         return temporary, inputs
+
+    def test_variant_contracts_cover_factorial_two_by_two(self):
+        settings = {
+            (
+                contract["effect_modifier_site_gaussian_shift"],
+                contract["prediction_intervention_scope"],
+            )
+            for contract in VARIANT_CONTRACT.values()
+        }
+        self.assertEqual(
+            settings,
+            {("0", "global"), ("1", "global"), ("0", "site"), ("1", "site")},
+        )
 
     def test_summary_requires_comparable_v2_manifests(self):
         temporary, inputs = self._comparison_manifest_fixture()
@@ -214,6 +253,31 @@ class EffectModifierAblationTests(unittest.TestCase):
                 atol=0.0,
             )
 
+    def test_combined_ablation_stacks_shifted_training_and_local_shards(self):
+        for split in ["iid", "noniid"]:
+            baseline_sites, _, baseline_test, _ = self._dataset(
+                site_gaussian_shift=False, split=split
+            )
+            shifted_sites, _, shifted_test, _ = self._dataset(
+                site_gaussian_shift=True, split=split
+            )
+            self.assertTrue(
+                any(
+                    not torch.equal(baseline.tensors[0], shifted.tensors[0])
+                    for baseline, shifted in zip(baseline_sites, shifted_sites)
+                )
+            )
+            baseline_shards = build_effect_modifier_site_evaluation_datasets(
+                baseline_test, baseline_sites, split=split, alpha=0.1, seed=17
+            )
+            shifted_shards = build_effect_modifier_site_evaluation_datasets(
+                shifted_test, shifted_sites, split=split, alpha=0.1, seed=17
+            )
+            self.assertEqual(
+                [list(shard.indices) for shard in baseline_shards],
+                [list(shard.indices) for shard in shifted_shards],
+            )
+
     def test_local_test_shards_are_disjoint_and_exhaustive(self):
         for split in ["iid", "noniid"]:
             sites, _, test_dataset, _ = self._dataset(split=split)
@@ -273,6 +337,47 @@ class EffectModifierAblationTests(unittest.TestCase):
                 rtol=2e-6,
                 atol=2e-7,
             )
+
+    def test_factorial_interaction_uses_difference_in_differences(self):
+        common = {
+            "seed": "1",
+            "model": "SyntheticMLP",
+            "split": "noniid",
+            "alpha": "0.1",
+            "model_source": "fedavg",
+            "intervention_mode": "permute",
+            "metric": "tau_intervention_logit",
+        }
+
+        def row(experiment, value):
+            result = dict(common)
+            result["experiment"] = experiment
+            result.update(
+                {
+                    field: str(value)
+                    for field in [
+                        "topk_hits",
+                        "topk_precision",
+                        "mean_signal_rank",
+                        "median_signal_rank",
+                        "mean_noise_rank",
+                        "auroc",
+                    ]
+                }
+            )
+            return result
+
+        output = build_factorial_rows(
+            [row("control", 1.0)],
+            [row("site_gaussian_shift", 3.0)],
+            [row("local_permutation", 2.0)],
+            [row("site_gaussian_local_permutation", 7.0)],
+        )
+        self.assertEqual(len(output), 1)
+        self.assertEqual(output[0]["raw_interaction_auroc"], 3.0)
+        self.assertEqual(output[0]["improvement_interaction_auroc"], 3.0)
+        self.assertEqual(output[0]["raw_interaction_mean_signal_rank"], 3.0)
+        self.assertEqual(output[0]["improvement_interaction_mean_signal_rank"], -3.0)
 
     def test_permutation_cannot_cross_site_boundaries(self):
         site_a = TensorDataset(

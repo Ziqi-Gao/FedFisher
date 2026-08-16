@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Aggregate and pair the two SyntheticEffectModifier ablations with control."""
+"""Aggregate the SyntheticEffectModifier 2x2 factorial experiment."""
 
 import argparse
 import csv
@@ -52,6 +52,11 @@ VARIANT_CONTRACT = {
     "local_permutation": {
         "run_id_prefix": "local_permutation_",
         "effect_modifier_site_gaussian_shift": "0",
+        "prediction_intervention_scope": "site",
+    },
+    "site_gaussian_local_permutation": {
+        "run_id_prefix": "site_gaussian_local_permutation_",
+        "effect_modifier_site_gaussian_shift": "1",
         "prediction_intervention_scope": "site",
     },
 }
@@ -169,7 +174,7 @@ def prepare_output_directory(path):
 def parse_args():
     experiment_root = DATA_ROOT / "effect_modifier_experiment"
     parser = argparse.ArgumentParser(
-        description="Summarize effect-modifier control and one-change ablations."
+        description="Summarize the effect-modifier 2x2 factorial experiment."
     )
     parser.add_argument(
         "--control-dir",
@@ -185,6 +190,11 @@ def parse_args():
         "--local-permutation-dir",
         type=Path,
         default=experiment_root / "outputs" / "local_permutation_300seeds",
+    )
+    parser.add_argument(
+        "--combined-dir",
+        type=Path,
+        default=experiment_root / "outputs" / "site_gaussian_local_permutation_300seeds",
     )
     parser.add_argument(
         "--output-dir",
@@ -203,6 +213,12 @@ def parse_args():
             args.local_permutation_dir,
             EXPERIMENT_OUTPUT_ROOT,
             "local-permutation directory",
+            True,
+        )
+        args.combined_dir = resolve_within(
+            args.combined_dir,
+            EXPERIMENT_OUTPUT_ROOT,
+            "combined factorial directory",
             True,
         )
         args.output_dir = resolve_within(args.output_dir, RESULTS_ROOT, "output directory")
@@ -239,7 +255,11 @@ def read_csv_rows(directory, pattern, experiment):
                 normalized["experiment"] = experiment
                 normalized["permutation_scope"] = row.get(
                     "permutation_scope",
-                    "site" if experiment == "local_permutation" else "global",
+                    (
+                        "site"
+                        if experiment in {"local_permutation", "site_gaussian_local_permutation"}
+                        else "global"
+                    ),
                 )
                 rows.append(normalized)
     return rows
@@ -351,6 +371,54 @@ def aggregate_paired_rows(paired_rows):
     return output
 
 
+def build_factorial_rows(
+    control_rows, site_gaussian_rows, local_permutation_rows, combined_rows
+):
+    indexed = {
+        "control": unique_by(control_rows, PAIR_KEY_FIELDS, "factorial control"),
+        "site_gaussian": unique_by(
+            site_gaussian_rows, PAIR_KEY_FIELDS, "factorial site-Gaussian"
+        ),
+        "local_permutation": unique_by(
+            local_permutation_rows, PAIR_KEY_FIELDS, "factorial local-permutation"
+        ),
+        "combined": unique_by(
+            combined_rows, PAIR_KEY_FIELDS, "factorial combined"
+        ),
+    }
+    key_sets = {name: set(rows) for name, rows in indexed.items()}
+    if len({frozenset(keys) for keys in key_sets.values()}) != 1:
+        counts = ", ".join(
+            "%s=%d" % (name, len(keys)) for name, keys in sorted(key_sets.items())
+        )
+        raise ValueError(
+            "Factorial recovery rows do not share identical keys: %s" % counts
+        )
+
+    output = []
+    for key in sorted(indexed["control"]):
+        result = dict(zip(PAIR_KEY_FIELDS, key))
+        rows = {name: values[key] for name, values in indexed.items()}
+        for field in RECOVERY_FIELDS:
+            values = {name: numeric(row, field) for name, row in rows.items()}
+            interaction = (
+                values["combined"]
+                - values["site_gaussian"]
+                - values["local_permutation"]
+                + values["control"]
+            )
+            result["control_" + field] = values["control"]
+            result["site_gaussian_" + field] = values["site_gaussian"]
+            result["local_permutation_" + field] = values["local_permutation"]
+            result["combined_" + field] = values["combined"]
+            result["raw_interaction_" + field] = interaction
+            result["improvement_interaction_" + field] = (
+                interaction if field in HIGHER_IS_BETTER else -interaction
+            )
+        output.append(result)
+    return output
+
+
 def write_csv(path, rows, fields):
     if path.is_symlink():
         raise ValueError("Refusing to overwrite symlink: %s" % path)
@@ -417,12 +485,32 @@ def paired_summary_fields():
     return fields
 
 
+def factorial_value_fields():
+    fields = []
+    for field in RECOVERY_FIELDS:
+        for prefix in [
+            "control_",
+            "site_gaussian_",
+            "local_permutation_",
+            "combined_",
+            "raw_interaction_",
+            "improvement_interaction_",
+        ]:
+            fields.append(prefix + field)
+    return fields
+
+
+def factorial_fields():
+    return PAIR_KEY_FIELDS + factorial_value_fields()
+
+
 def main():
     args = parse_args()
     inputs = {
         "control": args.control_dir,
         "site_gaussian_shift": args.site_gaussian_dir,
         "local_permutation": args.local_permutation_dir,
+        "site_gaussian_local_permutation": args.combined_dir,
     }
     manifests = validate_comparison_manifests(inputs)
     prepare_output_directory(args.output_dir)
@@ -521,7 +609,11 @@ def main():
         if row["experiment"] == "control"
     ]
     paired_rows = []
-    for experiment in ["site_gaussian_shift", "local_permutation"]:
+    for experiment in [
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation",
+    ]:
         paired_rows.extend(
             build_paired_rows(
                 control_rows,
@@ -543,6 +635,34 @@ def main():
         paired_summary_fields(),
     )
 
+    factorial_rows = build_factorial_rows(
+        control_rows,
+        [row for row in recovery_rows if row["experiment"] == "site_gaussian_shift"],
+        [row for row in recovery_rows if row["experiment"] == "local_permutation"],
+        [
+            row
+            for row in recovery_rows
+            if row["experiment"] == "site_gaussian_local_permutation"
+        ],
+    )
+    write_csv(
+        args.output_dir / "factorial_interaction_seed_rows.csv",
+        factorial_rows,
+        factorial_fields(),
+    )
+    factorial_group_fields = [
+        "model",
+        "split",
+        "model_source",
+        "intervention_mode",
+        "metric",
+    ]
+    write_csv(
+        args.output_dir / "factorial_interaction_summary.csv",
+        aggregate(factorial_rows, factorial_group_fields, factorial_value_fields()),
+        aggregate_fields(factorial_group_fields, factorial_value_fields()),
+    )
+
     site_group_fields = [
         "experiment",
         "permutation_scope",
@@ -561,8 +681,15 @@ def main():
     )
 
     print(
-        "Wrote summaries to %s from %d recovery rows, %d paired rows, and %d site rows"
-        % (args.output_dir, len(recovery_rows), len(paired_rows), len(site_rows))
+        "Wrote summaries to %s from %d recovery rows, %d paired rows, "
+        "%d factorial rows, and %d site rows"
+        % (
+            args.output_dir,
+            len(recovery_rows),
+            len(paired_rows),
+            len(factorial_rows),
+            len(site_rows),
+        )
     )
 
 

@@ -54,6 +54,10 @@ validate_run_id_namespace() {
         local_permutation)
             [[ "${RUN_ID}" == local_permutation_* ]]                 || fail "local_permutation RUN_ID must start with local_permutation_"
             ;;
+        site_gaussian_local_permutation)
+            [[ "${RUN_ID}" == site_gaussian_local_permutation_* ]] \
+                || fail "site_gaussian_local_permutation RUN_ID must start with site_gaussian_local_permutation_"
+            ;;
     esac
 }
 
@@ -87,8 +91,11 @@ case "${EFFECT_MODIFIER_VARIANT}" in
     local_permutation)
         default_run_id="local_permutation_300seeds"
         ;;
+    site_gaussian_local_permutation)
+        default_run_id="site_gaussian_local_permutation_300seeds"
+        ;;
     *)
-        fail "EFFECT_MODIFIER_VARIANT must be control, site_gaussian_shift, or local_permutation"
+        fail "EFFECT_MODIFIER_VARIANT must be control, site_gaussian_shift, local_permutation, or site_gaussian_local_permutation"
         ;;
 esac
 RUN_ID="${RUN_ID:-${default_run_id}}"

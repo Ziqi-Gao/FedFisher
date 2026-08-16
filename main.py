@@ -69,6 +69,14 @@ parser.add_argument("--effect_modifier_propensity_clip", type=float, required=Fa
 parser.add_argument("--effect_modifier_site_min_samples", type=int, required=False, default=500)
 parser.add_argument("--effect_modifier_site_max_samples", type=int, required=False, default=1000)
 parser.add_argument("--effect_modifier_site_gaussian_shift", action="store_true")
+parser.add_argument(
+    "--effect_modifier_combined_ablation",
+    action="store_true",
+    help=(
+        "Explicitly authorize the factorial combination of site-Gaussian "
+        "training covariates and site-local prediction intervention."
+    ),
+)
 parser.add_argument("--effect_modifier_site_gaussian_mean_span", type=float, default=0.75)
 parser.add_argument("--effect_modifier_site_gaussian_std_low", type=float, default=0.75)
 parser.add_argument("--effect_modifier_site_gaussian_std_high", type=float, default=1.25)
@@ -126,13 +134,21 @@ if args_parser.prediction_intervention_scope == "site" and args_parser.dataset !
     parser.error("--prediction_intervention_scope site requires SyntheticEffectModifier")
 if args_parser.prediction_intervention_scope == "site" and not args_parser.prediction_intervention:
     parser.error("--prediction_intervention_scope site requires --prediction_intervention")
-if (
+combined_effect_modifier_ablation = (
     args_parser.effect_modifier_site_gaussian_shift
     and args_parser.prediction_intervention_scope == "site"
-):
+)
+if combined_effect_modifier_ablation and not args_parser.effect_modifier_combined_ablation:
     parser.error(
+        "combining --effect_modifier_site_gaussian_shift with "
+        "--prediction_intervention_scope site requires "
+        "--effect_modifier_combined_ablation"
+    )
+if args_parser.effect_modifier_combined_ablation and not combined_effect_modifier_ablation:
+    parser.error(
+        "--effect_modifier_combined_ablation requires both "
         "--effect_modifier_site_gaussian_shift and "
-        "--prediction_intervention_scope site are mutually exclusive ablations"
+        "--prediction_intervention_scope site"
     )
 
 allowed_output_roots = [

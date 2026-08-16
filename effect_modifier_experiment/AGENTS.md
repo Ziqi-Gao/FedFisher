@@ -117,25 +117,28 @@ experiment.
 - Validate a one-element CUDA kernel and both NNGeometry `PMatDiag` and
   `PMatKFAC` before launching workers after an environment change.
 
-## Independent Ablation Contract
+## Factorial Ablation Contract
 
-- The site-Gaussian ablation may change only the training covariate proposal
-  distribution. Use the fixed 10-site mean-by-scale design documented under
-  `site_gaussian_shift/`; preserve realized site sizes, outcome-label counts,
-  the common control test set, and global intervention scope.
-- The local-permutation ablation may change only prediction-intervention scope.
-  Preserve the generated datasets and trained-model settings; split the common
-  test set into disjoint site shards, permute only within a shard, and aggregate
-  scalar feature scores with sample-size weights.
-- Keep the two ablation variants mutually exclusive. A combined site-Gaussian
-  plus local-permutation run is a separate factorial experiment and is not part
-  of either approved ablation.
-- Route every ablation through the existing
+- The site-Gaussian one-change ablation may change only the training covariate
+  proposal distribution. Use the fixed 10-site mean-by-scale design documented
+  under `site_gaussian_shift/`; preserve realized site sizes, outcome-label
+  counts, the common control test set, and global intervention scope.
+- The local-permutation one-change ablation may change only
+  prediction-intervention scope. Preserve the generated datasets and
+  trained-model settings; split the common test set into disjoint site shards,
+  permute only within a shard, and aggregate scalar feature scores with
+  sample-size weights.
+- The approved factorial arm is `site_gaussian_local_permutation`: enable the
+  same site-Gaussian training proposal as the first arm and the same site-local
+  intervention scope as the second arm, without changing any other setting.
+  Direct CLI use of both low-level switches requires the explicit
+  `--effect_modifier_combined_ablation` opt-in.
+- Route every arm through the existing
   `launch_synthetic_effect_modifier_300seeds_local.sh` -> slot -> worker
   scheduler chain. Select exactly one experiment with
-  `EFFECT_MODIFIER_VARIANT=site_gaussian_shift` or
-  `EFFECT_MODIFIER_VARIANT=local_permutation`. Do not add parallel GPU
-  launch, slot, worker, or status scripts for these ablations.
+  `EFFECT_MODIFIER_VARIANT=control`, `site_gaussian_shift`,
+  `local_permutation`, or `site_gaussian_local_permutation`. Do not add parallel
+  GPU launch, slot, worker, or status scripts for these experiments.
 - Durable outputs are strictly bound to
   `/data/del6500/FedFisher/effect_modifier_experiment/outputs/<RUN_ID>/`.
   Logs and runtime caches are strictly bound to the corresponding standard
@@ -144,8 +147,9 @@ experiment.
   `/scr/del6500/FedFisher/effect_modifier_experiment/locks/` directory;
   `SCRATCH_ROOT` may not create a second lock namespace.
 - RUN_ID namespaces are disjoint: control uses `prediction_intervention_*`,
-  site-Gaussian uses `site_gaussian_shift_*`, and local permutation uses
-  `local_permutation_*`. Workers must reject cross-variant names.
+  site-Gaussian uses `site_gaussian_shift_*`, local permutation uses
+  `local_permutation_*`, and the factorial arm uses
+  `site_gaussian_local_permutation_*`. Workers must reject cross-variant names.
 - Resolve and validate every scheduler write path before and after directory
   creation. `REPO_ROOT` must be this repository, durable output must remain
   under `/data/del6500/FedFisher`, and logs, locks, runtime files, and caches
@@ -153,18 +157,20 @@ experiment.
   these roots.
 - Every new output directory requires a format-v2 `run_manifest.env`
   containing commit, dirty-tree status, Git-status hash, source-tree hash
-  including untracked files, the common run-configuration hash, and the explicit
-  variant configuration. Refuse a nonempty directory without this manifest.
-- Rerun the control under `prediction_intervention_ablation_control_300seeds`
-  from the same finalized source tree as both ablations. The comparison tool
-  must reject missing/legacy manifests and require identical provenance and
-  common run-configuration hashes across all three experiments.
+  including untracked files, the common run-configuration hash, and the
+  explicit variant configuration. Refuse a nonempty directory without this
+  manifest.
+- Run control and all three factorial arms from the same finalized source tree.
+  The comparison tool must reject missing/legacy manifests and require
+  identical provenance and common run-configuration hashes across all four
+  experiments. It must report each arm versus control and the per-seed
+  difference-in-differences interaction `combined - Gaussian - local + control`.
 - Skip a completion marker only after its seed, RUN_ID, variant, provenance,
-  common-configuration, and variant-configuration hashes match the run manifest.
-  Status may report old
-  markers separately as legacy/unvalidated but must not count them as validated.
+  common-configuration, and variant-configuration hashes match the run
+  manifest. Status may report old markers separately as legacy/unvalidated but
+  must not count them as validated.
 - Ablation Screen sessions keep the existing exact prefix
   `fedfisher_em_<RUN_ID>_w` and the existing shared per-GPU lock files.
-- Do not launch the full 300-seed jobs as part of code validation. Run the CPU
-  regression test and shell syntax checks first, then obtain explicit launch
-  confirmation.
+- Do not launch full 300-seed jobs as part of code validation. Run the CPU
+  regression test, shell syntax checks, and a bounded combined smoke run first,
+  then obtain explicit launch confirmation.

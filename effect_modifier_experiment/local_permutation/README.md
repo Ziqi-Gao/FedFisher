@@ -32,7 +32,9 @@ to floating-point reduction error.
 
 ## Run
 
-This variant does not enable the site-Gaussian shift.
+This one-change variant does not enable the site-Gaussian shift. Use the
+[combined factorial arm](../site_gaussian_local_permutation/README.md) when both
+switches must be enabled.
 
 ```bash
 EFFECT_MODIFIER_VARIANT=local_permutation \
@@ -61,5 +63,5 @@ Use `SEED_START` and `SEED_END` for a bounded smoke run. The shared
 launcher waits for idle GPUs and is resumable through validated per-seed
 completion markers. Its format-v2 `run_manifest.env` binds the output to RUN_ID,
 source provenance, common run configuration, and the explicit variant settings.
-The three comparison manifests must share provenance and common-config hashes. It must not
+All four factorial manifests must share provenance and common-config hashes. It must not
 be launched on occupied GPUs without separate user authorization.
