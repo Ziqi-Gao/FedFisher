@@ -82,6 +82,19 @@ Every run has a self-consistent format-v2 manifest binding source provenance,
 the common DGP/evaluation configuration, the family method configuration, and
 the variant contract.  Existing files are never overwritten.
 
-The new runners are CPU-capable and do not add or bypass a GPU scheduling
-script.  Full 300-seed runs require a separate review after all regression
-tests and the same-source four-cell seed-0 smoke pass.
+The formal CPU launcher is
+`scripts/launch_effect_modifier_one_shot_lasso_cpu.sh`; its read-only status
+command is `scripts/status_effect_modifier_one_shot_lasso_cpu.sh`.  It starts
+four short-name Screen sessions, one per factorial variant, and each session
+uses exactly one CPU thread while processing both isolated method families.
+The total configured compute concurrency is therefore four threads.  No GPU
+environment, GPU lock, or GPU scheduler is used.
+
+Formal worker locks are isolated under
+`/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/`.
+Validated cells resume by skipping; partial cells, changed source/config,
+invalid manifests, and hash mismatches fail closed without overwrite.  The
+launcher and status command recognize only their four `ff_os_*300` sessions
+and never wipe or control foreign processes.  Full 300-seed launch still
+requires no-cache syntax, all regression tests, and a same-source four-cell
+seed-0 CPU smoke.

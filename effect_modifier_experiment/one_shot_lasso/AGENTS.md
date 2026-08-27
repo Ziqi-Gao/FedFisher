@@ -32,7 +32,18 @@ protocols.  It may not weaken either parent contract.
   training, test, payload, and aggregate-model fingerprints.
 - Durable results remain under the standard `/data` output root; scratch and
   runtime files remain under the standard `/scr` tree.  Reject symlinks and
-  existing artifacts.
+  existing cell artifacts.  The formal CPU scheduler may skip only a cell
+  whose manifest, current source/config, done marker, semantic identity, and
+  every artifact hash validate; any partial or invalid cell fails closed and
+  is never overwritten.
+- Formal 300-seed execution is CPU-only and uses exactly four variant workers,
+  each with one compute thread.  Its locks live only under
+  `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/` and
+  are disjoint from GPU and dsLassoCov lock namespaces.  Scheduler operations
+  may inspect and control only the four short `ff_os_*300` sessions and their
+  own worker processes; they must never wipe, kill, renice, reschedule, or
+  otherwise interfere with J-lens, dsLassoCov, an ablation, or any foreign
+  experiment.
 - Do not add or bypass GPU scheduling scripts.  Do not start 300-seed work
   until no-cache syntax, all old and new tests, and a same-source four-cell
   seed-0 CPU smoke pass and are reviewed.
