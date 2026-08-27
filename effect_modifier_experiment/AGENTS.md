@@ -174,3 +174,50 @@ experiment.
 - Do not launch full 300-seed jobs as part of code validation. Run the CPU
   regression test, shell syntax checks, and a bounded combined smoke run first,
   then obtain explicit launch confirmation.
+
+## dsLassoCov-style CPU Benchmark Contract
+
+- The additive benchmark name is **dsLassoCov-style federated logistic LASSO
+  (Python benchmark; not official R/DataSHIELD dsLassoCov)**. It is a
+  single-process cross-silo simulation of site loss/gradient aggregation, not
+  a deployment privacy or DataSHIELD disclosure-control boundary.
+- Reuse the existing `SyntheticEffectModifier` generator, split, site-Gaussian
+  proposal, common test set, and local-shard evaluator exactly. The primary
+  endpoint remains raw-covariate tau-intervention Top-2/AUROC; absolute
+  interaction-coefficient recovery is auxiliary only.
+- This benchmark is CPU-only. Its launcher and workers must not inspect or set
+  GPU visibility, acquire the existing per-GPU locks, enter the GPU scheduling
+  chain, wait for a GPU, or modify any GPU state.
+- Durable results are restricted to
+  `/data/del6500/FedFisher/effect_modifier_experiment/outputs/<RUN_ID>/`.
+  Logs, runtime files, and caches are restricted to the matching
+  `/scr/del6500/FedFisher/effect_modifier_experiment/{logs,runtime}/<RUN_ID>/`
+  trees. CPU locks alone use the separate, exact
+  `/scr/del6500/FedFisher/effect_modifier_experiment/cpu_locks/<RUN_ID>/`
+  namespace; they must never use or alter the GPU `locks/` namespace.
+- RUN_IDs must use the `dslassocov_<variant>_` namespace and all output,
+  scratch, and lock paths must reject symlinks. CPU scheduling defaults to two
+  workers with one thread each. Both the shell and Python front doors must
+  enforce `CPU_WORKERS * THREADS_PER_WORKER <= 4`.
+- A nonblocking launch lock serializes launcher setup for a RUN_ID. A
+  nonblocking per-seed lock is held continuously across IID fit, non-IID fit,
+  validation, and done-marker creation, and is released on validated skip,
+  success, error, or signal. Detached Screen descendants must not inherit the
+  launch-lock descriptor. Lock files record auditable owner/PID events.
+- The CPU scripts may control only Screen sessions with their exact
+  `fedfisher_em_dslassocov_<RUN_ID>_w` prefix and locks below their exact
+  RUN_ID directory. Never kill, suspend, renice, reorder, or otherwise modify
+  J-lens, an existing ablation, or any other process or experiment.
+- Format-v2 manifests must record and canonical-hash the run, benchmark/CV/
+  optimizer, and variant configurations plus commit, dirty/status, and source
+  provenance. Every manager, worker, status, resume, and invariant entry point
+  must recompute those hashes and the current source provenance. Partial
+  artifacts are never completion evidence; only a fully validated done marker
+  may be resumed.
+- Control/local-permutation and site-Gaussian/combined must preserve matching
+  training, test, and fit fingerprints. Validate those pairs across a
+  same-source four-cell seed-0 smoke.
+- Before any full 300-seed launch, run no-cache Python syntax checks, shell
+  syntax checks, all regression tests (including real lock contention and FD
+  lifetime), the four-cell bounded smoke, and a default 5-fold/30-lambda
+  full-dimension single-seed/single-split timing pilot, then stop for review.
