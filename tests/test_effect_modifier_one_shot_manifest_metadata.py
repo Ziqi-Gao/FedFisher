@@ -39,6 +39,8 @@ class OneShotManifestMetadataTests(unittest.TestCase):
         self.assertIn("14_float64", config["payload"])
         self.assertEqual(config["payload_bytes_per_site"], 128)
         self.assertNotIn("202", config["payload"])
+        self.assertEqual(config["optimizer_polish_max_iter"], 50)
+        self.assertIn("reset_fista_momentum", config["optimizer_momentum_reset_polish_rule"])
 
     def test_mlp_manifest_limits_interpretation_and_records_matched_reference(self):
         family = "one_shot_mlp_group_lasso_fedavg"

@@ -23,7 +23,7 @@ cd "${REPO_ROOT}"
 
 families=(one_shot_local_logistic_lasso_fedavg one_shot_mlp_group_lasso_fedavg)
 variants=(control site_gaussian_shift local_permutation site_gaussian_local_permutation)
-sessions=(ff_os_ctl300 ff_os_gau300 ff_os_loc300 ff_os_cmb300)
+sessions=(ff_osp_ctl300 ff_osp_gau300 ff_osp_loc300 ff_osp_cmb300)
 manager=("${PYTHON_BIN}" -B effect_modifier_experiment/manage_one_shot_lasso_cpu_run.py)
 
 for family in "${families[@]}"; do

@@ -37,8 +37,8 @@ esac
 trap 'one_shot_release_cpu_lock "${owner}"' EXIT
 trap 'exit 130' HUP INT TERM
 
-LOG_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/logs/one_shot_300seeds"
-RUNTIME_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/runtime/one_shot_300seeds/${variant}"
+LOG_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/logs/one_shot_stationarity_polish_300seeds"
+RUNTIME_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/runtime/one_shot_stationarity_polish_300seeds/${variant}"
 LOG_FILE="${LOG_DIR}/${variant}.log"
 mkdir -p "${LOG_DIR}" "${RUNTIME_DIR}"
 for path in "${LOG_DIR}" "${RUNTIME_DIR}"; do
@@ -72,7 +72,7 @@ run_cell() {
     local split="$3"
     local model="$4"
     local run_id output_dir status_code
-    run_id="${family}_${variant}_300seeds"
+    run_id="${family}_${variant}_stationarity_polish_300seeds"
     output_dir="${FEDFISHER_DATA_ROOT}/effect_modifier_experiment/outputs/${run_id}"
     "${manager[@]}" validate-current --family "${family}" --variant "${variant}"
     set +e
@@ -126,6 +126,7 @@ run_cell() {
             --lambda-min-ratio 0.001
             --cv-seed-offset 4000037
             --optimizer-max-iter 2000
+            --optimizer-polish-max-iter 50
             --optimizer-tolerance 1e-6
             --optimizer-initial-step 1.0
             --optimizer-backtrack-factor 0.5

@@ -26,6 +26,8 @@ from effect_modifier_experiment.one_shot_lasso_benchmark import (
     VARIANT_CONTRACT,
     LocalLogisticConfig,
     MlpGroupLassoConfig,
+    DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    MOMENTUM_RESET_POLISH_RULE,
     SMOOTHING_RULE,
     OneShotLinearLogisticModel,
     aggregate_linear_payloads,
@@ -95,6 +97,11 @@ def parse_args(argv=None):
     parser.add_argument("--lambda-min-ratio", type=float, default=1e-3)
     parser.add_argument("--cv-seed-offset", type=int, default=4000037)
     parser.add_argument("--optimizer-max-iter", type=int, default=2000)
+    parser.add_argument(
+        "--optimizer-polish-max-iter",
+        type=int,
+        default=DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    )
     parser.add_argument("--optimizer-tolerance", type=float, default=1e-6)
     parser.add_argument("--optimizer-initial-step", type=float, default=1.0)
     parser.add_argument("--optimizer-backtrack-factor", type=float, default=0.5)
@@ -168,6 +175,8 @@ def validate_args(args):
             raise ValueError("invalid local logistic lambda path")
         if args.optimizer_max_iter < 1 or args.optimizer_tolerance <= 0.0:
             raise ValueError("invalid local logistic optimizer limits")
+        if not 1 <= args.optimizer_polish_max_iter <= args.optimizer_max_iter:
+            raise ValueError("optimizer polish max iter must lie in [1, optimizer max iter]")
         if not 0.0 < args.optimizer_backtrack_factor < 1.0:
             raise ValueError("optimizer backtrack factor must lie in (0,1)")
     else:
@@ -242,6 +251,8 @@ def method_config(args):
                 "response_stabilization": SMOOTHING_RULE,
                 "optimizer": "site_local_FISTA_adaptive_restart_backtracking",
                 "optimizer_max_iter": args.optimizer_max_iter,
+                "optimizer_momentum_reset_polish_rule": MOMENTUM_RESET_POLISH_RULE,
+                "optimizer_polish_max_iter": args.optimizer_polish_max_iter,
                 "optimizer_tolerance": args.optimizer_tolerance,
                 "optimizer_initial_step": args.optimizer_initial_step,
                 "optimizer_backtrack_factor": args.optimizer_backtrack_factor,
@@ -403,6 +414,7 @@ def run(args):
             cv_seed_offset=args.cv_seed_offset,
             scale_floor=args.standardization_scale_floor,
             optimizer_max_iter=args.optimizer_max_iter,
+            optimizer_polish_max_iter=args.optimizer_polish_max_iter,
             optimizer_tolerance=args.optimizer_tolerance,
             optimizer_initial_step=args.optimizer_initial_step,
             optimizer_backtrack_factor=args.optimizer_backtrack_factor,

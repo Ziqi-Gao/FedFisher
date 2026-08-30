@@ -51,7 +51,7 @@ one_shot_acquire_variant_lock() {
     }
     _one_shot_validate_variant "${variant}" || return $?
     one_shot_prepare_lock_root || return $?
-    lock_path="${ONE_SHOT_CPU_LOCK_ROOT}/formal_${variant}.lock"
+    lock_path="${ONE_SHOT_CPU_LOCK_ROOT}/formal_stationarity_polish_${variant}.lock"
     [[ ! -L "${lock_path}" ]] || {
         echo "One-shot lock file may not be a symlink: ${lock_path}" >&2
         return 2

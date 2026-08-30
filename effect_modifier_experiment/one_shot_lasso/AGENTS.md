@@ -21,7 +21,12 @@ protocols.  It may not weaken either parent contract.
   communication separately.
 - Logistic L1 penalizes only the `covariate_dim` `A*X` coefficients.  Its site-local
   epsilon=1/(n_k+1) soft-target separation correction must be manifest-bound
-  and audited; it may not be represented as a coefficient penalty.  MLP explicit-interaction group regularization penalizes only the
+  and audited; it may not be represented as a coefficient penalty.  A legacy
+  FISTA false flag may be polished only when its final prox-gradient and KKT
+  residuals already pass the unchanged threshold: reset momentum, retain the
+  same lambda/tolerance, allow at most 50 deterministic iterations, and audit
+  pre/post residuals plus coefficient drift.  Genuinely nonstationary fits must
+  still fail closed.  MLP explicit-interaction group regularization penalizes only the
   `covariate_dim` first-layer `A*X` input columns, with one L2 group over
   all first hidden units per column.  It must not be described as identifiable
   effect-modifier selection because unpenalized A/X nonlinear paths remain.
@@ -40,7 +45,7 @@ protocols.  It may not weaken either parent contract.
   each with one compute thread.  Its locks live only under
   `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/` and
   are disjoint from GPU and dsLassoCov lock namespaces.  Scheduler operations
-  may inspect and control only the four short `ff_os_*300` sessions and their
+  may inspect and control only the four short `ff_osp_*300` sessions and their
   own worker processes; they must never wipe, kill, renice, reschedule, or
   otherwise interfere with J-lens, dsLassoCov, an ablation, or any foreign
   experiment.

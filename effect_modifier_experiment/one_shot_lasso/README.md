@@ -11,7 +11,12 @@ Each site independently fits a Bernoulli logistic LASSO.  For
 `covariate_dim = d`, the intercept, treatment indicator, and `d` raw covariate
 main effects are unpenalized; L1 is applied only to the `d` explicit
 treatment-by-covariate interactions.  Standardization, five-fold CV, lambda
-selection, and final refit occur inside the site.  The site back-transforms and
+selection, and final refit occur inside the site.  If an accelerated path reaches its iteration limit with the legacy update-gate
+flag false while both final prox-gradient and KKT residuals already pass the
+unchanged threshold, the site performs a deterministic momentum-reset polish
+for at most 50 iterations at the same lambda and tolerance.  Pre/post residuals
+and coefficient drift are audited; a genuinely nonstationary fit is rejected.
+The site back-transforms and
 uploads one payload: int64 `site_idx`, int64 `n_k`, and `2 + 2*d` float64
 raw-scale coefficients (202 coefficients at the formal default `d = 100`).
 The server computes the strict sample-count weighted arithmetic mean.
@@ -76,6 +81,8 @@ one_shot_mlp_group_lasso_fedavg_<variant>_...
 
 Durable output is restricted to
 `/data/del6500/FedFisher/effect_modifier_experiment/outputs/<RUN_ID>/`.
+The failed legacy formal RUN_IDs remain preserved without overwrite.  Repaired
+formal cohorts end in `_stationarity_polish_300seeds`.
 A formal multi-seed RUN_ID passes --seed-start 0 --seed-end 299 on every
 cell invocation; the current cell seed must lie inside that manifest-bound range.
 Every run has a self-consistent format-v2 manifest binding source provenance,
@@ -94,7 +101,7 @@ Formal worker locks are isolated under
 `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/`.
 Validated cells resume by skipping; partial cells, changed source/config,
 invalid manifests, and hash mismatches fail closed without overwrite.  The
-launcher and status command recognize only their four `ff_os_*300` sessions
+launcher and status command recognize only their four `ff_osp_*300` sessions
 and never wipe or control foreign processes.  Full 300-seed launch still
 requires no-cache syntax, all regression tests, and a same-source four-cell
 seed-0 CPU smoke.

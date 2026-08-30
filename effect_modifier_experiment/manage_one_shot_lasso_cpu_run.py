@@ -36,6 +36,7 @@ from effect_modifier_experiment.run_one_shot_lasso_effect_modifier import (
 
 FORMAL_SEED_START = 0
 FORMAL_SEED_END = 299
+FORMAL_RUN_SUFFIX = "stationarity_polish_300seeds"
 MODELS = {
     "one_shot_local_logistic_lasso_fedavg": ("linear",),
     "one_shot_mlp_group_lasso_fedavg": ("SyntheticMLP", "SyntheticMLPDeep"),
@@ -46,7 +47,7 @@ INVALID_OR_PARTIAL_EXIT = 4
 
 
 def formal_run_id(family, variant):
-    return "%s_%s_300seeds" % (family, variant)
+    return "%s_%s_%s" % (family, variant, FORMAL_RUN_SUFFIX)
 
 
 def formal_runner_args(family, variant, seed=0, split="iid", model=None):
@@ -95,6 +96,7 @@ def formal_runner_args(family, variant, seed=0, split="iid", model=None):
                 "--lambda-min-ratio", "0.001",
                 "--cv-seed-offset", "4000037",
                 "--optimizer-max-iter", "2000",
+                "--optimizer-polish-max-iter", "50",
                 "--optimizer-tolerance", "1e-6",
                 "--optimizer-initial-step", "1.0",
                 "--optimizer-backtrack-factor", "0.5",

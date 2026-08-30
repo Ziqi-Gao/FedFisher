@@ -42,13 +42,15 @@ class OneShotCpuSchedulerTests(unittest.TestCase):
             self.assertEqual(run_config(args)["splits"], ["iid", "noniid"])
             self.assertEqual(method_config(args)["training_communication_rounds"], 1)
         self.assertEqual((logistic.cv_folds, logistic.lambda_count), (5, 30))
+        self.assertEqual(logistic.optimizer_polish_max_iter, 50)
+        self.assertEqual(method_config(logistic)["optimizer_polish_max_iter"], 50)
         self.assertEqual((mlp.local_epochs, mlp.batch_size), (30, 64))
         self.assertEqual(mlp.lambda_ratios, (0.0, 1.0, 3.0, 10.0, 30.0, 100.0, 300.0))
 
     def test_formal_run_ids_models_and_evaluation_rounds(self):
         self.assertEqual(
             formal_run_id("one_shot_local_logistic_lasso_fedavg", "control"),
-            "one_shot_local_logistic_lasso_fedavg_control_300seeds",
+            "one_shot_local_logistic_lasso_fedavg_control_stationarity_polish_300seeds",
         )
         self.assertEqual(MODELS["one_shot_local_logistic_lasso_fedavg"], ("linear",))
         self.assertEqual(
@@ -78,7 +80,7 @@ class OneShotCpuSchedulerTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, combined)
         launcher = SHELLS[2].read_text(encoding="utf-8")
-        for session in ("ff_os_ctl300", "ff_os_gau300", "ff_os_loc300", "ff_os_cmb300"):
+        for session in ("ff_osp_ctl300", "ff_osp_gau300", "ff_osp_loc300", "ff_osp_cmb300"):
             self.assertIn(session, launcher)
             self.assertLess(len(session), 32)
         self.assertIn("total_configured_cpu_threads=4", launcher)

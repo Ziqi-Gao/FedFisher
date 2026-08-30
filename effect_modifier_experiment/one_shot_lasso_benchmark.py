@@ -29,6 +29,8 @@ from effect_modifier_experiment.dslassocov_benchmark import (
     RawSite,
 )
 from effect_modifier_experiment.one_shot_local_logistic import (
+    DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    MOMENTUM_RESET_POLISH_RULE,
     SMOOTHING_RULE,
     separation_safe_local_logistic_cv,
 )
@@ -184,6 +186,7 @@ class LocalLogisticConfig:
     cv_seed_offset: int = 4000037
     scale_floor: float = 1e-12
     optimizer_max_iter: int = 2000
+    optimizer_polish_max_iter: int = DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER
     optimizer_tolerance: float = 1e-6
     optimizer_initial_step: float = 1.0
     optimizer_backtrack_factor: float = 0.5
@@ -269,6 +272,7 @@ def fit_local_logistic_lasso_site(
         cv_seed=config.cv_seed_offset + int(experiment_seed) + site.site_idx * 100003,
         scale_floor=config.scale_floor,
         optimizer=optimizer,
+        polish_max_iter=config.optimizer_polish_max_iter,
     )
     selected_index = int(fit["cv"]["selected_index"])
     selected_fold_reports = [

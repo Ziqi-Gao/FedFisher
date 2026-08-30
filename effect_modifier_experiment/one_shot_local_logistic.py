@@ -30,6 +30,10 @@ from effect_modifier_experiment.dslassocov_benchmark import (
 
 
 SMOOTHING_RULE = "site_local_epsilon_1_over_n_plus_1_soft_binary_targets"
+MOMENTUM_RESET_POLISH_RULE = (
+    "reset_fista_momentum_when_legacy_flag_false_but_final_prox_and_kkt_pass"
+)
+DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER = 50
 
 
 def _soft_targets(labels: np.ndarray, epsilon: float) -> np.ndarray:
@@ -78,12 +82,110 @@ def _unpenalized_start(
     return coefficients, report
 
 
+def _passes_final_stationarity(report: Dict[str, object]) -> bool:
+    threshold = float(report["stationarity_threshold"])
+    proximal = float(report["proximal_gradient_mapping_inf"])
+    kkt = float(report["kkt_residual_inf"])
+    return bool(
+        np.isfinite([threshold, proximal, kkt]).all()
+        and threshold > 0.0
+        and proximal <= threshold
+        and kkt <= threshold
+    )
+
+
+def _momentum_reset_polish(
+    standardized_sites,
+    penalty_start: int,
+    lambda_value: float,
+    coefficients: np.ndarray,
+    report: Dict[str, object],
+    optimizer: OptimizerConfig,
+    polish_max_iter: int,
+) -> Tuple[np.ndarray, Dict[str, object]]:
+    """Resolve a FISTA update-gate false negative without relaxing KKT."""
+    report = dict(report)
+    trigger_stationarity_passed = _passes_final_stationarity(report)
+    if bool(report["converged"]) or not trigger_stationarity_passed:
+        report["momentum_reset_polish"] = {
+            "rule": MOMENTUM_RESET_POLISH_RULE,
+            "attempted": False,
+            "trigger_legacy_converged": bool(report["converged"]),
+            "trigger_final_stationarity_passed": trigger_stationarity_passed,
+            "max_iter": int(polish_max_iter),
+        }
+        return coefficients, report
+
+    polish_optimizer = OptimizerConfig(
+        max_iter=min(int(polish_max_iter), int(optimizer.max_iter)),
+        tolerance=float(optimizer.tolerance),
+        initial_step=float(optimizer.initial_step),
+        backtrack_factor=float(optimizer.backtrack_factor),
+        min_step=float(optimizer.min_step),
+    )
+    polished_coefficients, polish_report = proximal_gradient_fit(
+        standardized_sites,
+        penalty_start=penalty_start,
+        lambda_value=float(lambda_value),
+        config=polish_optimizer,
+        initial_coefficients=coefficients,
+    )
+    polish_report = dict(polish_report)
+    polish_stationarity_passed = _passes_final_stationarity(polish_report)
+    coefficient_max_drift = float(
+        np.max(np.abs(polished_coefficients - coefficients))
+    )
+
+    combined = dict(polish_report)
+    combined["initial_objective"] = float(report["initial_objective"])
+    combined["iterations"] = int(report["iterations"]) + int(
+        polish_report["iterations"]
+    )
+    for key in (
+        "backtracking_loss_rounds",
+        "gradient_rounds",
+        "total_backtracks",
+        "adaptive_restarts",
+    ):
+        combined[key] = int(report[key]) + int(polish_report[key])
+    combined["converged"] = bool(
+        polish_report["converged"] and polish_stationarity_passed
+    )
+    combined["momentum_reset_polish"] = {
+        "rule": MOMENTUM_RESET_POLISH_RULE,
+        "attempted": True,
+        "trigger_legacy_converged": bool(report["converged"]),
+        "trigger_final_stationarity_passed": trigger_stationarity_passed,
+        "max_iter": int(polish_optimizer.max_iter),
+        "pre_iterations": int(report["iterations"]),
+        "pre_proximal_gradient_mapping_inf": float(
+            report["proximal_gradient_mapping_inf"]
+        ),
+        "pre_kkt_residual_inf": float(report["kkt_residual_inf"]),
+        "pre_stationarity_threshold": float(report["stationarity_threshold"]),
+        "pre_max_coefficient_update": float(report["max_coefficient_update"]),
+        "post_iterations": int(polish_report["iterations"]),
+        "post_converged": bool(polish_report["converged"]),
+        "post_final_stationarity_passed": polish_stationarity_passed,
+        "post_proximal_gradient_mapping_inf": float(
+            polish_report["proximal_gradient_mapping_inf"]
+        ),
+        "post_kkt_residual_inf": float(polish_report["kkt_residual_inf"]),
+        "post_stationarity_threshold": float(
+            polish_report["stationarity_threshold"]
+        ),
+        "coefficient_max_drift": coefficient_max_drift,
+    }
+    return polished_coefficients, combined
+
+
 def _fit_path(
     standardized_sites,
     penalty_start: int,
     lambda_values: np.ndarray,
     initial_coefficients: np.ndarray,
     optimizer: OptimizerConfig,
+    polish_max_iter: int = DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
 ) -> Tuple[List[np.ndarray], List[Dict[str, object]]]:
     coefficients = initial_coefficients.copy()
     path_coefficients = []
@@ -95,6 +197,15 @@ def _fit_path(
             lambda_value=float(lambda_value),
             config=optimizer,
             initial_coefficients=coefficients,
+        )
+        coefficients, report = _momentum_reset_polish(
+            standardized_sites,
+            penalty_start,
+            float(lambda_value),
+            coefficients,
+            report,
+            optimizer,
+            polish_max_iter,
         )
         report = dict(report)
         report["lambda"] = float(lambda_value)
@@ -115,6 +226,7 @@ def separation_safe_local_logistic_cv(
     cv_seed: int,
     scale_floor: float,
     optimizer: OptimizerConfig,
+    polish_max_iter: int = DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
 ) -> Dict[str, object]:
     """Fit one site's deterministic soft-target logistic LASSO path and CV."""
     expected_feature_dim = 1 + 2 * int(covariate_dim)
@@ -125,6 +237,8 @@ def separation_safe_local_logistic_cv(
         raise ValueError("fold-stratification labels must be binary")
     if lambda_count < 2 or not 0.0 < lambda_min_ratio < 1.0:
         raise ValueError("invalid local lambda path")
+    if polish_max_iter < 1 or polish_max_iter > optimizer.max_iter:
+        raise ValueError("polish_max_iter must lie in [1, optimizer.max_iter]")
 
     num_examples = int(raw_site.features.shape[0])
     epsilon = 1.0 / float(num_examples + 1)
@@ -181,6 +295,7 @@ def separation_safe_local_logistic_cv(
             lambda_values,
             start,
             optimizer,
+            polish_max_iter,
         )
         for lambda_idx, candidate in enumerate(coefficients):
             loss, _, _ = aggregate_loss_and_gradient(
@@ -217,6 +332,7 @@ def separation_safe_local_logistic_cv(
         lambda_values,
         full_start,
         optimizer,
+        polish_max_iter,
     )
     selected_standardized = final_coefficients[selected_index]
     intercept, original_coefficients = backtransform_coefficients(
@@ -248,6 +364,8 @@ def separation_safe_local_logistic_cv(
             "fold_reports": fold_reports,
         },
         "optimizer": {
+            "momentum_reset_polish_rule": MOMENTUM_RESET_POLISH_RULE,
+            "momentum_reset_polish_max_iter": int(polish_max_iter),
             "unpenalized_start": unpenalized_report,
             "lambda_fits": final_reports,
             "selected_lambda_fit": final_reports[selected_index],
