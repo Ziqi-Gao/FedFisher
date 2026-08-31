@@ -82,6 +82,42 @@ important code, data, model weights, or results here.
 - Report the location of newly generated code, data, models, and temporary
   outputs so the three-way separation remains auditable.
 
+## ServerScheduler submission policy
+
+This section governs all new computation and overrides legacy launch commands
+that remain elsewhere in the repository for audit or rollback purposes.
+
+- Submit every new compute task through the centrally registered
+  ServerScheduler entrypoint. A program without a reviewed task name,
+  parameter schema, resource profile, and fixture test is not authorized to
+  run directly.
+- The project may validate a scheduler-owned running-job manifest, but it must
+  never write ServerScheduler pending, running, history, lease, audit, or log
+  state. Scientific outputs continue to belong under the FedFisher `/data` and
+  `/scr` roots.
+- Resource selection belongs to ServerScheduler. Project code must not select
+  physical CPUs or GPUs, implement global concurrency, poll devices, or create
+  project resource locks for centrally managed jobs.
+- The registered project entrypoint must stay in the foreground. It must not
+  create Screen/tmux sessions, daemonize, detach, or background the scientific
+  task.
+- Use `SERVER_SCHEDULER_CPU_CORES`, the scheduler-provided CPU affinity, and
+  one or fewer software workers/BLAS threads per allocated core. Every shard
+  may process only its deterministic seed sequence.
+- GPU tasks must consume the existing scheduler-provided
+  `CUDA_VISIBLE_DEVICES` and treat the assigned device as CUDA device zero.
+  FedFisher GPU task submission is currently disabled; legacy GPU launchers
+  are not an authorized bypass.
+- Delivery is at least once. A zero process exit status is not sufficient
+  scientific completion evidence. Resume only by validating the project run
+  manifest, provenance, semantic result identity, artifact hashes, and the
+  task-specific completion marker. Partial or invalid output must fail closed
+  without overwrite.
+- The only initially registered FedFisher tasks are the CPU-only
+  `effect-modifier-dslassocov-shard` and
+  `effect-modifier-one-shot-lasso-shard`. All other workloads remain blocked
+  until separately adapted, profiled, fixture-tested, piloted, and registered.
+
 ## Shared Compute Non-Interference
 
 - Treat every process, Screen or tmux session, scheduler job, container, GPU

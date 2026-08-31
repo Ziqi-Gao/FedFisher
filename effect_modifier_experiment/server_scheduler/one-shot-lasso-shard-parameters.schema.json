@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/FedFisher/one-shot-lasso-shard-parameters.schema.json",
+  "title": "FedFisher formal one-shot LASSO shard parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["variant", "shard_index", "shard_count"],
+  "properties": {
+    "variant": {
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "shard_index": {"type": "integer", "minimum": 0},
+    "shard_count": {"enum": [8, 16]}
+  },
+  "$comment": "The adapter additionally enforces shard_index < shard_count. Families, models, seeds, splits, formal run IDs, paths, and scientific hyperparameters are fixed by the existing formal manager."
+}

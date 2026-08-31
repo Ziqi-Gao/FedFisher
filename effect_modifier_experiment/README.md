@@ -5,6 +5,21 @@ effect modifiers in the presence of observed confounding, prognostic main
 effects, unequal site sizes, and 98 noise covariates. It preserves the original
 FedFisher aggregation path.
 
+## Current execution status
+
+All new computation must be submitted through ServerScheduler. The initial
+FedFisher registration supports only the CPU dsLassoCov and one-shot LASSO
+shard tasks through
+`/home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py`.
+The adapter remains in the foreground, honors the allocated CPU set and thread
+count, and resumes only through validated scientific completion markers.
+
+GPU effect-modifier experiments are not registered. The GNU Screen launchers,
+GPU polling, and local CPU/GPU lock scripts documented below are legacy audit
+material and must not be used to submit new work. Every pre-cutover artifact is
+retained but non-authoritative; see
+`server_scheduler/legacy-results-policy.md`.
+
 ## Data Model
 
 For each run, draw 10 site sizes independently:
@@ -120,18 +135,19 @@ python main.py \
   --output_dir /data/del6500/FedFisher/effect_modifier_experiment/outputs/prediction_intervention
 ```
 
-## 300-Seed Run on the Current Lab Server
+## Legacy 300-Seed GPU Run (do not submit)
 
-The current host `fsmzhaolabgpu1.fsm.northwestern.edu` does not run Slurm. It
-has four NVIDIA RTX PRO 6000 Blackwell Server Edition GPUs, so the experiment
-uses CUDA 12.8 PyTorch and detached GNU Screen workers instead of `sbatch`.
-Prepare or repair the isolated environment with:
+The following section records the superseded pre-ServerScheduler workflow. It
+is retained for provenance review and export only. The current host does not
+authorize these commands for new work.
+
+The legacy environment was prepared with:
 
 ```bash
 bash scripts/setup_lab_server_env.sh
 ```
 
-Launch one resumable worker for each GPU:
+Legacy launch command (do not run):
 
 ```bash
 bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
@@ -142,7 +158,7 @@ and all three aggregators. If a GPU already has a compute process, its worker
 waits until that GPU is empty for three consecutive one-minute polls. Completed
 seeds receive durable markers and are skipped after a restart.
 
-Check progress with:
+Legacy status commands:
 
 ```bash
 bash scripts/status_synthetic_effect_modifier_local.sh
@@ -200,8 +216,9 @@ within-site reshuffling from
 IID/non-IID splits, site capacities, algorithms, training hyperparameters, the
 common held-out test tensors, and the pooled baseline remain fixed.
 
-For a strict factorial comparison, finalize the source tree and then run all
-four cells without changing the code between launches:
+The following historical commands describe the pre-cutover factorial run and
+must not be launched. A future rerun requires a separately registered GPU task
+and approved pilot:
 
 ```bash
 EFFECT_MODIFIER_VARIANT=control \

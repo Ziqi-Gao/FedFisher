@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/FedFisher/dslassocov-shard-parameters.schema.json",
+  "title": "FedFisher dsLassoCov shard parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["variant", "shard_index", "shard_count"],
+  "properties": {
+    "variant": {
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "shard_index": {"type": "integer", "minimum": 0},
+    "shard_count": {"enum": [1, 2, 4]}
+  },
+  "$comment": "The adapter additionally enforces shard_index < shard_count. Run IDs, paths, seeds, splits, and scientific hyperparameters are derived constants, not caller parameters."
+}

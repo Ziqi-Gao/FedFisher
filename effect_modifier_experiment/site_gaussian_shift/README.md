@@ -6,6 +6,11 @@ capacities, outcome-label counts, held-out test data, prediction intervention,
 and seeds remain the same. The only changed input is the Gaussian covariate
 distribution used to propose each site's training examples.
 
+GPU execution for this ablation is not registered with ServerScheduler and is
+therefore blocked. The commands below document the retained pre-cutover
+workflow only; they must not launch new work. Existing output is preserved but
+non-authoritative under `../server_scheduler/legacy-results-policy.md`.
+
 ## Site distributions
 
 For the default 10 sites, the fixed design is the Cartesian product
@@ -29,7 +34,7 @@ The global held-out test set remains the control `N(0, I)` test set and is
 bitwise identical for a given seed. Prediction intervention remains global, so
 this ablation does not also activate site-local reshuffling.
 
-## Run
+## Legacy run record (do not launch)
 
 This one-change variant intentionally retains global intervention. Use the
 [combined factorial arm](../site_gaussian_local_permutation/README.md), not a
@@ -42,7 +47,7 @@ EFFECT_MODIFIER_VARIANT=site_gaussian_shift \
   bash scripts/status_synthetic_effect_modifier_local.sh
 ```
 
-The existing shared launcher uses seeds 0 through 299, both MLPs, IID and
+The legacy shared launcher used seeds 0 through 299, both MLPs, IID and
 non-IID splits,
 `fedavg`, `fedfisher_diag`, `fedfisher_kfac`, and the pooled prediction
 baseline, matching the control run.
@@ -57,9 +62,9 @@ Each model/split run also writes
 `*_site_gaussian_manifest.csv`, with site sizes, label counts, intended mean
 and standard deviation, and empirical raw-X summaries.
 
-Use `SEED_START` and `SEED_END` for a bounded smoke run. The shared
-launcher waits for idle GPUs and is resumable through validated per-seed
+Historically, `SEED_START` and `SEED_END` bounded a smoke run. The shared
+launcher waited for idle GPUs and resumed through validated per-seed
 completion markers. Its format-v2 `run_manifest.env` binds the output to RUN_ID,
 source provenance, common run configuration, and the explicit variant settings.
-All four factorial manifests must share provenance and common-config hashes. It must not
-be launched on occupied GPUs without separate user authorization.
+All four factorial manifests had to share provenance and common-config hashes.
+A future rerun requires a reviewed central GPU task and approved pilot.

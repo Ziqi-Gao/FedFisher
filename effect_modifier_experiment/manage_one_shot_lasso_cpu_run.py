@@ -48,8 +48,8 @@ MISSING_EXIT = 3
 INVALID_OR_PARTIAL_EXIT = 4
 
 
-def formal_run_id(family, variant):
-    return "%s_%s_%s" % (family, variant, FORMAL_RUN_SUFFIX)
+def formal_run_id(family, variant, run_suffix=FORMAL_RUN_SUFFIX):
+    return "%s_%s_%s" % (family, variant, run_suffix)
 
 
 def workers_per_variant(total_workers):
@@ -78,13 +78,20 @@ def shard_seed_sequence(shard_index, shard_count):
     )
 
 
-def formal_runner_args(family, variant, seed=0, split="iid", model=None):
+def formal_runner_args(
+    family,
+    variant,
+    seed=0,
+    split="iid",
+    model=None,
+    run_suffix=FORMAL_RUN_SUFFIX,
+):
     """Build the manifest-bound, full scientific configuration."""
     if family not in FAMILIES or variant not in VARIANT_CONTRACT:
         raise ValueError("unknown one-shot family or variant")
     if model is None:
         model = MODELS[family][0]
-    run_id = formal_run_id(family, variant)
+    run_id = formal_run_id(family, variant, run_suffix=run_suffix)
     output_dir = expected_output_dir(run_id)
     argv = [
         "--family", family,

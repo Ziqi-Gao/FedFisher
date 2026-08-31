@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "job_id": "fedfisher-dslassocov-fixture",
+  "project": "FedFisher",
+  "task": "effect-modifier-dslassocov-shard",
+  "resources": {
+    "cpu_cores": 1,
+    "memory_mib": 4096,
+    "gpu_count": 0,
+    "gpu_memory_mib": 0,
+    "gpu_utilization_pct": 0,
+    "exclusive_gpu": true
+  },
+  "allocation": {
+    "cpu_cores": 1,
+    "memory_mib": 4096,
+    "gpu_count": 0,
+    "gpu_memory_mib": 0,
+    "gpu_utilization_pct": 0,
+    "exclusive_gpu": true
+  },
+  "parameters": {
+    "variant": "control",
+    "shard_index": 0,
+    "shard_count": 2
+  },
+  "priority": 0,
+  "submitted_at": "2026-08-31T12:00:00Z",
+  "state": "running",
+  "updated_at": "2026-08-31T12:00:01Z",
+  "gpu_index": null,
+  "gpu_uuid": null,
+  "gpu_pci_bus_id": null,
+  "cpu_ids": [0],
+  "numa_node": 0,
+  "stdout_log": "/scr/del6500/ServerScheduler/logs/fedfisher-dslassocov-fixture.stdout.log",
+  "stderr_log": "/scr/del6500/ServerScheduler/logs/fedfisher-dslassocov-fixture.stderr.log",
+  "exit_code": null,
+  "failure_reason": null
+}

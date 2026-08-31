@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "job_id": "fedfisher-one-shot-control-shard-0-of-16",
+  "project": "FedFisher",
+  "task": "effect-modifier-one-shot-lasso-shard",
+  "resources": {
+    "cpu_cores": 1,
+    "memory_mib": 8192,
+    "gpu_count": 0,
+    "gpu_memory_mib": 0,
+    "gpu_utilization_pct": 0,
+    "exclusive_gpu": true
+  },
+  "parameters": {
+    "variant": "control",
+    "shard_index": 0,
+    "shard_count": 16
+  },
+  "priority": 0
+}

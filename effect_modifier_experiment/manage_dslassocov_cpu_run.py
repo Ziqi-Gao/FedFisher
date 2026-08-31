@@ -282,11 +282,23 @@ def validate_manifest_fields(manifest, expected):
             )
 
 
-def initialize_run(run_id, variant):
+def initialize_run(run_id, variant, create_legacy_scheduler_dirs=True):
+    """Initialize a scientific run without requiring legacy scheduler state.
+
+    The default preserves the local-launcher behavior.  The ServerScheduler
+    adapter passes ``False`` so initialization does not create the legacy log
+    or lock directories; scientific outputs, manifests, and runtime paths are
+    unchanged.
+    """
     validate_run_id(run_id, variant)
     values = config_from_environment(variant)
     paths = _paths(run_id)
-    for path in paths.values():
+    paths_to_create = {
+        key: path
+        for key, path in paths.items()
+        if create_legacy_scheduler_dirs or key not in {"log_dir", "lock_dir"}
+    }
+    for path in paths_to_create.values():
         path.mkdir(parents=True, exist_ok=True)
         _validate_tree_has_no_symlinks(path)
     manifest_path = paths["output_dir"] / "run_manifest.env"
@@ -307,7 +319,7 @@ def initialize_run(run_id, variant):
     validate_manifest_fields(manifest, expected)
     stored_values = validate_manifest_self_consistency(manifest, run_id, variant)
     validate_config(stored_values)
-    for path in paths.values():
+    for path in paths_to_create.values():
         _validate_tree_has_no_symlinks(path)
     return paths, manifest
 

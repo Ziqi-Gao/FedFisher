@@ -19,6 +19,34 @@ experiment.
   - `train_model.py`
   - `utils/compress_fisher.py`
 
+## ServerScheduler execution policy
+
+- All new effect-modifier computation must enter through
+  `scripts/fedfisher_server_scheduler_adapter.py` and a registered fixed task
+  name. Direct launcher, worker, Screen, and lock commands below describe
+  preserved legacy behavior only and must not be used for new work.
+- The first registered workloads are the CPU-only
+  `effect-modifier-dslassocov-shard` and
+  `effect-modifier-one-shot-lasso-shard`. The GPU FedFisher ablation workload
+  remains blocked until a separate foreground adapter and reviewed GPU memory,
+  utilization, sharing, and compatible-model profile exist.
+- ServerScheduler owns physical CPU/GPU selection, affinity, admission, and
+  global concurrency. The project must honor `SERVER_SCHEDULER_CPU_CORES` and
+  the existing scheduler-provided `CUDA_VISIBLE_DEVICES`; it must not poll
+  devices or create project resource locks for centrally managed jobs.
+- A central shard stays in the foreground, uses at most its allocated software
+  threads, and processes only seeds congruent to its `shard_index` modulo
+  `shard_count`.
+- Delivery is at least once. Skip work only after the existing manifest,
+  provenance, semantic-result, artifact-hash, and completion-marker checks all
+  pass. Never treat process exit alone as scientific completion evidence.
+- Project output remains under the standard FedFisher `/data` and `/scr`
+  trees. Never write ServerScheduler queue, running-job, lease, audit, or log
+  state.
+- Every pre-cutover artifact is retained for audit but is non-authoritative and
+  must not be resumed or mixed with scheduler-era output. Scheduler-era runs
+  use fixed `server_scheduler_v1` namespaces.
+
 ## Data Contract
 
 - The dataset is `SyntheticEffectModifier`.
@@ -68,17 +96,16 @@ experiment.
 - Blackwell `sm_120` requires the CUDA 12.8 PyTorch build pinned in
   `requirements.txt`; the old PyTorch 2.1/CUDA 11.8 Quest environment is not
   valid here.
-- Launch the 300-seed experiment with
-  `scripts/launch_synthetic_effect_modifier_300seeds_local.sh`. It creates one
-  detached GNU Screen worker per selected GPU and resumes from per-seed done
-  markers.
-- By default each slot must wait until its physical GPU has no compute process
-  for three consecutive polls. Do not bypass that guard while another user's
-  process owns the GPU unless the user explicitly authorizes sharing.
+- `scripts/launch_synthetic_effect_modifier_300seeds_local.sh` and its detached
+  GNU Screen/GPU-idle workflow are preserved legacy code. Do not use them for
+  new work. No GPU effect-modifier task is currently registered.
 - The `.slurm` runner is retained only as a legacy/export path for a real Slurm
   cluster; it is not the current-server entry point.
 
-## Shared-GPU Overlay Procedure
+## Legacy Shared-GPU Overlay Procedure (disabled for new work)
+
+This section records the old safety boundary for audit. It does not authorize
+an overlay launch or bypass the ServerScheduler registration requirement.
 
 - Normal launches keep `WAIT_FOR_GPU_IDLE=1`; each slot waits for three
   consecutive idle polls before starting its worker.
@@ -133,12 +160,12 @@ experiment.
   intervention scope as the second arm, without changing any other setting.
   Direct CLI use of both low-level switches requires the explicit
   `--effect_modifier_combined_ablation` opt-in.
-- Route every arm through the existing
-  `launch_synthetic_effect_modifier_300seeds_local.sh` -> slot -> worker
-  scheduler chain. Select exactly one experiment with
-  `EFFECT_MODIFIER_VARIANT=control`, `site_gaussian_shift`,
-  `local_permutation`, or `site_gaussian_local_permutation`. Do not add parallel
-  GPU launch, slot, worker, or status scripts for these experiments.
+- The existing
+  `launch_synthetic_effect_modifier_300seeds_local.sh` -> slot -> worker chain
+  is a preserved legacy implementation and may not launch new work. A future
+  GPU migration must use one registered central task with a fixed variant
+  allowlist; do not add parallel local GPU launch, slot, worker, or status
+  scripts.
 - Durable outputs are strictly bound to
   `/data/del6500/FedFisher/effect_modifier_experiment/outputs/<RUN_ID>/`.
   Logs and runtime caches are strictly bound to the corresponding standard
@@ -176,6 +203,14 @@ experiment.
   then obtain explicit launch confirmation.
 
 ## dsLassoCov-style CPU Benchmark Contract
+
+- For new work, one ServerScheduler job owns one deterministic dsLassoCov
+  shard. The registered profile fixes one physical CPU core and at least 4096
+  MiB memory. Allowed shard counts are 1, 2, or 4. The adapter uses the existing
+  manager/runner directly in the foreground and does not create local launch or
+  seed locks.
+- The shell launcher, Screen sessions, and CPU-lock rules below are retained to
+  explain pre-cutover artifacts only. They are not authorized submission paths.
 
 - The additive benchmark name is **dsLassoCov-style federated logistic LASSO
   (Python benchmark; not official R/DataSHIELD dsLassoCov)**. It is a

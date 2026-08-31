@@ -8,6 +8,11 @@ implementations:
 - prediction-intervention permutation occurs only within that site's held-out
   shard.
 
+GPU execution for this arm is not registered with ServerScheduler and is
+therefore blocked. The commands below document the retained pre-cutover
+workflow only; they must not launch new work. Existing output is preserved but
+non-authoritative under `../server_scheduler/legacy-results-policy.md`.
+
 No other setting changes. Seeds, realized training-site sizes, requested label
 counts, outcome and treatment mechanisms, models, algorithms, training
 hyperparameters, the common held-out test tensors, and pooled baselines match
@@ -42,16 +47,16 @@ Every model/split run writes both:
 - `*_prediction_intervention_site_summary.csv`, containing site-level recovery
   metrics.
 
-## Run
+## Legacy run record (do not launch)
 
-Use the existing shared GPU scheduler:
+The legacy shared GPU scheduler was invoked as follows:
 
 ```bash
 EFFECT_MODIFIER_VARIANT=site_gaussian_local_permutation \
   bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
 ```
 
-Check status with:
+The legacy status command was:
 
 ```bash
 EFFECT_MODIFIER_VARIANT=site_gaussian_local_permutation \
@@ -65,17 +70,17 @@ Default durable output:
 /data/del6500/FedFisher/effect_modifier_experiment/outputs/site_gaussian_local_permutation_300seeds/
 ```
 
-Logs and runtime caches use the corresponding standard paths under
+Logs and runtime caches used the corresponding standard paths under
 `/scr/del6500/FedFisher/effect_modifier_experiment/`; GPU locks remain in the
 single shared lock directory. No additional launcher, slot, worker, status, or
 GPU scheduling script is used.
 
-Direct manual invocation of `main.py` with both low-level switches also
-requires `--effect_modifier_combined_ablation`. The shared worker supplies this
-opt-in automatically for this exact variant.
+Direct manual invocation of `main.py` is not an authorized workaround. The
+historical combined invocation required `--effect_modifier_combined_ablation`.
 
-For a strict formal comparison, run control, the two one-change arms, and this
-combined arm from the same finalized source tree. The summary requires all four
+For a strict future comparison, a reviewed central GPU task must run control,
+the two one-change arms, and this combined arm from the same finalized source
+tree. The summary requires all four
 format-v2 manifests to share provenance and common configuration hashes, and
 reports both combined-versus-control deltas and the factorial interaction
 `combined - Gaussian - local + control`.

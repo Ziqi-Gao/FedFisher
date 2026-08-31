@@ -34,6 +34,45 @@ algs/fisher_avg.py
 utils/compress_fisher.py
 ```
 
+## Execution and submission policy
+
+The canonical code root is `/home/del6500/projects/FedFisher`. All new compute
+work on the lab server must be submitted through ServerScheduler. Direct
+Python, Slurm, GNU Screen, and local resource-lock launch commands shown later
+in this README are retained only as legacy/export documentation and are not
+authorized execution paths on the current host.
+
+The stable project entrypoint is:
+
+```text
+/home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py
+```
+
+The first migration stage registers only these CPU tasks:
+
+- `effect-modifier-dslassocov-shard`: one physical CPU core, at least 4096 MiB
+  host memory, `shard_count` in `1,2,4`.
+- `effect-modifier-one-shot-lasso-shard`: one physical CPU core, at least 8192
+  MiB host memory, `shard_count` in `8,16`.
+
+Both accept one of `control`, `site_gaussian_shift`, `local_permutation`, or
+`site_gaussian_local_permutation`, plus a valid zero-based `shard_index` below
+`shard_count`. Run IDs, paths, seed ranges, models, splits, and scientific
+hyperparameters are fixed by project code rather than request parameters.
+Example requests and parameter schemas live under
+`effect_modifier_experiment/server_scheduler/`.
+
+GPU submission is disabled. Any other program is also blocked until it has a
+reviewed task profile, strict parameter schema, foreground adapter path,
+fixture tests, and an approved pilot. ServerScheduler owns CPU/GPU selection
+and global concurrency. FedFisher owns scientific provenance, output
+validation, completion markers, and at-least-once resume behavior.
+
+All artifacts created before this canonical scheduler cutover are retained for
+audit but are non-authoritative and must not be resumed or combined with new
+results. See
+`effect_modifier_experiment/server_scheduler/legacy-results-policy.md`.
+
 ## Install
 
 On the current lab server, create the isolated Blackwell-compatible environment
@@ -243,18 +282,17 @@ python main.py \
   --output_dir /data/del6500/FedFisher/effect_modifier_experiment/outputs/prediction_intervention
 ```
 
-Current lab-server runner:
+Legacy lab-server runner (retained for audit; do not launch new work):
 
 ```bash
 bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
 bash scripts/status_synthetic_effect_modifier_local.sh
 ```
 
-The current host has no Slurm service. The launcher therefore uses four
-detached, resumable GNU Screen workers and waits for existing GPU processes to
-finish before starting. See `effect_modifier_experiment/README.md` for the exact
-data contract, capacity-constrained IID/non-IID partitioning, evaluation,
-recovery, and storage paths.
+These commands describe the superseded pre-ServerScheduler workflow. They use
+detached GNU Screen workers and project-local GPU admission, so they are not a
+valid current-host submission path. See `effect_modifier_experiment/README.md`
+for the scientific contract and current migration status.
 
 ## Legacy Supervised Feature Importance
 
@@ -377,7 +415,7 @@ python main.py \
 For CSVs without a header, omit `--local_has_header` and pass a zero-based
 column index. The default label column is `-1`, meaning the last column.
 
-## Legacy Quest Slurm Runs
+## Legacy Quest Slurm Runs (export only; not a submission path)
 
 The following runners belong to the original SyntheticBinary Quest workflow.
 They are retained for reproducibility but are not valid submission commands on

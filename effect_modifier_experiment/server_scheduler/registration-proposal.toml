@@ -1,0 +1,52 @@
+schema_version = 1
+name = "FedFisher"
+enabled = false
+integration_status = "adapter-fixture-tested-gpu-blocked"
+
+[paths]
+code_root = "/home/del6500/projects/FedFisher"
+data_root = "/data/del6500/FedFisher"
+scratch_root = "/scr/del6500/FedFisher"
+proposed_handoff_root = "/scr/del6500/FedFisher/scheduler"
+
+[policy]
+allow_cpu_jobs = true
+allow_gpu_jobs = false
+allow_process_signals = false
+allow_project_file_mutation = false
+
+[integration]
+entrypoint = "/home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py"
+allowed_tasks = [
+  "effect-modifier-dslassocov-shard",
+  "effect-modifier-one-shot-lasso-shard",
+]
+notes = "Proposal only. Pre-cutover results are retained but non-authoritative. Keep disabled until the canonical project commit is installed and an explicitly authorized CPU pilot passes. GPU jobs remain blocked."
+
+[[tasks]]
+name = "effect-modifier-dslassocov-shard"
+resource_mode = "fixed"
+scheduling_goal = "throughput"
+cpu_cores_min = 1
+cpu_cores_preferred = 1
+cpu_cores_max = 1
+memory_mib = 4096
+gpu_count = 0
+gpu_memory_mib = 0
+gpu_utilization_pct = 0
+exclusive_gpu = true
+gpu_models = []
+
+[[tasks]]
+name = "effect-modifier-one-shot-lasso-shard"
+resource_mode = "fixed"
+scheduling_goal = "throughput"
+cpu_cores_min = 1
+cpu_cores_preferred = 1
+cpu_cores_max = 1
+memory_mib = 8192
+gpu_count = 0
+gpu_memory_mib = 0
+gpu_utilization_pct = 0
+exclusive_gpu = true
+gpu_models = []

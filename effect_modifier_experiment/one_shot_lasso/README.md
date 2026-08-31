@@ -3,6 +3,27 @@
 This directory documents two additive one-round baselines.  Neither replaces
 the existing multi-round `dslassocov_*` implementation or its durable results.
 
+## Current execution policy
+
+All new runs use the registered ServerScheduler task
+`effect-modifier-one-shot-lasso-shard`. One foreground job owns one
+deterministic shard for one reviewed variant, receives one physical CPU core
+and at least 8192 MiB host memory, and uses one compute thread. `shard_count`
+is exactly 8 or 16 and `0 <= shard_index < shard_count`; all other scientific
+configuration is fixed by the existing formal manager.
+
+The adapter initializes both method families in the fixed
+`_stationarity_polish_server_scheduler_v1_300seeds` namespace. It processes
+only the shard's seed sequence, skips only cells whose manifest, provenance,
+semantic identity, completion marker, and artifact hashes validate, and
+refuses partial or invalid output. ServerScheduler owns CPU affinity,
+admission, global concurrency, and logs. Centrally managed jobs do not create
+Screen sessions or project CPU locks.
+
+Pre-cutover results, including the incomplete sharded cohort, are retained for
+audit but are non-authoritative and may not be resumed or combined with new
+results.
+
 ## Families
 
 ### `one_shot_local_logistic_lasso_fedavg`
@@ -90,19 +111,19 @@ Every run has a self-consistent format-v2 manifest binding source provenance,
 the common DGP/evaluation configuration, the family method configuration, and
 the variant contract.  Existing files are never overwritten.
 
-The formal CPU launcher is
+The legacy formal CPU launcher is
 `scripts/launch_effect_modifier_one_shot_lasso_cpu.sh`; its read-only status
 command is `scripts/status_effect_modifier_one_shot_lasso_cpu.sh`.  `TOTAL_WORKERS`
 selects exactly 32 or 64 workers (32 by default), divided evenly into 8 or 16
 deterministic seed shards for each factorial variant.  Every short-name Screen
-session uses one CPU thread while processing both isolated method families for
-its disjoint seeds.  No GPU environment, GPU lock, or GPU scheduler is used.
+session used one CPU thread while processing both isolated method families for
+its disjoint seeds. No GPU environment, GPU lock, or GPU scheduler was used.
+These commands are preserved for audit and must not launch new work.
 
-Formal per-variant, per-shard worker locks are isolated under
+Legacy per-variant, per-shard worker locks are isolated under
 `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/`.
 Validated cells resume by skipping; partial cells, changed source/config,
 invalid manifests, and hash mismatches fail closed without overwrite.  The
-launcher and status command recognize only their `ff_os2_*` sessions
-and never wipe or control foreign processes.  Full 300-seed launch still
-requires no-cache syntax, all regression tests, and a same-source four-cell
-seed-0 CPU smoke.
+launcher and status command recognize only their `ff_os2_*` sessions and never
+wipe or control foreign processes. They are not part of the current central
+submission path.

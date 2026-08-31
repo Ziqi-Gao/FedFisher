@@ -3,6 +3,23 @@
 This contract is additive to the repository and parent effect-modifier
 protocols.  It may not weaken either parent contract.
 
+- All new one-shot computation must use the registered
+  `effect-modifier-one-shot-lasso-shard` task through the foreground FedFisher
+  ServerScheduler adapter. A job receives one physical CPU core, at least 8192
+  MiB host memory, one compute thread, one reviewed variant, and exactly one of
+  8 or 16 deterministic seed shards per variant.
+- ServerScheduler owns CPU affinity, admission, logs, and global concurrency.
+  The project must not create Screen sessions or acquire the legacy one-shot
+  CPU locks for a centrally managed shard. A shard processes only seeds
+  congruent to `shard_index` modulo `shard_count`.
+- Delivery is at least once. Process exit is not completion evidence. Continue
+  to require the manifest, current provenance, semantic result identity, every
+  artifact hash, and the cell done marker before skipping work. Partial or
+  invalid cells fail closed without overwrite.
+- Pre-cutover one-shot outputs are retained for audit but are non-authoritative
+  and may not be resumed. New output uses the fixed
+  `stationarity_polish_server_scheduler_v1_300seeds` suffix.
+
 - Preserve the multi-round `dslassocov_*` source and durable results as a
   reference.  Never delete, rename, or overwrite them.
 - One-shot families use only the disjoint
@@ -41,10 +58,9 @@ protocols.  It may not weaken either parent contract.
   whose manifest, current source/config, done marker, semantic identity, and
   every artifact hash validate; any partial or invalid cell fails closed and
   is never overwritten.
-- Formal 300-seed execution is CPU-only and uses a scheduler-controlled total
-  of exactly 32 or 64 workers, split evenly as 8 or 16 deterministic seed
-  shards per variant.  Every worker uses one compute thread.  Its locks live
-  only under
+- Legacy formal 300-seed execution was CPU-only and used a local total of
+  exactly 32 or 64 workers, split evenly as 8 or 16 deterministic seed shards
+  per variant. Every worker used one compute thread. Its locks live only under
   `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/` and
   are disjoint from GPU and dsLassoCov lock namespaces.  Scheduler operations
   may inspect and control only the short `ff_os2_<variant>_<shard>of<count>`
@@ -53,7 +69,8 @@ protocols.  It may not weaken either parent contract.
   variant and shard, while deterministic disjoint seed assignment prevents
   cell collisions.  They must never wipe, broadly kill, renice, reschedule, or
   otherwise interfere with J-lens, dsLassoCov, an ablation, or any foreign
-  experiment.
+  experiment. These Screen and lock rules are retained for legacy audit only;
+  they do not authorize new local launches.
 - Do not add or bypass GPU scheduling scripts.  Do not start 300-seed work
   until no-cache syntax, all old and new tests, and a same-source four-cell
   seed-0 CPU smoke pass and are reviewed.

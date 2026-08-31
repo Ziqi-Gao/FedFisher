@@ -88,6 +88,24 @@ Source: [Scientific Reports article and method equations](https://www.nature.com
 
 ## CPU-only execution and storage
 
+All new runs use the registered ServerScheduler task
+`effect-modifier-dslassocov-shard`. One central job owns one deterministic
+shard, stays in the foreground, receives one physical CPU core, and requests at
+least 4096 MiB host memory. Parameters are limited to the four reviewed
+variants, `shard_count` in `1,2,4`, and a zero-based `shard_index` below that
+count. Run IDs, paths, seed range `0..299`, splits, and scientific
+hyperparameters are derived by the adapter and cannot be supplied by a caller.
+
+ServerScheduler owns CPU selection, affinity, admission, logs, and global
+concurrency. The adapter sets every BLAS/OpenMP pool to one thread and calls the
+existing manager and runner directly. It skips only a fully validated seed
+marker and refuses partial or invalid artifacts. Scheduler-era output uses the
+fixed `dslassocov_<variant>_server_scheduler_v1_300seeds` namespace.
+
+The shell launcher, Screen workers, and lock paths described below are retained
+only to audit pre-cutover runs. They are not valid submission paths for new
+work.
+
 The CPU launcher is separate from the existing GPU launcher/slot/worker chain.
 It does not query GPUs, set a device visibility variable, use GPU locks, or
 control any foreign process. Defaults are two CPU workers with one BLAS/Torch
@@ -121,7 +139,7 @@ benchmark/CV/optimizer config, and explicit variant config. Existing nonempty
 directories without a matching manifest are rejected. Partial split artifacts
 are never overwritten or counted as complete.
 
-## Full 300-seed commands (do not launch before approval)
+## Legacy full 300-seed commands (do not launch)
 
 ```bash
 EFFECT_MODIFIER_VARIANT=control \
@@ -151,7 +169,7 @@ After all four are complete:
 python -B scripts/check_effect_modifier_dslassocov_invariants.py
 ```
 
-## Bounded smoke template
+## Legacy bounded smoke template (do not launch directly)
 
 The smoke retains 100 raw covariates, 10 sites, and site sizes `500..1000`,
 but bounds test size, folds, lambda count, and intervention repeats:
