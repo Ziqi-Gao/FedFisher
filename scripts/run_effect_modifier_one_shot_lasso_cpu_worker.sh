@@ -11,12 +11,27 @@ fail() {
     exit 2
 }
 
-[[ $# -eq 1 ]] || fail "Usage: $0 VARIANT"
+[[ $# -eq 4 ]] || fail "Usage: $0 VARIANT SHARD_INDEX SHARD_COUNT TOTAL_WORKERS"
 variant="$1"
+shard_index_raw="$2"
+shard_count_raw="$3"
+total_workers="$4"
 case "${variant}" in
     control|site_gaussian_shift|local_permutation|site_gaussian_local_permutation) ;;
     *) fail "Unknown effect-modifier variant: ${variant}" ;;
 esac
+[[ "${shard_index_raw}" =~ ^[0-9]+$ ]] || fail "SHARD_INDEX must be a non-negative integer"
+[[ "${shard_count_raw}" =~ ^(8|16)$ ]] || fail "SHARD_COUNT must be exactly 8 or 16"
+case "${total_workers}" in
+    32|64) ;;
+    *) fail "TOTAL_WORKERS must be exactly 32 or 64" ;;
+esac
+shard_index=$((10#${shard_index_raw}))
+shard_count=$((10#${shard_count_raw}))
+((shard_index < shard_count)) || fail "SHARD_INDEX must be less than SHARD_COUNT"
+((shard_count == total_workers / 4)) || fail "SHARD_COUNT must equal TOTAL_WORKERS / 4"
+printf -v shard_tag '%02d' "${shard_index}"
+printf -v count_tag '%02d' "${shard_count}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
@@ -24,22 +39,37 @@ REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
 [[ -x "${PYTHON_BIN}" ]] || fail "Python environment is unavailable: ${PYTHON_BIN}"
 source "${SCRIPT_DIR}/effect_modifier_one_shot_cpu_lock.sh"
 
-owner="formal_one_shot_worker;variant=${variant};pid=$$"
+owner="formal_one_shot_worker;variant=${variant};shard=${shard_tag}of${count_tag};pid=$$"
 set +e
-one_shot_acquire_variant_lock "${variant}" "${owner}"
+one_shot_acquire_shard_lock "${variant}" "${shard_index}" "${shard_count}" "${owner}"
 lock_code=$?
 set -e
 case "${lock_code}" in
     0) ;;
-    73) fail "Another formal one-shot worker owns variant ${variant}" ;;
-    *) fail "Could not acquire formal one-shot worker lock for ${variant}" ;;
+    73) fail "Another formal one-shot worker owns ${variant} shard ${shard_tag}of${count_tag}" ;;
+    *) fail "Could not acquire formal one-shot worker lock for ${variant} shard ${shard_tag}of${count_tag}" ;;
 esac
-trap 'one_shot_release_cpu_lock "${owner}"' EXIT
-trap 'exit 130' HUP INT TERM
 
-LOG_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/logs/one_shot_stationarity_polish_300seeds"
-RUNTIME_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/runtime/one_shot_stationarity_polish_300seeds/${variant}"
-LOG_FILE="${LOG_DIR}/${variant}.log"
+ACTIVE_CHILD_PID=""
+
+terminate_active_child() {
+    local signal_name="$1"
+    if [[ -n "${ACTIVE_CHILD_PID}" ]] && kill -0 "${ACTIVE_CHILD_PID}" 2>/dev/null; then
+        echo "worker_signal=${signal_name} terminating_child_pid=${ACTIVE_CHILD_PID}" >&2
+        kill -TERM "${ACTIVE_CHILD_PID}" 2>/dev/null || true
+        wait "${ACTIVE_CHILD_PID}" 2>/dev/null || true
+    fi
+    exit 130
+}
+
+trap 'one_shot_release_cpu_lock "${owner}"' EXIT
+trap 'terminate_active_child HUP' HUP
+trap 'terminate_active_child INT' INT
+trap 'terminate_active_child TERM' TERM
+
+LOG_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/logs/one_shot_stationarity_polish_sharded_v1_300seeds"
+RUNTIME_DIR="${FEDFISHER_SCRATCH_ROOT}/effect_modifier_experiment/runtime/one_shot_stationarity_polish_sharded_v1_300seeds/${variant}/shard_${shard_tag}_of_${count_tag}"
+LOG_FILE="${LOG_DIR}/${variant}_shard_${shard_tag}_of_${count_tag}.log"
 mkdir -p "${LOG_DIR}" "${RUNTIME_DIR}"
 for path in "${LOG_DIR}" "${RUNTIME_DIR}"; do
     [[ -d "${path}" && ! -L "${path}" ]] || fail "Unsafe one-shot scratch path: ${path}"
@@ -59,8 +89,8 @@ export TORCH_HOME="${RUNTIME_DIR}/torch_cache"
 mkdir -p "${TMPDIR}" "${PYTHONPYCACHEPREFIX}" "${XDG_CACHE_HOME}" "${TORCH_HOME}"
 
 exec >>"${LOG_FILE}" 2>&1
-echo "one_shot_worker_started_at=$(date -Is) variant=${variant} pid=$$"
-echo "cpu_threads=1 families=logistic,mlp seeds=0..299 splits=iid,noniid"
+echo "one_shot_worker_started_at=$(date -Is) variant=${variant} shard=${shard_tag}of${count_tag} pid=$$"
+echo "cpu_threads=1 total_workers=${total_workers} families=logistic,mlp seeds=${shard_index}..299/${shard_count} splits=iid,noniid"
 
 cd "${REPO_ROOT}"
 manager=("${PYTHON_BIN}" -B effect_modifier_experiment/manage_one_shot_lasso_cpu_run.py)
@@ -71,10 +101,9 @@ run_cell() {
     local seed="$2"
     local split="$3"
     local model="$4"
-    local run_id output_dir status_code
-    run_id="${family}_${variant}_stationarity_polish_300seeds"
+    local run_id output_dir status_code runner_code
+    run_id="${family}_${variant}_stationarity_polish_sharded_v1_300seeds"
     output_dir="${FEDFISHER_DATA_ROOT}/effect_modifier_experiment/outputs/${run_id}"
-    "${manager[@]}" validate-current --family "${family}" --variant "${variant}"
     set +e
     "${manager[@]}" cell-status --family "${family}" --variant "${variant}" \
         --seed "${seed}" --split "${split}" --model "${model}"
@@ -146,13 +175,20 @@ run_cell() {
         )
     fi
     echo "cell_started_at=$(date -Is) family=${family} seed=${seed} split=${split} model=${model}"
-    "${runner[@]}" "${common[@]}"
+    set +e
+    "${runner[@]}" "${common[@]}" &
+    ACTIVE_CHILD_PID=$!
+    wait "${ACTIVE_CHILD_PID}"
+    runner_code=$?
+    ACTIVE_CHILD_PID=""
+    set -e
+    ((runner_code == 0)) || return "${runner_code}"
     "${manager[@]}" cell-status --family "${family}" --variant "${variant}" \
         --seed "${seed}" --split "${split}" --model "${model}"
     echo "cell_finished_at=$(date -Is) family=${family} seed=${seed} split=${split} model=${model}"
 }
 
-for ((seed = 0; seed <= 299; seed += 1)); do
+for ((seed = shard_index; seed <= 299; seed += shard_count)); do
     for split in iid noniid; do
         run_cell one_shot_local_logistic_lasso_fedavg "${seed}" "${split}" linear
     done
@@ -163,4 +199,4 @@ for ((seed = 0; seed <= 299; seed += 1)); do
     echo "seed_all_families_finished=${seed} at=$(date -Is)"
 done
 
-echo "one_shot_worker_finished_at=$(date -Is) variant=${variant}"
+echo "one_shot_worker_finished_at=$(date -Is) variant=${variant} shard=${shard_tag}of${count_tag}"

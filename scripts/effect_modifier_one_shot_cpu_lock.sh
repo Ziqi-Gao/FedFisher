@@ -16,6 +16,23 @@ _one_shot_validate_variant() {
     esac
 }
 
+_one_shot_validate_shard() {
+    local shard_index="$1"
+    local shard_count="$2"
+    [[ "${shard_index}" =~ ^[0-9]+$ ]] || {
+        echo "Unsafe one-shot shard index: ${shard_index}" >&2
+        return 2
+    }
+    [[ "${shard_count}" =~ ^(8|16)$ ]] || {
+        echo "One-shot shard count must be 8 or 16: ${shard_count}" >&2
+        return 2
+    }
+    ((10#${shard_index} < 10#${shard_count})) || {
+        echo "One-shot shard index must be less than shard count" >&2
+        return 2
+    }
+}
+
 one_shot_prepare_lock_root() {
     local parent
     parent="$(dirname -- "${ONE_SHOT_CPU_LOCK_ROOT}")"
@@ -41,17 +58,24 @@ one_shot_prepare_lock_root() {
     }
 }
 
-one_shot_acquire_variant_lock() {
+one_shot_acquire_shard_lock() {
     local variant="$1"
-    local owner="$2"
+    local shard_index="$2"
+    local shard_count="$3"
+    local owner="$4"
     local lock_path
+    local shard_tag
+    local count_tag
     command -v flock >/dev/null 2>&1 || {
         echo "Required CPU lock command is unavailable: flock" >&2
         return 2
     }
     _one_shot_validate_variant "${variant}" || return $?
+    _one_shot_validate_shard "${shard_index}" "${shard_count}" || return $?
     one_shot_prepare_lock_root || return $?
-    lock_path="${ONE_SHOT_CPU_LOCK_ROOT}/formal_stationarity_polish_${variant}.lock"
+    printf -v shard_tag '%02d' "$((10#${shard_index}))"
+    printf -v count_tag '%02d' "$((10#${shard_count}))"
+    lock_path="${ONE_SHOT_CPU_LOCK_ROOT}/formal_stationarity_polish_sharded_v1_${variant}_shard_${shard_tag}_of_${count_tag}.lock"
     [[ ! -L "${lock_path}" ]] || {
         echo "One-shot lock file may not be a symlink: ${lock_path}" >&2
         return 2

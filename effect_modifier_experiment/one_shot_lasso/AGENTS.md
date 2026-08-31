@@ -41,12 +41,17 @@ protocols.  It may not weaken either parent contract.
   whose manifest, current source/config, done marker, semantic identity, and
   every artifact hash validate; any partial or invalid cell fails closed and
   is never overwritten.
-- Formal 300-seed execution is CPU-only and uses exactly four variant workers,
-  each with one compute thread.  Its locks live only under
+- Formal 300-seed execution is CPU-only and uses a scheduler-controlled total
+  of exactly 32 or 64 workers, split evenly as 8 or 16 deterministic seed
+  shards per variant.  Every worker uses one compute thread.  Its locks live
+  only under
   `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/` and
   are disjoint from GPU and dsLassoCov lock namespaces.  Scheduler operations
-  may inspect and control only the four short `ff_osp_*300` sessions and their
-  own worker processes; they must never wipe, kill, renice, reschedule, or
+  may inspect and control only the short `ff_os2_<variant>_<shard>of<count>`
+  sessions, their own worker processes, and an exact worker's active child
+  process during signal cleanup.  Locks are scoped to the exact
+  variant and shard, while deterministic disjoint seed assignment prevents
+  cell collisions.  They must never wipe, broadly kill, renice, reschedule, or
   otherwise interfere with J-lens, dsLassoCov, an ablation, or any foreign
   experiment.
 - Do not add or bypass GPU scheduling scripts.  Do not start 300-seed work

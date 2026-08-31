@@ -81,8 +81,9 @@ one_shot_mlp_group_lasso_fedavg_<variant>_...
 
 Durable output is restricted to
 `/data/del6500/FedFisher/effect_modifier_experiment/outputs/<RUN_ID>/`.
-The failed legacy formal RUN_IDs remain preserved without overwrite.  Repaired
-formal cohorts end in `_stationarity_polish_300seeds`.
+The failed legacy formal RUN_IDs and the four-worker stationarity-polish cohort
+remain preserved without overwrite.  The seed-sharded formal cohorts end in
+`_stationarity_polish_sharded_v1_300seeds`.
 A formal multi-seed RUN_ID passes --seed-start 0 --seed-end 299 on every
 cell invocation; the current cell seed must lie inside that manifest-bound range.
 Every run has a self-consistent format-v2 manifest binding source provenance,
@@ -91,17 +92,17 @@ the variant contract.  Existing files are never overwritten.
 
 The formal CPU launcher is
 `scripts/launch_effect_modifier_one_shot_lasso_cpu.sh`; its read-only status
-command is `scripts/status_effect_modifier_one_shot_lasso_cpu.sh`.  It starts
-four short-name Screen sessions, one per factorial variant, and each session
-uses exactly one CPU thread while processing both isolated method families.
-The total configured compute concurrency is therefore four threads.  No GPU
-environment, GPU lock, or GPU scheduler is used.
+command is `scripts/status_effect_modifier_one_shot_lasso_cpu.sh`.  `TOTAL_WORKERS`
+selects exactly 32 or 64 workers (32 by default), divided evenly into 8 or 16
+deterministic seed shards for each factorial variant.  Every short-name Screen
+session uses one CPU thread while processing both isolated method families for
+its disjoint seeds.  No GPU environment, GPU lock, or GPU scheduler is used.
 
-Formal worker locks are isolated under
+Formal per-variant, per-shard worker locks are isolated under
 `/scr/del6500/FedFisher/effect_modifier_experiment/one_shot_cpu_locks/`.
 Validated cells resume by skipping; partial cells, changed source/config,
 invalid manifests, and hash mismatches fail closed without overwrite.  The
-launcher and status command recognize only their four `ff_osp_*300` sessions
+launcher and status command recognize only their `ff_os2_*` sessions
 and never wipe or control foreign processes.  Full 300-seed launch still
 requires no-cache syntax, all regression tests, and a same-source four-cell
 seed-0 CPU smoke.

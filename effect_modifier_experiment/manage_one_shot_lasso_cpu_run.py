@@ -36,7 +36,9 @@ from effect_modifier_experiment.run_one_shot_lasso_effect_modifier import (
 
 FORMAL_SEED_START = 0
 FORMAL_SEED_END = 299
-FORMAL_RUN_SUFFIX = "stationarity_polish_300seeds"
+FORMAL_RUN_SUFFIX = "stationarity_polish_sharded_v1_300seeds"
+SUPPORTED_TOTAL_WORKERS = (32, 64)
+NUM_VARIANTS = 4
 MODELS = {
     "one_shot_local_logistic_lasso_fedavg": ("linear",),
     "one_shot_mlp_group_lasso_fedavg": ("SyntheticMLP", "SyntheticMLPDeep"),
@@ -48,6 +50,32 @@ INVALID_OR_PARTIAL_EXIT = 4
 
 def formal_run_id(family, variant):
     return "%s_%s_%s" % (family, variant, FORMAL_RUN_SUFFIX)
+
+
+def workers_per_variant(total_workers):
+    total_workers = int(total_workers)
+    if total_workers not in SUPPORTED_TOTAL_WORKERS:
+        raise ValueError(
+            "total workers must be one of: %s"
+            % ", ".join(str(value) for value in SUPPORTED_TOTAL_WORKERS)
+        )
+    if total_workers % NUM_VARIANTS:
+        raise ValueError("total workers must divide evenly across variants")
+    return total_workers // NUM_VARIANTS
+
+
+def shard_seed_sequence(shard_index, shard_count):
+    shard_index = int(shard_index)
+    shard_count = int(shard_count)
+    if shard_count not in {
+        workers_per_variant(value) for value in SUPPORTED_TOTAL_WORKERS
+    }:
+        raise ValueError("unsupported workers-per-variant shard count")
+    if shard_index < 0 or shard_index >= shard_count:
+        raise ValueError("shard index must lie in [0, shard_count)")
+    return tuple(
+        range(FORMAL_SEED_START + shard_index, FORMAL_SEED_END + 1, shard_count)
+    )
 
 
 def formal_runner_args(family, variant, seed=0, split="iid", model=None):
