@@ -100,7 +100,7 @@ ServerScheduler owns CPU selection, affinity, admission, logs, and global
 concurrency. The adapter sets every BLAS/OpenMP pool to one thread and calls the
 existing manager and runner directly. It skips only a fully validated seed
 marker and refuses partial or invalid artifacts. Scheduler-era output uses the
-fixed `dslassocov_<variant>_server_scheduler_v1_300seeds` namespace.
+fixed `dslassocov_<variant>_server_scheduler_v2_300seeds` namespace.
 
 The shell launcher, Screen workers, and lock paths described below are retained
 only to audit pre-cutover runs. They are not valid submission paths for new

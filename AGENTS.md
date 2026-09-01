@@ -95,6 +95,16 @@ that remain elsewhere in the repository for audit or rollback purposes.
   never write ServerScheduler pending, running, history, lease, audit, or log
   state. Scientific outputs continue to belong under the FedFisher `/data` and
   `/scr` roots.
+- The foreground entrypoint accepts only protocol-v2 running manifests. It
+  must validate `execution_profile`, the final allocation, the one-based
+  attempt, the runtime estimate, and plural GPU identity fields against the
+  complete scheduler-provided environment. Protocol-v1 singular GPU fields
+  are invalid.
+- Normal protocol-v2 requests omit `resources` and `execution_profile` so the
+  scheduler can choose the registered profile. Project sessions may write a
+  request only below `/scr/del6500/FedFisher/scheduler/outbox/`; a
+  ServerScheduler operator validates and submits it. An outbox file is not a
+  submitted job.
 - Resource selection belongs to ServerScheduler. Project code must not select
   physical CPUs or GPUs, implement global concurrency, poll devices, or create
   project resource locks for centrally managed jobs.

@@ -4,6 +4,7 @@
 import argparse
 from datetime import datetime
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -13,6 +14,8 @@ import sys
 PROJECT_ROOT = Path("/home/del6500/projects/FedFisher")
 SCRATCH_ROOT = Path("/scr/del6500/FedFisher")
 PROJECT_NAME = "FedFisher"
+SCHEMA_VERSION = 2
+CPU_PROFILE = "cpu-1core"
 IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\Z")
 VARIANTS = (
     "control",
@@ -36,9 +39,12 @@ JOB_FIELDS = frozenset(
         "submitted_at",
         "state",
         "updated_at",
-        "gpu_index",
-        "gpu_uuid",
-        "gpu_pci_bus_id",
+        "requested_profile",
+        "execution_profile",
+        "estimated_runtime_seconds",
+        "gpu_indices",
+        "gpu_uuids",
+        "gpu_pci_bus_ids",
         "cpu_ids",
         "numa_node",
         "stdout_log",
@@ -58,18 +64,18 @@ RESOURCE_FIELDS = frozenset(
     )
 )
 TASK_PROFILES = {
-    DSLASSO_TASK: {"memory_mib": 4096},
-    ONE_SHOT_TASK: {"memory_mib": 8192},
+    DSLASSO_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 4096},
+    ONE_SHOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
-    "control": "dslassocov_control_server_scheduler_v1_300seeds",
-    "site_gaussian_shift": "dslassocov_site_gaussian_shift_server_scheduler_v1_300seeds",
-    "local_permutation": "dslassocov_local_permutation_server_scheduler_v1_300seeds",
+    "control": "dslassocov_control_server_scheduler_v2_300seeds",
+    "site_gaussian_shift": "dslassocov_site_gaussian_shift_server_scheduler_v2_300seeds",
+    "local_permutation": "dslassocov_local_permutation_server_scheduler_v2_300seeds",
     "site_gaussian_local_permutation": (
-        "dslassocov_site_gaussian_local_permutation_server_scheduler_v1_300seeds"
+        "dslassocov_site_gaussian_local_permutation_server_scheduler_v2_300seeds"
     ),
 }
-ONE_SHOT_RUN_SUFFIX = "stationarity_polish_server_scheduler_v1_300seeds"
+ONE_SHOT_RUN_SUFFIX = "stationarity_polish_server_scheduler_v2_300seeds"
 DSLASSO_ENVIRONMENT = {
     "SEED_START": "0",
     "SEED_END": "299",
@@ -131,6 +137,38 @@ def _integer(value, field, minimum=None, maximum=None):
     if maximum is not None and value > maximum:
         raise AdapterError("%s must be <= %d" % (field, maximum))
     return value
+
+
+def _number(value, field, minimum=None, strict_minimum=False):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AdapterError("%s must be numeric" % field)
+    value = float(value)
+    if not math.isfinite(value):
+        raise AdapterError("%s must be finite" % field)
+    if minimum is not None and (
+        value <= minimum if strict_minimum else value < minimum
+    ):
+        operator = ">" if strict_minimum else ">="
+        raise AdapterError("%s must be %s %s" % (field, operator, minimum))
+    return value
+
+
+def _environment_integer(environment, key, minimum=None):
+    value = environment.get(key)
+    if not isinstance(value, str) or re.fullmatch(r"[0-9]+", value) is None:
+        raise AdapterError("%s must be an unsigned integer string" % key)
+    return _integer(int(value), key, minimum)
+
+
+def _environment_number(environment, key, minimum=None, strict_minimum=False):
+    value = environment.get(key)
+    if not isinstance(value, str):
+        raise AdapterError("%s must be a numeric string" % key)
+    try:
+        numeric = float(value)
+    except ValueError as error:
+        raise AdapterError("%s must be a numeric string" % key) from error
+    return _number(numeric, key, minimum, strict_minimum)
 
 
 def _identifier(value, field):
@@ -204,8 +242,8 @@ def _absolute_log_path(value, field):
 def validate_running_job(payload, environment, manifest_path):
     """Validate one ServerScheduler running-job document and its allocation env."""
     _only_keys(payload, JOB_FIELDS, "running job")
-    if payload["schema_version"] != 1:
-        raise AdapterError("schema_version must be 1")
+    if payload["schema_version"] != SCHEMA_VERSION:
+        raise AdapterError("schema_version must be %d" % SCHEMA_VERSION)
     job_id = _identifier(payload["job_id"], "job_id")
     if payload["project"] != PROJECT_NAME:
         raise AdapterError("project must be FedFisher")
@@ -217,13 +255,36 @@ def validate_running_job(payload, environment, manifest_path):
     _timestamp(payload["submitted_at"], "submitted_at")
     _timestamp(payload["updated_at"], "updated_at")
     _integer(payload["priority"], "priority", -100, 100)
+    execution_profile = _identifier(
+        payload["execution_profile"], "execution_profile"
+    )
+    if execution_profile != TASK_PROFILES[task]["execution_profile"]:
+        raise AdapterError("execution_profile is incompatible with the task")
+    requested_profile = payload["requested_profile"]
+    if requested_profile is not None:
+        requested_profile = _identifier(requested_profile, "requested_profile")
+        if requested_profile != execution_profile:
+            raise AdapterError("requested_profile does not match execution_profile")
+    estimated_runtime_seconds = _number(
+        payload["estimated_runtime_seconds"],
+        "estimated_runtime_seconds",
+        0.0,
+        strict_minimum=True,
+    )
     parameters = _validate_parameters(task, payload["parameters"])
-    requested = _resource(payload["resources"], "resources")
+    requested = (
+        None
+        if payload["resources"] is None
+        else _resource(payload["resources"], "resources")
+    )
     if payload["allocation"] is None:
         raise AdapterError("allocation is required")
     allocation = _resource(payload["allocation"], "allocation")
     minimum_memory = TASK_PROFILES[task]["memory_mib"]
-    for field, resource in (("resources", requested), ("allocation", allocation)):
+    resources_to_validate = [("allocation", allocation)]
+    if requested is not None:
+        resources_to_validate.append(("resources", requested))
+    for field, resource in resources_to_validate:
         if resource["cpu_cores"] != 1:
             raise AdapterError(field + ".cpu_cores must be exactly 1")
         if resource["memory_mib"] < minimum_memory:
@@ -236,9 +297,7 @@ def validate_running_job(payload, environment, manifest_path):
             or resource["gpu_utilization_pct"] != 0
         ):
             raise AdapterError(field + " must describe a CPU-only allocation")
-        if not resource["exclusive_gpu"]:
-            raise AdapterError(field + ".exclusive_gpu must match the fixed profile")
-    if allocation["memory_mib"] < requested["memory_mib"]:
+    if requested is not None and allocation["memory_mib"] < requested["memory_mib"]:
         raise AdapterError("allocation.memory_mib may not be below the request")
     cpu_ids = payload["cpu_ids"]
     if not isinstance(cpu_ids, list):
@@ -249,8 +308,11 @@ def validate_running_job(payload, environment, manifest_path):
     numa_node = payload["numa_node"]
     if numa_node is not None:
         numa_node = _integer(numa_node, "numa_node", 0)
-    if any(payload[field] is not None for field in ("gpu_index", "gpu_uuid", "gpu_pci_bus_id")):
-        raise AdapterError("CPU tasks may not carry GPU identity fields")
+    for field in ("gpu_indices", "gpu_uuids", "gpu_pci_bus_ids"):
+        if not isinstance(payload[field], list):
+            raise AdapterError("%s must be an array" % field)
+        if payload[field]:
+            raise AdapterError("CPU tasks require an empty %s array" % field)
     stdout_log = _absolute_log_path(payload["stdout_log"], "stdout_log")
     stderr_log = _absolute_log_path(payload["stderr_log"], "stderr_log")
     if payload["exit_code"] is not None or payload["failure_reason"] is not None:
@@ -261,11 +323,19 @@ def validate_running_job(payload, environment, manifest_path):
         "SERVER_SCHEDULER_JOB_ID": job_id,
         "SERVER_SCHEDULER_PROJECT": PROJECT_NAME,
         "SERVER_SCHEDULER_JOB_MANIFEST": str(manifest_path.resolve(strict=True)),
+        "SERVER_SCHEDULER_EXECUTION_PROFILE": execution_profile,
         "SERVER_SCHEDULER_CPU_CORES": str(allocation["cpu_cores"]),
         "SERVER_SCHEDULER_CPUSET": ",".join(str(value) for value in cpu_ids),
         "SERVER_SCHEDULER_MEMORY_MIB": str(allocation["memory_mib"]),
         "SERVER_SCHEDULER_GPU_COUNT": "0",
         "SERVER_SCHEDULER_GPU_MEMORY_MIB": "0",
+        "SERVER_SCHEDULER_GPU_UTILIZATION_PCT": "0",
+        "SERVER_SCHEDULER_GPU_EXCLUSIVITY": (
+            "exclusive" if allocation["exclusive_gpu"] else "shared"
+        ),
+        "SERVER_SCHEDULER_GPU_INDICES": "",
+        "SERVER_SCHEDULER_GPU_UUIDS": "",
+        "SERVER_SCHEDULER_GPU_PCI_BUS_IDS": "",
         "SERVER_SCHEDULER_STDOUT_LOG": stdout_log,
         "SERVER_SCHEDULER_STDERR_LOG": stderr_log,
     }
@@ -275,6 +345,22 @@ def validate_running_job(payload, environment, manifest_path):
         if environment.get(key) != expected:
             raise AdapterError("%s is missing or inconsistent" % key)
     _identifier(environment.get("SERVER_SCHEDULER_LEASE_ID"), "SERVER_SCHEDULER_LEASE_ID")
+    _environment_integer(environment, "SERVER_SCHEDULER_ATTEMPT", 1)
+    environment_runtime = _environment_number(
+        environment,
+        "SERVER_SCHEDULER_ESTIMATED_RUNTIME_SECONDS",
+        0.0,
+        strict_minimum=True,
+    )
+    if not math.isclose(
+        environment_runtime,
+        estimated_runtime_seconds,
+        rel_tol=1e-9,
+        abs_tol=1e-6,
+    ):
+        raise AdapterError(
+            "SERVER_SCHEDULER_ESTIMATED_RUNTIME_SECONDS disagrees with the manifest"
+        )
     if numa_node is None and "SERVER_SCHEDULER_NUMA_NODE" in environment:
         raise AdapterError("SERVER_SCHEDULER_NUMA_NODE disagrees with the manifest")
     for key in (
@@ -282,12 +368,33 @@ def validate_running_job(payload, environment, manifest_path):
         "SERVER_SCHEDULER_GPU_UUID",
         "SERVER_SCHEDULER_GPU_PCI_BUS_ID",
     ):
-        if environment.get(key):
-            raise AdapterError("CPU task received unexpected %s" % key)
+        if key in environment:
+            raise AdapterError("protocol v2 does not define %s" % key)
+    if environment.get("CUDA_VISIBLE_DEVICES", ""):
+        raise AdapterError("CPU task received nonempty CUDA_VISIBLE_DEVICES")
+    allowed_scheduler_environment = set(expected_environment) | {
+        "SERVER_SCHEDULER_LEASE_ID",
+        "SERVER_SCHEDULER_ATTEMPT",
+        "SERVER_SCHEDULER_ESTIMATED_RUNTIME_SECONDS",
+    }
+    unknown_scheduler_environment = sorted(
+        key
+        for key in environment
+        if key.startswith("SERVER_SCHEDULER_")
+        and key not in allowed_scheduler_environment
+    )
+    if unknown_scheduler_environment:
+        raise AdapterError(
+            "unexpected ServerScheduler environment variables: %s"
+            % ",".join(unknown_scheduler_environment)
+        )
     normalized = dict(payload)
     normalized["parameters"] = parameters
     normalized["resources"] = requested
     normalized["allocation"] = allocation
+    normalized["requested_profile"] = requested_profile
+    normalized["execution_profile"] = execution_profile
+    normalized["estimated_runtime_seconds"] = estimated_runtime_seconds
     normalized["cpu_ids"] = cpu_ids
     normalized["numa_node"] = numa_node
     return normalized
@@ -316,7 +423,7 @@ def load_running_job(manifest_path, environment=None):
     return validate_running_job(payload, os.environ if environment is None else environment, manifest_path)
 
 
-def _safe_runtime(job_id):
+def _safe_runtime(job_id, cpu_cores):
     source_root = Path(__file__).resolve().parents[1]
     if source_root != PROJECT_ROOT.resolve(strict=True):
         raise AdapterError("adapter must execute from the registered FedFisher code root")
@@ -340,10 +447,10 @@ def _safe_runtime(job_id):
             raise AdapterError("runtime child may not resolve through symlinks")
     os.environ.update(
         {
-            "OMP_NUM_THREADS": "1",
-            "MKL_NUM_THREADS": "1",
-            "OPENBLAS_NUM_THREADS": "1",
-            "NUMEXPR_NUM_THREADS": "1",
+            "OMP_NUM_THREADS": str(cpu_cores),
+            "MKL_NUM_THREADS": str(cpu_cores),
+            "OPENBLAS_NUM_THREADS": str(cpu_cores),
+            "NUMEXPR_NUM_THREADS": str(cpu_cores),
             "PYTHONDONTWRITEBYTECODE": "1",
             "CUDA_VISIBLE_DEVICES": "",
             "TMPDIR": str(runtime / "tmp"),
@@ -473,7 +580,7 @@ def _run_one_shot(job):
 
 
 def execute_task(job):
-    _safe_runtime(job["job_id"])
+    _safe_runtime(job["job_id"], job["allocation"]["cpu_cores"])
     if str(PROJECT_ROOT) not in sys.path:
         sys.path.insert(0, str(PROJECT_ROOT))
     if job["task"] == DSLASSO_TASK:

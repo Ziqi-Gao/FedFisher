@@ -62,6 +62,13 @@ hyperparameters are fixed by project code rather than request parameters.
 Example requests and parameter schemas live under
 `effect_modifier_experiment/server_scheduler/`.
 
+The examples use ServerScheduler protocol v2 and omit hardware fields so the
+scheduler selects the registered `cpu-1core` profile. A project session may
+copy a reviewed request into
+`/scr/del6500/FedFisher/scheduler/outbox/`, but only a ServerScheduler operator
+may validate and submit that exact file. Creating the outbox request is not
+submission or completion evidence.
+
 GPU submission is disabled. Any other program is also blocked until it has a
 reviewed task profile, strict parameter schema, foreground adapter path,
 fixture tests, and an approved pilot. ServerScheduler owns CPU/GPU selection

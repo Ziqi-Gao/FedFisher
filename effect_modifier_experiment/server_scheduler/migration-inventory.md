@@ -3,14 +3,20 @@
 Inventory timestamp: 2026-08-31 (America/Chicago). The initial inventory,
 adapter, profiles, and fixture tests were followed by the project owner's
 explicit selection of migration option 2: preserve pre-cutover artifacts but
-abandon their continued recovery and scientific authority. No experiment was
-launched, no result was changed, no legacy scheduler file was deleted, and no
-ServerScheduler state or registration was written.
+abandon their continued recovery and scientific authority. The complete
+project migration commit was subsequently applied as `1b43497`, and an
+explicitly authorized ServerScheduler operator action installed the disabled
+protocol-v2 registration. No experiment was launched, no result was changed,
+no legacy scheduler file was deleted, and no ServerScheduler queue, lease,
+audit, performance, or runtime state was written.
 
 ## Retained legacy scientific state
 
-- The resumable main source tree is clean at
-  `51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`.
+- The legacy resumable source tree was clean at
+  `51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`. The canonical project tree is
+  now clean at migration commit
+  `1b43497e80ed843f2726593504a4cdca0497f5fa` before the protocol-v2 follow-up
+  changes documented here.
 - Formal one-shot manifests are bound to that clean source tree. The observed
   aggregate was 2,960 validated cells of 7,200, with 4,240 missing and no known
   invalid/partial cells. The owner explicitly abandoned further recovery so a
@@ -78,9 +84,11 @@ project rules and relevant READMEs.
 The proposed stable executable is
 `/home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py`.
 It accepts only `--job-manifest RUNNING_JOB_JSON`, validates the complete
-running-job object plus `SERVER_SCHEDULER_*` allocation environment, dispatches
-two fixed task names, and rejects caller-provided commands, paths, run IDs,
-seeds, splits, models, and scientific hyperparameters.
+protocol-v2 running-job object, selected execution profile, optional request
+resources, final allocation, attempt, runtime estimate, and plural-GPU
+`SERVER_SCHEDULER_*` environment, dispatches two fixed task names, and rejects
+caller-provided commands, paths, run IDs, seeds, splits, models, and scientific
+hyperparameters.
 
 Each admitted job is one independently resumable shard and one foreground
 software worker. BLAS/OpenMP thread pools are fixed to the one allocated
@@ -90,7 +98,7 @@ output. Adapter caches live under
 `/scr/del6500/FedFisher/effect_modifier_experiment/server_scheduler/JOB_ID`.
 Scientific output remains under the existing durable output root.
 
-Scheduler-era runs use fixed `server_scheduler_v1` run namespaces derived by
+Scheduler-era runs use fixed `server_scheduler_v2` run namespaces derived by
 the adapter. Callers cannot select them. This prevents a future clean adapter
 commit from colliding with or trying to reinterpret the preserved legacy
 manifests, whose source provenance is intentionally different.
@@ -99,18 +107,23 @@ The dsLassoCov manager retains its legacy default. The adapter uses its new
 `create_legacy_scheduler_dirs=False` option so central jobs do not create the
 legacy local log or lock directories.
 
-## Preliminary CPU task profiles
+## Protocol-v2 CPU task profiles
 
-| Task | Shard parameters | CPU | Host memory minimum | Goal | GPU |
-| --- | --- | --- | --- | --- | --- |
-| `effect-modifier-dslassocov-shard` | variant; shard count 1, 2, or 4; valid index | fixed 1/1/1 core | 4,096 MiB | throughput | none |
-| `effect-modifier-one-shot-lasso-shard` | variant; shard count 8 or 16; valid index | fixed 1/1/1 core | 8,192 MiB | throughput | none |
+| Task | Profile | Shard parameters | CPU | Host memory minimum | Initial runtime | Goal | GPU |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `effect-modifier-dslassocov-shard` | `cpu-1core` | variant; shard count 1, 2, or 4; valid index | fixed 1/1/1 core | 4,096 MiB | 36,000 s | throughput | none |
+| `effect-modifier-one-shot-lasso-shard` | `cpu-1core` | variant; shard count 8 or 16; valid index | fixed 1/1/1 core | 8,192 MiB | 86,400 s | throughput | none |
 
 The memory floors are conservative derived profiles, not measured peak RSS:
 the dsLassoCov path holds the 10-site synthetic design and sequential CV path;
 the larger one-shot floor covers the deep MLP family and its sequential site
-training. Historical logs contain no MaxRSS record. Registration must remain
-disabled until an authorized pilot records actual peak RSS and runtime.
+training. Historical logs contain no MaxRSS record. The dsLassoCov runtime is a
+10-hour conservative ceiling over complete legacy one-core runs whose observed
+maximum was about 7 hours 48 minutes. No complete comparable one-shot shard was
+recorded, so its 24-hour value is a conservative scheduling placeholder. Both
+fixed profiles use `cpu_scaling_efficiency = 0.0`. Registration must remain
+disabled until an authorized pilot records actual peak RSS and calibrates
+runtime.
 
 The GPU ablation task is intentionally absent. Existing code assumes eight
 software threads, accepts a physical GPU index, overwrites
@@ -120,7 +133,7 @@ profile needs a separate adapter change and measurement/pilot stage.
 
 ## Registration proposal and examples
 
-- Disabled proposal:
+- Disabled protocol-v2 proposal:
   `effect_modifier_experiment/server_scheduler/registration-proposal.toml`
 - dsLassoCov parameter schema:
   `effect_modifier_experiment/server_scheduler/dslassocov-shard-parameters.schema.json`
@@ -135,6 +148,29 @@ The installed ServerScheduler currently has `max_parallel_jobs = 8`. It cannot
 recreate the legacy 32/64-way simultaneous one-shot layout without an operator
 policy change; the same shards could run in admitted waves. That policy decision
 is outside this migration stage.
+
+## Protocol-v2 validation
+
+The protocol-v2 follow-up was verified without launching scientific work:
+
+- 16 FedFisher adapter fixture, allowlist, environment, retry, marker, and path
+  tests passed.
+- 5 one-shot CPU configuration, shard, shell-safety, and lock tests passed.
+- 16 selected dsLassoCov scientific, manifest, atomic-write, completion-marker,
+  and CPU/GPU-boundary tests passed. Legacy Screen launch tests were not run.
+- The current ServerScheduler v2 loader accepted the project proposal, both
+  request examples, both running-job fixtures, and the installed disabled
+  central FedFisher registration.
+- The project proposal and installed central FedFisher registration were byte
+  identical at validation time.
+- ServerScheduler `doctor` parsed all registrations and reported 64 effective
+  physical CPU cores, but remained nonhealthy because the host `nvidia-smi`
+  query could not communicate with the driver and observed 0 of 4 configured
+  GPUs. FedFisher GPU policy remains disabled.
+
+These are fixture and contract tests, not central execution evidence. No pilot,
+queue submission, scheduler lease, or authoritative scientific output was
+created.
 
 ## Exact later deletion candidates
 
@@ -169,27 +205,35 @@ logs are explicitly not deletion candidates.
 
 ## Blockers before pilot or cutover
 
-1. GPU resource requirements are unmeasured and the existing GPU worker has not
-   yet been adapted to consume central visibility/device-zero semantics.
-2. CPU memory values require an authorized measured pilot.
+1. CPU memory and initial runtime values require an explicitly authorized
+   measured pilot before production enablement.
+2. GPU resource requirements are unmeasured and the existing GPU worker has not
+   yet been adapted to consume central visibility/device-zero semantics. This
+   does not block the registered CPU pilot, but GPU submission remains blocked.
 3. The central dispatcher ceiling of eight needs an explicit throughput-policy
    decision for 32/64 one-shot shards.
 4. The dead Screen socket needs operator review/cleanup later; service and cron
    checks have the visibility limitations recorded above.
-5. ServerScheduler registration remains the existing disabled, empty entry; no
+5. The protocol-v2 ServerScheduler registration is installed but disabled; no
    end-to-end pilot was authorized or performed.
-6. The canonical repository's Git metadata is read-only in the current Codex
-   sandbox, so the complete reviewed migration commit cannot be fetched or
-   cherry-picked into the main tree from this session.
+6. No project outbox request has been published, and legacy callers have not
+   been cut over or deleted.
+7. The protocol-v2 project changes must be committed and the FedFisher worktree
+   must be clean before a provenance-bound pilot.
+8. ServerScheduler's global `doctor` currently fails because the host NVIDIA
+   driver is unavailable (`nvidia-smi` exit 9; 0 of 4 configured GPUs
+   observed). FedFisher's registered tasks are CPU-only, but proceeding with a
+   pilot while the global control plane is nonhealthy requires an explicit
+   ServerScheduler operator decision.
 
 ## Rollback
 
-The complete migration implementation is isolated on branch
-`codex/server-scheduler-adapter`, based on
-`51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`, in the ignored staging clone
-`/home/del6500/projects/FedFisher/results/server-scheduler-migration`.
-Discarding that clone returns the main tree to the exact pre-migration state;
-the main tree is already unchanged. The project rules, adapter, manager changes,
-schemas, fixtures, proposal, and documentation are kept in one commit. If that
-commit is later applied, rollback is a normal revert of the single commit. Data
-and scratch output must not be deleted or rolled back.
+The last clean pre-migration project commit is
+`51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`. The applied migration commit is
+`1b43497e80ed843f2726593504a4cdca0497f5fa`; after the protocol-v2 follow-up is
+committed, both migration commits form the project rollback boundary. Rollback
+must use normal Git revert operations on those exact commits. Data, manifests,
+completion markers, logs, and scratch output must not be deleted or rolled
+back. The ServerScheduler repository currently has no commit history, so its
+central registration still lacks an independent Git rollback point and must be
+committed by the ServerScheduler operator before production activation.

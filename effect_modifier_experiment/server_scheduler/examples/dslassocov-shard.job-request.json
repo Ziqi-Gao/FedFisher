@@ -1,16 +1,8 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "job_id": "fedfisher-dslassocov-control-shard-0-of-2",
   "project": "FedFisher",
   "task": "effect-modifier-dslassocov-shard",
-  "resources": {
-    "cpu_cores": 1,
-    "memory_mib": 4096,
-    "gpu_count": 0,
-    "gpu_memory_mib": 0,
-    "gpu_utilization_pct": 0,
-    "exclusive_gpu": true
-  },
   "parameters": {
     "variant": "control",
     "shard_index": 0,

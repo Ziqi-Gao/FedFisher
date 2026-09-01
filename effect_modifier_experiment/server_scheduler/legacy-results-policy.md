@@ -28,7 +28,7 @@ time, plus historical dsLassoCov and GPU effect-modifier runs.
 
 Only output produced by an enabled, reviewed ServerScheduler task after its
 pilot may become authoritative. The initial CPU adapters derive disjoint fixed
-`server_scheduler_v1` run namespaces, validate current source provenance and
+`server_scheduler_v2` run namespaces, validate current source provenance and
 scientific configuration, skip only fully validated completion markers, and
 refuse partial or invalid output.
 

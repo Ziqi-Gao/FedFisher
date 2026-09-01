@@ -18,7 +18,7 @@ protocols.  It may not weaken either parent contract.
   invalid cells fail closed without overwrite.
 - Pre-cutover one-shot outputs are retained for audit but are non-authoritative
   and may not be resumed. New output uses the fixed
-  `stationarity_polish_server_scheduler_v1_300seeds` suffix.
+  `stationarity_polish_server_scheduler_v2_300seeds` suffix.
 
 - Preserve the multi-round `dslassocov_*` source and durable results as a
   reference.  Never delete, rename, or overwrite them.

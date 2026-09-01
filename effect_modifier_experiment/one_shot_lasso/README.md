@@ -13,7 +13,7 @@ is exactly 8 or 16 and `0 <= shard_index < shard_count`; all other scientific
 configuration is fixed by the existing formal manager.
 
 The adapter initializes both method families in the fixed
-`_stationarity_polish_server_scheduler_v1_300seeds` namespace. It processes
+`_stationarity_polish_server_scheduler_v2_300seeds` namespace. It processes
 only the shard's seed sequence, skips only cells whose manifest, provenance,
 semantic identity, completion marker, and artifact hashes validate, and
 refuses partial or invalid output. ServerScheduler owns CPU affinity,

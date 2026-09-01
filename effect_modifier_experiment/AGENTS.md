@@ -25,6 +25,10 @@ experiment.
   `scripts/fedfisher_server_scheduler_adapter.py` and a registered fixed task
   name. Direct launcher, worker, Screen, and lock commands below describe
   preserved legacy behavior only and must not be used for new work.
+- The adapter and request examples use ServerScheduler protocol v2. Normal
+  requests omit hardware fields; the adapter validates the selected
+  `cpu-1core` execution profile, final allocation, attempt, estimated runtime,
+  and complete plural-GPU environment before dispatch.
 - The first registered workloads are the CPU-only
   `effect-modifier-dslassocov-shard` and
   `effect-modifier-one-shot-lasso-shard`. The GPU FedFisher ablation workload
@@ -45,7 +49,7 @@ experiment.
   state.
 - Every pre-cutover artifact is retained for audit but is non-authoritative and
   must not be resumed or mixed with scheduler-era output. Scheduler-era runs
-  use fixed `server_scheduler_v1` namespaces.
+  use fixed `server_scheduler_v2` namespaces.
 
 ## Data Contract
 
