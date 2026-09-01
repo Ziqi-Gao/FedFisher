@@ -1,22 +1,21 @@
 # FedFisher ServerScheduler migration inventory
 
-Inventory timestamp: 2026-08-31 (America/Chicago). The initial inventory,
-adapter, profiles, and fixture tests were followed by the project owner's
-explicit selection of migration option 2: preserve pre-cutover artifacts but
-abandon their continued recovery and scientific authority. The complete
-project migration commit was subsequently applied as `1b43497`, and an
-explicitly authorized ServerScheduler operator action installed the disabled
-protocol-v2 registration. No experiment was launched, no result was changed,
-no legacy scheduler file was deleted, and no ServerScheduler queue, lease,
-audit, performance, or runtime state was written.
+Inventory first recorded: 2026-08-31; updated after the first central CPU pilot
+on 2026-09-01 (America/Chicago). The project owner selected migration option 2:
+preserve pre-cutover artifacts but abandon their continued recovery and
+scientific authority. Migration commits `1b43497` and `d05073f` established the
+protocol-v2 adapter, after which an authorized ServerScheduler operator enabled
+the CPU-only registration and submitted one bounded dsLassoCov pilot. That
+pilot failed closed as documented below. No legacy scheduler file or scientific
+artifact was deleted or overwritten, and GPU submission remains blocked.
 
 ## Retained legacy scientific state
 
 - The legacy resumable source tree was clean at
   `51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`. The canonical project tree is
-  now clean at migration commit
-  `1b43497e80ed843f2726593504a4cdca0497f5fa` before the protocol-v2 follow-up
-  changes documented here.
+  based on protocol-v2 baseline
+  `d05073febb0277a419867cbe1f9d7ce68644b396`. A repeat pilot must use a clean
+  commit containing the first-pilot fix described below.
 - Formal one-shot manifests are bound to that clean source tree. The observed
   aggregate was 2,960 validated cells of 7,200, with 4,240 missing and no known
   invalid/partial cells. The owner explicitly abandoned further recovery so a
@@ -149,18 +148,19 @@ recreate the legacy 32/64-way simultaneous one-shot layout without an operator
 policy change; the same shards could run in admitted waves. That policy decision
 is outside this migration stage.
 
-## Protocol-v2 validation
+## Protocol-v2 validation and first pilot
 
 The protocol-v2 follow-up was verified without launching scientific work:
 
 - 16 FedFisher adapter fixture, allowlist, environment, retry, marker, and path
   tests passed.
 - 5 one-shot CPU configuration, shard, shell-safety, and lock tests passed.
-- 16 selected dsLassoCov scientific, manifest, atomic-write, completion-marker,
-  and CPU/GPU-boundary tests passed. Legacy Screen launch tests were not run.
+- 18 selected dsLassoCov scientific, thread-reuse, manifest, atomic-write,
+  completion-marker, and CPU/GPU-boundary tests passed. Legacy Screen launch
+  tests were not run.
 - The current ServerScheduler v2 loader accepted the project proposal, both
-  request examples, both running-job fixtures, and the installed disabled
-  central FedFisher registration.
+  request examples, both running-job fixtures, and the then-disabled central
+  FedFisher registration. The operator later enabled it for the CPU pilot.
 - The project proposal and installed central FedFisher registration were byte
   identical at validation time.
 - ServerScheduler `doctor` parsed all registrations and reported 64 effective
@@ -168,9 +168,22 @@ The protocol-v2 follow-up was verified without launching scientific work:
   query could not communicate with the driver and observed 0 of 4 configured
   GPUs. FedFisher GPU policy remains disabled.
 
-These are fixture and contract tests, not central execution evidence. No pilot,
-queue submission, scheduler lease, or authoritative scientific output was
-created.
+The first central pilot used job
+`fedfisher-dslassocov-control-pilot-d05073f-shard-0-of-4`, profile
+`cpu-1core`, CPU ID 0 on NUMA node 0, and 4096 MiB. Three attempts started.
+Attempt 1 wrote only the seed-0 IID artifacts, then failed before non-IID when
+the same process called `torch.set_num_interop_threads(1)` a second time after
+parallel work had started. Attempts 2 and 3 correctly detected the partial
+seed and refused overwrite; the job reached `failed` with no validated seed
+marker. The manifest remained provenance-valid for `d05073f`.
+
+The failed output namespace
+`dslassocov_control_server_scheduler_v2_300seeds` and all three scheduler log
+pairs are retained as audit evidence. The fix makes thread configuration
+idempotent only when the already configured inter-op count is exactly one and
+moves all four dsLassoCov variants to the disjoint
+`dslassocov_<variant>_server_scheduler_v2r1_300seeds` result epoch. A different
+existing inter-op count still fails closed. No repeat pilot has run yet.
 
 ## Exact later deletion candidates
 
@@ -203,24 +216,22 @@ The three scientific worker scripts, all `/data` results, manifests, provenance
 records, completion markers, Python scientific/status managers, and historical
 logs are explicitly not deletion candidates.
 
-## Blockers before pilot or cutover
+## Blockers before a successful pilot or cutover
 
-1. CPU memory and initial runtime values require an explicitly authorized
-   measured pilot before production enablement.
-2. GPU resource requirements are unmeasured and the existing GPU worker has not
+1. The thread-initialization fix and v2r1 namespace change must pass regression
+   tests, be committed, and be used by a new clean-provenance pilot request.
+2. CPU memory and initial runtime values still require a successful measured
+   pilot before production enablement.
+3. GPU resource requirements are unmeasured and the existing GPU worker has not
    yet been adapted to consume central visibility/device-zero semantics. This
    does not block the registered CPU pilot, but GPU submission remains blocked.
-3. The central dispatcher ceiling of eight needs an explicit throughput-policy
+4. The central dispatcher ceiling of eight needs an explicit throughput-policy
    decision for 32/64 one-shot shards.
-4. The dead Screen socket needs operator review/cleanup later; service and cron
+5. The dead Screen socket needs operator review/cleanup later; service and cron
    checks have the visibility limitations recorded above.
-5. The protocol-v2 ServerScheduler registration is installed but disabled; no
-   end-to-end pilot was authorized or performed.
-6. No project outbox request has been published, and legacy callers have not
-   been cut over or deleted.
-7. The protocol-v2 project changes must be committed and the FedFisher worktree
-   must be clean before a provenance-bound pilot.
-8. ServerScheduler's global `doctor` currently fails because the host NVIDIA
+6. The registration is CPU-pilot-enabled, but legacy callers have not been cut
+   over or deleted and formal production activation has not been accepted.
+7. ServerScheduler's global `doctor` currently fails because the host NVIDIA
    driver is unavailable (`nvidia-smi` exit 9; 0 of 4 configured GPUs
    observed). FedFisher's registered tasks are CPU-only, but proceeding with a
    pilot while the global control plane is nonhealthy requires an explicit
@@ -229,11 +240,12 @@ logs are explicitly not deletion candidates.
 ## Rollback
 
 The last clean pre-migration project commit is
-`51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`. The applied migration commit is
-`1b43497e80ed843f2726593504a4cdca0497f5fa`; after the protocol-v2 follow-up is
-committed, both migration commits form the project rollback boundary. Rollback
-must use normal Git revert operations on those exact commits. Data, manifests,
-completion markers, logs, and scratch output must not be deleted or rolled
-back. The ServerScheduler repository currently has no commit history, so its
+`51c4e71d2ec35387fefaf4537fa4d8e7c27d0a55`. The applied migration commits are
+`1b43497e80ed843f2726593504a4cdca0497f5fa` and
+`d05073febb0277a419867cbe1f9d7ce68644b396`; the committed first-pilot fix will
+extend that rollback boundary. Rollback must use normal Git revert operations
+on exact commits. Data, manifests, completion markers, logs, and scratch output
+must not be deleted or rolled back. The ServerScheduler repository currently
+has no commit history, so its
 central registration still lacks an independent Git rollback point and must be
 committed by the ServerScheduler operator before production activation.

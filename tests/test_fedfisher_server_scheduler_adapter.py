@@ -223,7 +223,14 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
 
     def test_scheduler_run_names_do_not_collide_with_preserved_legacy_results(self):
         self.assertTrue(
-            all("server_scheduler_v2" in value for value in ADAPTER.DSLASSO_RUN_IDS.values())
+            all(
+                "server_scheduler_v2r1_300seeds" in value
+                for value in ADAPTER.DSLASSO_RUN_IDS.values()
+            )
+        )
+        self.assertNotEqual(
+            ADAPTER.DSLASSO_RUN_IDS["control"],
+            "dslassocov_control_server_scheduler_v2_300seeds",
         )
         self.assertIn("server_scheduler_v2", ADAPTER.ONE_SHOT_RUN_SUFFIX)
         self.assertNotEqual(

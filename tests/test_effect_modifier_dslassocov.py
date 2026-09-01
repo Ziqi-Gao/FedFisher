@@ -96,6 +96,31 @@ class DsLassoCovCoreTests(unittest.TestCase):
         )
         return raw_sites, fit
 
+    def test_torch_thread_configuration_is_idempotent_after_work_starts(self):
+        with mock.patch.object(runner.torch, "set_num_threads") as set_threads, mock.patch.object(
+            runner.torch,
+            "set_num_interop_threads",
+            side_effect=(None, RuntimeError("parallel work already started")),
+        ) as set_interop, mock.patch.object(
+            runner.torch, "get_num_interop_threads", return_value=1
+        ):
+            runner._configure_torch_threads(1)
+            runner._configure_torch_threads(1)
+
+        self.assertEqual(set_threads.call_args_list, [mock.call(1), mock.call(1)])
+        self.assertEqual(set_interop.call_args_list, [mock.call(1), mock.call(1)])
+
+    def test_torch_thread_configuration_rejects_incompatible_interop_state(self):
+        with mock.patch.object(runner.torch, "set_num_threads"), mock.patch.object(
+            runner.torch,
+            "set_num_interop_threads",
+            side_effect=RuntimeError("parallel work already started"),
+        ), mock.patch.object(
+            runner.torch, "get_num_interop_threads", return_value=2
+        ):
+            with self.assertRaisesRegex(RuntimeError, "parallel work already started"):
+                runner._configure_torch_threads(1)
+
     def test_small_update_does_not_bypass_stationarity_check(self):
         with redirect_stdout(io.StringIO()):
             site_datasets, _, _, _ = get_dataset(

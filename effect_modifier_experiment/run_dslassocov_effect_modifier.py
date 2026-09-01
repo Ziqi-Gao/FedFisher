@@ -626,10 +626,19 @@ def _refuse_existing_outputs(paths):
         )
 
 
+def _configure_torch_threads(threads_per_worker):
+    """Apply the fixed CPU thread contract safely across repeated cells."""
+    torch.set_num_threads(threads_per_worker)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        if torch.get_num_interop_threads() != 1:
+            raise
+
+
 def run(args):
     validate_args(args)
-    torch.set_num_threads(args.threads_per_worker)
-    torch.set_num_interop_threads(1)
+    _configure_torch_threads(args.threads_per_worker)
     output_dir, manifest = validate_output_and_manifest(
         args.output_dir, args.run_id, args.variant
     )
