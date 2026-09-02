@@ -20,6 +20,19 @@ utils/compress_fisher.py
 Synthetic data/model entry points are added in the parent repository, while the
 FedFisher aggregation logic stays on the original code path.
 
+## Current execution policy
+
+`SyntheticBinary` does not currently have a registered ServerScheduler task.
+New training, evaluation, summarization, plotting, and sweep computation is
+therefore blocked until it has a reviewed foreground adapter, parameter schema,
+resource profile, fixture tests, bounded pilot, and central registration.
+
+All direct Python and Slurm commands below document preserved legacy or export
+interfaces. They must not be run on the current server. Historical repository
+`outputs/` and `logs/` paths remain for audit; a future registered task must
+write durable artifacts under `/data/del6500/FedFisher` and regenerable runtime
+material under `/scr/del6500/FedFisher`.
+
 ## Data Model
 
 For label `y in {0, 1}`:
@@ -63,11 +76,11 @@ The test set is always balanced with positive-label prior `0.5`.
 synthetic_binary_experiment/
   README.md
   AGENTS.md
-  logs/
+  logs/                                      # historical only
     original_fedfisher/                       # original-pipeline Slurm logs
     original_fedfisher_1000seeds/
     original_fedfisher_alpha_sweep_1000seeds/
-  outputs/
+  outputs/                                   # historical only
     original_fedfisher/                       # original-pipeline outputs
     original_fedfisher_1000seeds/
     original_fedfisher_alpha_sweep_1000seeds/
@@ -143,7 +156,7 @@ Outputs are additional CSVs and do not change the standard one-shot result CSV:
 <run_prefix>_prediction_intervention_model_summary.csv
 ```
 
-Example:
+Legacy CLI example (not an authorized current-server launch path):
 
 ```bash
 python main.py \
@@ -192,7 +205,7 @@ by default. It trains the same model on the full global training set and gives a
 reference for how well the current model and scoring methods can recover the
 known signal dimensions without federated splitting or one-shot aggregation.
 
-## Slurm Runs
+## Legacy Slurm exports (do not submit on the current server)
 
 Small original-pipeline run:
 
@@ -219,7 +232,10 @@ import torch, nngeometry
 assert torch.cuda.is_available()
 ```
 
-## Summarize And Visualize
+## Legacy summarization and visualization commands
+
+These examples are documentation only until their workloads are separately
+registered with ServerScheduler.
 
 Small run:
 

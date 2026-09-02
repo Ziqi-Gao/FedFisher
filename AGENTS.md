@@ -3,6 +3,29 @@
 This file is the mandatory operating policy for every Codex session and every
 agent working on the FedFisher project.
 
+## Mandatory session bootstrap
+
+Before modifying code, launching or requesting computation, or interpreting
+scientific results:
+
+1. Read `docs/codex/PROJECT_CONTEXT.md` completely.
+2. For any computation request, outbox, scheduler, registration, submission,
+   status, or runtime work, also read `docs/codex/SCHEDULER_RUNBOOK.md`
+   completely.
+3. When work touches an experiment subtree, read that subtree's nearest
+   `AGENTS.md` even if the session started at the repository root.
+4. Treat Git, scientific manifests, and ServerScheduler's live read-only state
+   as authoritative for current status. Never infer live status from project
+   documentation.
+5. Use `/home/del6500/projects/FedFisher` as the only canonical source tree.
+   `results/server-scheduler-migration/` is a preserved historical clone and
+   must not be edited, executed, imported, or used as a Codex working
+   directory.
+
+The Codex context documents contain stable architecture and operating procedure
+only. Do not add active job IDs, queue states, completion counts, transient
+commit bindings, or other live experiment status to them.
+
 ## Allowed write scope
 
 Agents may create, edit, move, rename, or delete files only inside these three

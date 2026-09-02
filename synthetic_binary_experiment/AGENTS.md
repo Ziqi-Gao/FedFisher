@@ -1,69 +1,67 @@
-# Agent Guide
+# SyntheticBinary Agent Contract
 
-This folder now documents only the synthetic binary-classification experiment
-that runs through the original FedFisher pipeline. The earlier standalone
-PyTorch reimplementation has been removed.
+This contract is additive to the repository-level `AGENTS.md`. It may not
+weaken the root write-scope, ServerScheduler, provenance, or shared-compute
+rules. Read `docs/codex/PROJECT_CONTEXT.md` before working in this subtree and
+`docs/codex/SCHEDULER_RUNBOOK.md` for any execution-related work.
+
+## Current execution policy
+
+- `SyntheticBinary` has no registered ServerScheduler task. All new training,
+  evaluation, summarization, plotting, sweeps, and other computation in this
+  subtree are blocked until separately adapted, profiled, fixture-tested,
+  piloted, and centrally registered.
+- Direct Python commands, Slurm files, Screen/tmux workflows, and local launch
+  scripts in this repository are preserved legacy or export surfaces. They do
+  not authorize computation on the current server.
+- Repository-local `synthetic_binary_experiment/outputs/` and `logs/` paths are
+  historical only. A future registered task must store durable data and results
+  under `/data/del6500/FedFisher` and regenerable logs, runtime state, and caches
+  under `/scr/del6500/FedFisher`.
+- Preserve historical source, results, manifests, and logs unless the user gives
+  a separate, exact deletion instruction.
 
 ## Scope
 
 - Keep the synthetic task on the original FedFisher code path.
-- Generated synthetic original-pipeline outputs should go under
-  `synthetic_binary_experiment/outputs/original_fedfisher*`.
-- Generated prediction-intervention outputs should go under
-  `synthetic_binary_experiment/outputs/prediction_intervention*`.
-- Generated synthetic original-pipeline logs should go under
-  `synthetic_binary_experiment/logs/original_fedfisher*`.
-- Generated prediction-intervention logs should go under
-  `synthetic_binary_experiment/logs/prediction_intervention*`.
-- Do not modify original FedFisher algorithm code unless the user explicitly
-  asks. In particular, avoid changing:
+- The synthetic adaptation adds data, model, evaluation, and helper-script entry
+  points. It does not change FedFisher aggregation logic.
+- Do not modify the original aggregation path unless the user explicitly asks:
   - `run_one_shot_algs.py`
   - `algs/fisher_avg.py`
   - `train_model.py`
   - `utils/compress_fisher.py`
 
-The synthetic adaptation adds data/model entry points and helper scripts. It
-does not change FedFisher aggregation logic.
-
-## Data Contract
+## Data contract
 
 - Data are generated from a sparse Gaussian binary model.
 - Default dimensionality is `d=100`.
-- Default signal dimensions are the first `10` coordinates.
-- The remaining `90` coordinates are pure Gaussian noise.
-- Default `signal_strength=0.7`, `noise_std=1.0`.
+- The first `10` coordinates are signal and the remaining `90` coordinates are
+  pure Gaussian noise.
+- Default `signal_strength=0.7` and `noise_std=1.0`.
 - Balanced-test Bayes accuracy is about `75.8%`.
-- Default clients are `5`.
-- Default `noniid` split uses the original FedFisher class-wise Dirichlet
-  allocation pattern with `alpha=0.1`.
+- The default has `5` clients.
+- The default non-IID split uses the original class-wise Dirichlet allocation
+  with `alpha=0.1`.
 - Keep `dim=100` and `signal_dim=10` unless the user explicitly asks to sweep
   data dimensionality.
 
-## Original-Pipeline Synthetic Contract
+## Original-pipeline contract
 
-Parent-repository additions:
+The parent repository provides:
 
-- `data.py`: adds `SyntheticBinary`.
-- `models.py`: adds `SyntheticMLP` and `SyntheticMLPDeep`.
-- `main.py`: adds synthetic CLI parameters and output file naming.
-- `scripts/run_synthetic_original_fedfisher.slurm`: small GPU array runner.
-- `scripts/run_synthetic_original_fedfisher_1000seeds.slurm`: 1000-seed
-  IID/non-IID runner.
-- `scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm`:
-  1000-seed alpha sweep runner.
-- `scripts/summarize_synthetic_original.py`: result summarizer.
-- `scripts/plot_synthetic_original.py`: IID/non-IID visualization script.
-- `scripts/plot_synthetic_alpha_sweep.py`: alpha sweep visualization script.
-- `utils/feature_importance.py`: legacy optional supervised signal-dimension
-  recovery utilities for trained global models.
-- `utils/prediction_intervention.py`: model-output feature intervention
-  utilities for trained prediction models.
+- `data.py`: `SyntheticBinary`.
+- `models.py`: `SyntheticMLP` and `SyntheticMLPDeep`.
+- `main.py`: synthetic parameters and output naming.
+- `utils/prediction_intervention.py`: trained-model feature intervention.
+- `utils/feature_importance.py`: legacy supervised signal-recovery utilities.
+- `scripts/summarize_synthetic_original.py` and plotting helpers.
+- Preserved Slurm exports for small, 1,000-seed, and alpha-sweep runs.
 
-Do not change original FedFisher update logic when working on this path. The
-goal is to keep `LocalUpdate`, `run_one_shot_algs.py`, and `algs/fisher_avg.py`
-as close to the authors' implementation as possible.
+Keep `LocalUpdate`, `run_one_shot_algs.py`, and `algs/fisher_avg.py` as close to
+the authors' implementation as possible.
 
-Current vector-input synthetic models:
+Current vector-input models are:
 
 ```text
 SyntheticMLP:
@@ -75,107 +73,41 @@ SyntheticMLPDeep:
 69154 parameters, bias=True
 ```
 
-Current original-pipeline methods:
+The original-pipeline methods are `fedavg`, `fedfisher_diag`, and
+`fedfisher_kfac`.
 
-```text
-fedavg
-fedfisher_diag
-fedfisher_kfac
-```
+## Analysis contracts
 
-Preferred prediction-intervention analysis:
+Preferred prediction-intervention analysis modifies one held-out input
+coordinate at a time and scores changes in the trained model's own predictions.
+Do not use true-label loss as its main score. Describe this path as model-based
+feature intervention or prediction intervention.
 
-```bash
-./.conda/bin/python main.py \
-  --dataset SyntheticBinary \
-  --model SyntheticMLP \
-  --synthetic_split noniid \
-  --alpha 0.1 \
-  --local_epochs 30 \
-  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
-  --prediction_intervention \
-  --output_dir synthetic_binary_experiment/outputs/prediction_intervention
-```
+The optional legacy feature-importance path ranks input dimensions and checks
+whether the known signal set `{0, ..., synthetic_signal_dim - 1}` is recovered.
+Describe it as supervised feature selection or signal recovery, not as a causal
+treatment-effect or heterogeneous-treatment-effect experiment.
 
-This analysis modifies one input coordinate at a time on the held-out test set
-and scores features by changes in the trained model's own predictions. Do not
-use true-label loss as the main score for this path. Keep the language framed
-as model-based feature intervention or prediction intervention.
+## Legacy and export surfaces
 
-Legacy supervised feature-importance analysis:
+These files remain for audit or execution on a separately reviewed real Slurm
+cluster; do not submit them from the current server:
 
-```bash
-./.conda/bin/python main.py \
-  --dataset SyntheticBinary \
-  --model SyntheticMLP \
-  --synthetic_split noniid \
-  --alpha 0.1 \
-  --local_epochs 30 \
-  --algs_to_run fedavg fedfisher_diag fedfisher_kfac \
-  --feature_importance \
-  --output_dir synthetic_binary_experiment/outputs/feature_importance
-```
+- `scripts/run_synthetic_original_fedfisher.slurm`
+- `scripts/run_synthetic_original_fedfisher_1000seeds.slurm`
+- `scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm`
 
-This analysis ranks input dimensions and checks whether the known signal set
-`{0, ..., synthetic_signal_dim - 1}` is recovered. Keep the language framed as
-supervised feature selection / signal recovery. Do not describe it as a causal
-treatment-effect or HTE experiment.
+Any future execution path requires a reviewed fixed task name, strict parameter
+schema, foreground adapter, resource profile, fixtures, bounded pilot, scientific
+completion checks, and central registration before a formal request is created.
 
-Small Slurm runner:
+## Git hygiene and style
 
-```bash
-sbatch scripts/run_synthetic_original_fedfisher.slurm
-```
-
-1000-seed runners:
-
-```bash
-sbatch scripts/run_synthetic_original_fedfisher_1000seeds.slurm
-sbatch scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
-```
-
-Summarize and plot:
-
-```bash
-./.conda/bin/python scripts/summarize_synthetic_original.py \
-  --input-dir synthetic_binary_experiment/outputs/original_fedfisher \
-  --output synthetic_binary_experiment/outputs/original_fedfisher/summary.csv
-
-./.conda/bin/python scripts/plot_synthetic_original.py \
-  --input-dir synthetic_binary_experiment/outputs/original_fedfisher \
-  --output-dir synthetic_binary_experiment/outputs/original_fedfisher/figures
-
-./.conda/bin/python scripts/plot_synthetic_alpha_sweep.py
-```
-
-Before submitting Slurm jobs, check:
-
-```bash
-bash -n scripts/run_synthetic_original_fedfisher.slurm
-bash -n scripts/run_synthetic_original_fedfisher_1000seeds.slurm
-bash -n scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
-sbatch --test-only scripts/run_synthetic_original_fedfisher.slurm
-./.conda/bin/python -c "import torch, nngeometry; print(torch.__version__)"
-```
-
-The Slurm scripts themselves check CUDA availability after allocation.
-
-## GitHub Hygiene
-
-- Do not commit generated logs, `__pycache__`, large output CSVs, or SVG figures
-  unless the user explicitly wants results included in the repository.
-- Prefer committing source scripts and documentation:
-  - `synthetic_binary_experiment/README.md`
-  - `synthetic_binary_experiment/AGENTS.md`
-  - relevant `scripts/*.py` and `scripts/*.slurm`
-  - parent synthetic data/model entry points in `data.py`, `models.py`, and
-    `main.py`
-- Keep root algorithm files unchanged unless there is a clear, requested reason
-  to modify the original FedFisher implementation.
-
-## Style
-
-- Keep defaults scientifically meaningful, but expose CLI flags for sweeps.
-- Avoid hidden global state except explicit random seeds.
-- Avoid heavyweight dependencies beyond PyTorch, nngeometry already used by the
-  original repo, and the Python standard library.
+- Do not commit generated logs, `__pycache__`, large output CSVs, or figures
+  unless the user explicitly asks.
+- Prefer small source, test, configuration, and documentation changes.
+- Keep defaults scientifically meaningful and expose explicit parameters for
+  reviewed sweeps.
+- Avoid hidden global state except deterministic random seeds.
+- Avoid new heavyweight dependencies beyond PyTorch, NNGeometry, and the Python
+  standard library without a separately reviewed environment change.
