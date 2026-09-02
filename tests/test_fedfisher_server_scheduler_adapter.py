@@ -232,10 +232,9 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
             ADAPTER.DSLASSO_RUN_IDS["control"],
             "dslassocov_control_server_scheduler_v2_300seeds",
         )
-        self.assertIn("server_scheduler_v2", ADAPTER.ONE_SHOT_RUN_SUFFIX)
-        self.assertNotEqual(
+        self.assertEqual(
             ADAPTER.ONE_SHOT_RUN_SUFFIX,
-            "stationarity_polish_sharded_v1_300seeds",
+            "stationarity_polish_full_scope_server_scheduler_v2r1_300seeds",
         )
 
     def test_scientific_argument_builders_keep_fixed_formal_contracts(self):

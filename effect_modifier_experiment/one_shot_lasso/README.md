@@ -13,7 +13,7 @@ is exactly 8 or 16 and `0 <= shard_index < shard_count`; all other scientific
 configuration is fixed by the existing formal manager.
 
 The adapter initializes both method families in the fixed
-`_stationarity_polish_server_scheduler_v2_300seeds` namespace. It processes
+`_stationarity_polish_full_scope_server_scheduler_v2r1_300seeds` namespace. It processes
 only the shard's seed sequence, skips only cells whose manifest, provenance,
 semantic identity, completion marker, and artifact hashes validate, and
 refuses partial or invalid output. ServerScheduler owns CPU affinity,
@@ -36,7 +36,13 @@ selection, and final refit occur inside the site.  If an accelerated path reache
 flag false while both final prox-gradient and KKT residuals already pass the
 unchanged threshold, the site performs a deterministic momentum-reset polish
 for at most 50 iterations at the same lambda and tolerance.  Pre/post residuals
-and coefficient drift are audited; a genuinely nonstationary fit is rejected.
+and coefficient drift are audited. This applies to both the unpenalized starts
+and lambda-path fits; a genuinely nonstationary fit is rejected, and a failed
+selected lambda is never replaced with an alternate CV candidate.
+Rejected fits emit versioned canonical JSON in the scheduler stderr log,
+including cell and attempt identity plus optimizer and pre/post polish fields.
+The diagnostic is not a scientific artifact or completion marker, so the cell
+remains missing and safely retryable after a reviewed source change.
 The site back-transforms and
 uploads one payload: int64 `site_idx`, int64 `n_k`, and `2 + 2*d` float64
 raw-scale coefficients (202 coefficients at the formal default `d = 100`).

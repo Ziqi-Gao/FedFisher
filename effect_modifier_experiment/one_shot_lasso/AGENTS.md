@@ -18,7 +18,7 @@ protocols.  It may not weaken either parent contract.
   invalid cells fail closed without overwrite.
 - Pre-cutover one-shot outputs are retained for audit but are non-authoritative
   and may not be resumed. New output uses the fixed
-  `stationarity_polish_server_scheduler_v2_300seeds` suffix.
+  `stationarity_polish_full_scope_server_scheduler_v2r1_300seeds` suffix.
 
 - Preserve the multi-round `dslassocov_*` source and durable results as a
   reference.  Never delete, rename, or overwrite them.
@@ -42,8 +42,13 @@ protocols.  It may not weaken either parent contract.
   FISTA false flag may be polished only when its final prox-gradient and KKT
   residuals already pass the unchanged threshold: reset momentum, retain the
   same lambda/tolerance, allow at most 50 deterministic iterations, and audit
-  pre/post residuals plus coefficient drift.  Genuinely nonstationary fits must
-  still fail closed.  MLP explicit-interaction group regularization penalizes only the
+  pre/post residuals plus coefficient drift. This rule applies to both
+  unpenalized starts and lambda-path fits. Genuinely nonstationary fits must
+  still fail closed, and CV must never fall back to a different lambda when the
+  originally selected fit fails. Rejections emit canonical, versioned JSON to
+  stderr with cell, scheduler attempt, optimizer, and pre/post polish context;
+  they must not create a result artifact or completion marker. MLP
+  explicit-interaction group regularization penalizes only the
   `covariate_dim` first-layer `A*X` input columns, with one L2 group over
   all first hidden units per column.  It must not be described as identifiable
   effect-modifier selection because unpenalized A/X nonlinear paths remain.

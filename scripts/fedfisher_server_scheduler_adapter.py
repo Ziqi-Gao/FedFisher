@@ -75,7 +75,9 @@ DSLASSO_RUN_IDS = {
         "dslassocov_site_gaussian_local_permutation_server_scheduler_v2r1_300seeds"
     ),
 }
-ONE_SHOT_RUN_SUFFIX = "stationarity_polish_server_scheduler_v2_300seeds"
+ONE_SHOT_RUN_SUFFIX = (
+    "stationarity_polish_full_scope_server_scheduler_v2r1_300seeds"
+)
 DSLASSO_ENVIRONMENT = {
     "SEED_START": "0",
     "SEED_END": "299",

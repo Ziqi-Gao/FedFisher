@@ -7,6 +7,7 @@ import hashlib
 import io
 import json
 import math
+import os
 from pathlib import Path
 import sys
 
@@ -28,7 +29,10 @@ from effect_modifier_experiment.one_shot_lasso_benchmark import (
     MlpGroupLassoConfig,
     DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
     MOMENTUM_RESET_POLISH_RULE,
+    MOMENTUM_RESET_POLISH_SCOPE,
     SMOOTHING_RULE,
+    STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION,
+    StationarityFailure,
     OneShotLinearLogisticModel,
     aggregate_linear_payloads,
     aggregate_mlp_payloads,
@@ -252,7 +256,11 @@ def method_config(args):
                 "optimizer": "site_local_FISTA_adaptive_restart_backtracking",
                 "optimizer_max_iter": args.optimizer_max_iter,
                 "optimizer_momentum_reset_polish_rule": MOMENTUM_RESET_POLISH_RULE,
+                "optimizer_momentum_reset_polish_scope": MOMENTUM_RESET_POLISH_SCOPE,
                 "optimizer_polish_max_iter": args.optimizer_polish_max_iter,
+                "optimizer_stationarity_failure_diagnostic_schema_version": (
+                    STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION
+                ),
                 "optimizer_tolerance": args.optimizer_tolerance,
                 "optimizer_initial_step": args.optimizer_initial_step,
                 "optimizer_backtrack_factor": args.optimizer_backtrack_factor,
@@ -341,6 +349,21 @@ def _refuse_existing(paths):
             raise FileExistsError("refusing to overwrite existing cell artifact: %s" % path)
 
 
+def _add_stationarity_cell_context(error, args, cell):
+    attempt = os.environ.get("SERVER_SCHEDULER_ATTEMPT")
+    error.add_context(
+        run_id=args.run_id,
+        family=args.family,
+        variant=args.variant,
+        seed=int(args.seed),
+        split=args.split,
+        model=args.model,
+        cell=str(cell),
+        scheduler_job_id=os.environ.get("SERVER_SCHEDULER_JOB_ID"),
+        scheduler_attempt=None if attempt is None else int(attempt),
+    )
+
+
 def run(args):
     torch.set_num_threads(args.threads)
     try:
@@ -421,7 +444,13 @@ def run(args):
             optimizer_min_step=args.optimizer_min_step,
         )
         for site in sites:
-            payload, audit = fit_local_logistic_lasso_site(site, config, args.seed)
+            try:
+                payload, audit = fit_local_logistic_lasso_site(
+                    site, config, args.seed
+                )
+            except StationarityFailure as error:
+                _add_stationarity_cell_context(error, args, stem)
+                raise
             payloads.append(payload)
             local_audits.append(audit)
         aggregate_coefficients, communication = aggregate_linear_payloads(

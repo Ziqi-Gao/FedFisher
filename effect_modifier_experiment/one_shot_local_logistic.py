@@ -13,7 +13,8 @@ site-level epsilon is used in every training and validation fold, and all
 standardization, lambda construction, fitting, and validation remain local.
 """
 
-from typing import Dict, List, Tuple
+import json
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -33,7 +34,9 @@ SMOOTHING_RULE = "site_local_epsilon_1_over_n_plus_1_soft_binary_targets"
 MOMENTUM_RESET_POLISH_RULE = (
     "reset_fista_momentum_when_legacy_flag_false_but_final_prox_and_kkt_pass"
 )
+MOMENTUM_RESET_POLISH_SCOPE = "unpenalized_starts_and_lambda_path_fits"
 DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER = 50
+STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION = 1
 
 
 def _soft_targets(labels: np.ndarray, epsilon: float) -> np.ndarray:
@@ -56,6 +59,10 @@ def _unpenalized_start(
     standardized_sites,
     penalty_start: int,
     optimizer: OptimizerConfig,
+    polish_max_iter: int = DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    *,
+    stage: str = "unpenalized_start",
+    fold_idx: Optional[int] = None,
 ) -> Tuple[np.ndarray, Dict[str, object]]:
     reduced_sites = []
     site_type = type(standardized_sites[0])
@@ -73,9 +80,22 @@ def _unpenalized_start(
         lambda_value=0.0,
         config=optimizer,
     )
+    reduced_coefficients, report = _momentum_reset_polish(
+        reduced_sites,
+        penalty_start,
+        0.0,
+        reduced_coefficients,
+        report,
+        optimizer,
+        polish_max_iter,
+    )
     if not report["converged"]:
-        raise RuntimeError(
-            "soft-target unpenalized local start failed stationarity"
+        raise StationarityFailure(
+            report,
+            stage=stage,
+            site_idx=int(standardized_sites[0].site_idx),
+            fold_idx=fold_idx,
+            lambda_value=0.0,
         )
     coefficients = np.zeros(standardized_sites[0].design.shape[1], dtype=np.float64)
     coefficients[:penalty_start] = reduced_coefficients
@@ -92,6 +112,128 @@ def _passes_final_stationarity(report: Dict[str, object]) -> bool:
         and proximal <= threshold
         and kkt <= threshold
     )
+
+
+def _diagnostic_value(value):
+    """Return a deterministic JSON-safe diagnostic value."""
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, dict):
+        return {
+            str(key): _diagnostic_value(child)
+            for key, child in sorted(value.items())
+        }
+    if isinstance(value, (list, tuple)):
+        return [_diagnostic_value(child) for child in value]
+    if isinstance(value, float) and not np.isfinite(value):
+        return repr(value)
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return repr(value)
+
+
+def stationarity_failure_diagnostic(
+    report: Dict[str, object],
+    *,
+    stage: str,
+    site_idx: int,
+    fold_idx: Optional[int] = None,
+    lambda_index: Optional[int] = None,
+    lambda_value: Optional[float] = None,
+) -> Dict[str, object]:
+    """Describe a rejected fit without changing the convergence boundary."""
+    diagnostic = {
+        "schema_version": STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION,
+        "error_type": "one_shot_logistic_stationarity_failure",
+        "run_id": None,
+        "family": None,
+        "variant": None,
+        "seed": None,
+        "split": None,
+        "model": None,
+        "cell": None,
+        "scheduler_job_id": None,
+        "scheduler_attempt": None,
+        "stage": str(stage),
+        "site_idx": int(site_idx),
+        "fold_idx": None if fold_idx is None else int(fold_idx),
+        "lambda_index": None if lambda_index is None else int(lambda_index),
+        "lambda": None if lambda_value is None else float(lambda_value),
+    }
+    for key in (
+        "iterations",
+        "converged",
+        "initial_objective",
+        "final_objective",
+        "max_coefficient_update",
+        "proximal_gradient_mapping_inf",
+        "kkt_residual_inf",
+        "unpenalized_kkt_residual_inf",
+        "penalized_kkt_residual_inf",
+        "stationarity_threshold",
+        "final_step_size",
+        "total_backtracks",
+        "adaptive_restarts",
+    ):
+        diagnostic[key] = report.get(key)
+    diagnostic["momentum_reset_polish"] = report.get(
+        "momentum_reset_polish"
+    )
+    return _diagnostic_value(diagnostic)
+
+
+def _stationarity_failure_message(diagnostic: Dict[str, object]) -> str:
+    return "one-shot logistic stationarity failure: " + json.dumps(
+        diagnostic,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+
+
+class StationarityFailure(RuntimeError):
+    """A fail-closed stationarity rejection with canonical JSON context."""
+
+    _CONTEXT_FIELDS = frozenset(
+        (
+            "run_id",
+            "family",
+            "variant",
+            "seed",
+            "split",
+            "model",
+            "cell",
+            "scheduler_job_id",
+            "scheduler_attempt",
+        )
+    )
+
+    def __init__(
+        self,
+        report: Dict[str, object],
+        *,
+        stage: str,
+        site_idx: int,
+        fold_idx: Optional[int] = None,
+        lambda_index: Optional[int] = None,
+        lambda_value: Optional[float] = None,
+    ):
+        self.diagnostic = stationarity_failure_diagnostic(
+            report,
+            stage=stage,
+            site_idx=site_idx,
+            fold_idx=fold_idx,
+            lambda_index=lambda_index,
+            lambda_value=lambda_value,
+        )
+        super().__init__(_stationarity_failure_message(self.diagnostic))
+
+    def add_context(self, **context) -> None:
+        unexpected = set(context).difference(self._CONTEXT_FIELDS)
+        if unexpected:
+            raise ValueError("unsupported stationarity diagnostic context")
+        self.diagnostic.update(_diagnostic_value(context))
+        self.args = (_stationarity_failure_message(self.diagnostic),)
 
 
 def _momentum_reset_polish(
@@ -256,7 +398,11 @@ def separation_safe_local_logistic_cv(
     )
     full_standardized = standardize_sites([full_site], full_means, full_scales)
     full_start, unpenalized_report = _unpenalized_start(
-        full_standardized, penalty_start, optimizer
+        full_standardized,
+        penalty_start,
+        optimizer,
+        polish_max_iter,
+        stage="full_unpenalized",
     )
     _, full_gradient, _ = aggregate_loss_and_gradient(
         full_standardized, full_start
@@ -287,7 +433,12 @@ def separation_safe_local_logistic_cv(
         standardized_training = standardize_sites([training_site], means, scales)
         standardized_validation = standardize_sites([validation_site], means, scales)
         start, start_report = _unpenalized_start(
-            standardized_training, penalty_start, optimizer
+            standardized_training,
+            penalty_start,
+            optimizer,
+            polish_max_iter,
+            stage="fold_unpenalized",
+            fold_idx=fold_idx,
         )
         coefficients, reports = _fit_path(
             standardized_training,
@@ -365,7 +516,11 @@ def separation_safe_local_logistic_cv(
         },
         "optimizer": {
             "momentum_reset_polish_rule": MOMENTUM_RESET_POLISH_RULE,
+            "momentum_reset_polish_scope": MOMENTUM_RESET_POLISH_SCOPE,
             "momentum_reset_polish_max_iter": int(polish_max_iter),
+            "stationarity_failure_diagnostic_schema_version": (
+                STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION
+            ),
             "unpenalized_start": unpenalized_report,
             "lambda_fits": final_reports,
             "selected_lambda_fit": final_reports[selected_index],

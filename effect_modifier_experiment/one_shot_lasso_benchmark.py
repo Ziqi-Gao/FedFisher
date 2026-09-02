@@ -31,7 +31,10 @@ from effect_modifier_experiment.dslassocov_benchmark import (
 from effect_modifier_experiment.one_shot_local_logistic import (
     DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
     MOMENTUM_RESET_POLISH_RULE,
+    MOMENTUM_RESET_POLISH_SCOPE,
     SMOOTHING_RULE,
+    STATIONARITY_FAILURE_DIAGNOSTIC_SCHEMA_VERSION,
+    StationarityFailure,
     separation_safe_local_logistic_cv,
 )
 from models import get_model
@@ -274,15 +277,9 @@ def fit_local_logistic_lasso_site(
         optimizer=optimizer,
         polish_max_iter=config.optimizer_polish_max_iter,
     )
-    selected_index = int(fit["cv"]["selected_index"])
-    selected_fold_reports = [
-        fold["lambda_fits"][selected_index] for fold in fit["cv"]["fold_reports"]
-    ]
-    selected_final_report = fit["optimizer"]["selected_lambda_fit"]
-    if not all(report["converged"] for report in selected_fold_reports):
-        raise RuntimeError("site-local selected lambda failed a CV convergence check")
-    if not selected_final_report["converged"]:
-        raise RuntimeError("site-local selected lambda failed final convergence")
+    selected_index, selected_fold_reports, selected_final_report = (
+        _validated_selected_logistic_reports(fit, site_idx=site.site_idx)
+    )
     coefficients = np.concatenate(
         ([fit["original_intercept"]], np.asarray(fit["original_coefficients"]))
     )
@@ -308,6 +305,37 @@ def fit_local_logistic_lasso_site(
     }
     site.seal()
     return payload, audit
+
+
+def _validated_selected_logistic_reports(
+    fit: Mapping[str, object], site_idx: int
+) -> Tuple[int, List[Dict[str, object]], Dict[str, object]]:
+    """Reject the originally selected lambda with contextual diagnostics."""
+    selected_index = int(fit["cv"]["selected_index"])
+    selected_lambda = float(fit["cv"]["selected_lambda"])
+    selected_fold_reports = []
+    for fold in fit["cv"]["fold_reports"]:
+        report = fold["lambda_fits"][selected_index]
+        selected_fold_reports.append(report)
+        if not report["converged"]:
+            raise StationarityFailure(
+                report,
+                stage="fold_lambda",
+                site_idx=site_idx,
+                fold_idx=int(fold["fold_idx"]),
+                lambda_index=selected_index,
+                lambda_value=selected_lambda,
+            )
+    selected_final_report = fit["optimizer"]["selected_lambda_fit"]
+    if not selected_final_report["converged"]:
+        raise StationarityFailure(
+            selected_final_report,
+            stage="final_lambda",
+            site_idx=site_idx,
+            lambda_index=selected_index,
+            lambda_value=selected_lambda,
+        )
+    return selected_index, selected_fold_reports, selected_final_report
 
 
 def aggregate_linear_payloads(
