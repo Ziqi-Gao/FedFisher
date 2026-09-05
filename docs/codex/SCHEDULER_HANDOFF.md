@@ -7,12 +7,13 @@ read-only durable state. The older migration inventory is historical only.
 
 ## Snapshot
 
-- Recorded: 2026-09-04 22:26 CDT.
-- Project HEAD before this work:
-  `4713798f060aa832d28614a88361cfcff34d82d0` on `main`, seven commits ahead of
+- Recorded: 2026-09-04 22:33 CDT.
+- The reviewed v2r2 implementation was committed as
+  `95c7460c9251d2b35f6b91da1024ca84fb3fbd89` on `main`, eight commits ahead of
   `origin/main`.
-- The worktree is intentionally dirty with the source, test, and documentation
-  changes described below. No commit or outbox request was created.
+- The eight pilot requests below were generated from that clean HEAD. This
+  handoff update is the only subsequent worktree change and must be committed
+  before an operator submits a pilot.
 - The installed central registration was inspected read-only at
   `/home/del6500/projects/ServerScheduler/config/projects/fedfisher.toml`. It
   remains enabled with status `cpu-pilot-enabled-gpu-blocked` and contains only
@@ -81,11 +82,14 @@ zero-GPU CPU tasks.
   source-level legacy FD-closure assertion. Current validation must not launch
   a local Screen scheduler merely to test preserved audit code.
 
-## Pilot plan and request state
+## Pilot requests
 
-No v2r2 request exists yet. The generator correctly refuses to publish from the
-current dirty tree. After review and commit, generation 1 will create eight
-pilot requests under `/scr/del6500/FedFisher/scheduler/outbox/`:
+Eight v2r2 generation-1 pilot requests were created under the project outbox
+from clean HEAD `95c7460c9251d2b35f6b91da1024ca84fb3fbd89`. Their common state is
+`submitted=false`; read-only central durable-state inspection found zero
+matching job IDs. File presence is not submission evidence.
+
+The requested pilot coverage is:
 
 - dsLasso: shard 0/4 for each of the four variants;
 - one-shot: shard 6/16 for control and local permutation;
@@ -93,17 +97,40 @@ pilot requests under `/scr/del6500/FedFisher/scheduler/outbox/`:
 
 Those one-shot shard choices include the preserved deterministic failure
 sequences while keeping the paired control/local and Gaussian/combined arms
-aligned. Expected job IDs are:
+aligned. Exact request records are:
 
 ```text
-fedfisher-dslasso-control-v2r2-pilot-cohort-p1-shard-00-of-04
-fedfisher-dslasso-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-00-of-04
-fedfisher-dslasso-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04
-fedfisher-dslasso-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04
-fedfisher-one-shot-control-v2r2-pilot-cohort-p1-shard-06-of-16
-fedfisher-one-shot-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-13-of-16
-fedfisher-one-shot-local-permutation-v2r2-pilot-cohort-p1-shard-06-of-16
-fedfisher-one-shot-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-13-of-16
+dc39cc5c0a81a2468e15c974d993601dd6ebf8036b1852b30ab56fafdc3eb631
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-dslasso-control-v2r2-pilot-cohort-p1-shard-00-of-04.job-request.json
+job_id=fedfisher-dslasso-control-v2r2-pilot-cohort-p1-shard-00-of-04
+
+b4585c270a007932f97215aa4e49c831a87fdf7ac2f459df081bdc367c7b5fae
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-dslasso-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-00-of-04.job-request.json
+job_id=fedfisher-dslasso-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-00-of-04
+
+c12c2797955362e8d590b379901ba3f7cc54e461ea7ef3ee890b76a000e92d59
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-dslasso-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04.job-request.json
+job_id=fedfisher-dslasso-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04
+
+0a1168729ea1e51e2d2f2b96e43b1589f81c1fa7fa7b1695f26fad13a88dd1cb
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-dslasso-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04.job-request.json
+job_id=fedfisher-dslasso-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-00-of-04
+
+6fc9d007c00401c18146369ede3b71d2e5c7da769704340a39db8b5df086da62
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-control-v2r2-pilot-cohort-p1-shard-06-of-16.job-request.json
+job_id=fedfisher-one-shot-control-v2r2-pilot-cohort-p1-shard-06-of-16
+
+63e81c2e95692fcec2ddbbd39c4a772f755169afbc541478443e0c6d4693be8d
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-13-of-16.job-request.json
+job_id=fedfisher-one-shot-site-gaussian-shift-v2r2-pilot-cohort-p1-shard-13-of-16
+
+a5a204231262305e9efc3eb2c595a06d098f1541b61ed497cda44350bc95ef97
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-local-permutation-v2r2-pilot-cohort-p1-shard-06-of-16.job-request.json
+job_id=fedfisher-one-shot-local-permutation-v2r2-pilot-cohort-p1-shard-06-of-16
+
+02846cb4f517d646cf67f0870a2fcd977ad8558ccf660c1db99c2ae37542cd0d
+/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-13-of-16.job-request.json
+job_id=fedfisher-one-shot-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-13-of-16
 ```
 
 An outbox file is not submitted. A ServerScheduler operator must validate and
@@ -161,6 +188,12 @@ tree and failed closed without writing an outbox file. The ServerScheduler
 remaining requests with `resources=None` and `requested_profile=None`; no
 central CLI was called.
 
+After commit `95c7460`, the 23 focused request/adapter/seed-285 tests passed in
+18.355 seconds. All eight materialized requests were then accepted by the
+read-only `JobRequest.from_file` parser with `resources=None` and
+`requested_profile=None`; their SHA-256 digests matched the generator report,
+their job IDs were unique, and their top-level and parameter fields were exact.
+
 ## Remaining legacy local scheduling surfaces
 
 The following remain preserved and executable in source for audit, but are not
@@ -189,25 +222,24 @@ blocked pending validated cutover and a separate exact deletion authorization.
 
 ## Blocking sequence
 
-1. Review and commit this dirty project tree. Scientific provenance and request
-   generation intentionally reject a dirty or mismatched source tree.
-2. Generate the eight pilot outbox requests and record their absolute paths,
-   SHA-256 digests, job IDs, committed HEAD, worktree status, and tests.
-3. Have a ServerScheduler operator validate and submit those pilots. This
+1. Commit this handoff-only worktree change so the project is clean.
+2. Have a ServerScheduler operator validate and submit the eight pilot requests. This
    project session must not call central validate/submit or restart services.
-4. After central termination, validate every pilot artifact and paired
+3. After central termination, validate every pilot artifact and paired
    invariant against the same source commit.
-5. Generate the 72 remaining requests, then hand them to the operator. Their
+4. Generate the 72 remaining requests, then hand them to the operator. Their
    existence in the outbox will still not mean they were submitted.
 
 ## External-action record
 
 No central or GPU mutation occurred. This work did not edit ServerScheduler,
 submit/withdraw a job, change registration state, restart a service, signal a
-process, query a GPU, or write durable scientific results. It ran bounded CPU
-regressions and tests inside the project and FedFisher scratch roots and created
+process, query a GPU, or write durable scientific results. It created eight
+unsubmitted request files in the project outbox, ran bounded CPU regressions
+and tests inside the project and FedFisher scratch roots, and created
 `/scr/del6500/FedFisher/scheduler-regression/seed-285-maxiter/` for test temp and
 cache redirection. One legacy test attempted to start a disposable Screen
 session, but GNU Screen rejected it before creation because `/run/screen` has
 the wrong mode; the test was then made source-only. A separate `screen -ls`
-read-only check reported the same mode error. No outbox request was written.
+read-only check reported the same mode error. All central inspection remained
+read-only, and the outbox files have not been centrally validated or submitted.
