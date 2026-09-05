@@ -1,5 +1,10 @@
 # FedFisher ServerScheduler migration inventory
 
+This file is a historical migration record. For the current project handoff,
+including live-status snapshots, latest tests, proposal/request evidence, and
+blockers, read `docs/codex/SCHEDULER_HANDOFF.md` and verify its claims against
+Git and ServerScheduler's read-only durable state.
+
 Inventory first recorded: 2026-08-31; updated after the first central CPU pilot
 on 2026-09-01 (America/Chicago). The project owner selected migration option 2:
 preserve pre-cutover artifacts but abandon their continued recovery and

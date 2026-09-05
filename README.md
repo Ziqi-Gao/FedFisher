@@ -50,9 +50,9 @@ The stable project entrypoint is:
 
 The first migration stage registers only these CPU tasks:
 
-- `effect-modifier-dslassocov-shard`: one physical CPU core, at least 4096 MiB
+- `effect-modifier-dslassocov-shard`: one physical CPU core, fixed 4096 MiB
   host memory, `shard_count` in `1,2,4`.
-- `effect-modifier-one-shot-lasso-shard`: one physical CPU core, at least 8192
+- `effect-modifier-one-shot-lasso-shard`: one physical CPU core, fixed 8192
   MiB host memory, `shard_count` in `8,16`.
 
 Both accept one of `control`, `site_gaussian_shift`, `local_permutation`, or

@@ -5,8 +5,8 @@ protocols.  It may not weaken either parent contract.
 
 - All new one-shot computation must use the registered
   `effect-modifier-one-shot-lasso-shard` task through the foreground FedFisher
-  ServerScheduler adapter. A job receives one physical CPU core, at least 8192
-  MiB host memory, one compute thread, one reviewed variant, and exactly one of
+  ServerScheduler adapter. A job receives one physical CPU core, fixed 8192 MiB
+  host memory, one compute thread, one reviewed variant, and exactly one of
   8 or 16 deterministic seed shards per variant.
 - ServerScheduler owns CPU affinity, admission, logs, and global concurrency.
   The project must not create Screen sessions or acquire the legacy one-shot

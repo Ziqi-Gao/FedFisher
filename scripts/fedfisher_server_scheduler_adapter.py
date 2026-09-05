@@ -195,7 +195,7 @@ def _resource(payload, field):
     normalized = {
         "cpu_cores": _integer(payload["cpu_cores"], field + ".cpu_cores", 1),
         "memory_mib": _integer(payload["memory_mib"], field + ".memory_mib", 1),
-        "gpu_count": _integer(payload["gpu_count"], field + ".gpu_count", 0, 1),
+        "gpu_count": _integer(payload["gpu_count"], field + ".gpu_count", 0),
         "gpu_memory_mib": _integer(
             payload["gpu_memory_mib"], field + ".gpu_memory_mib", 0
         ),
@@ -209,6 +209,42 @@ def _resource(payload, field):
     if not isinstance(payload["exclusive_gpu"], bool):
         raise AdapterError(field + ".exclusive_gpu must be boolean")
     normalized["exclusive_gpu"] = payload["exclusive_gpu"]
+    return normalized
+
+
+def _resource_hints(payload, field):
+    if not isinstance(payload, dict):
+        raise AdapterError("%s must be an object" % field)
+    unknown = sorted(set(payload) - RESOURCE_FIELDS)
+    if unknown:
+        raise AdapterError(
+            "%s contains unknown fields: %s" % (field, ",".join(unknown))
+        )
+    if not payload:
+        raise AdapterError("%s must contain at least one hint" % field)
+    normalized = {}
+    for key in ("cpu_cores", "memory_mib"):
+        if key in payload:
+            normalized[key] = _integer(payload[key], field + "." + key, 1)
+    if "gpu_count" in payload:
+        normalized["gpu_count"] = _integer(
+            payload["gpu_count"], field + ".gpu_count", 0
+        )
+    if "gpu_memory_mib" in payload:
+        normalized["gpu_memory_mib"] = _integer(
+            payload["gpu_memory_mib"], field + ".gpu_memory_mib", 0
+        )
+    if "gpu_utilization_pct" in payload:
+        normalized["gpu_utilization_pct"] = _integer(
+            payload["gpu_utilization_pct"],
+            field + ".gpu_utilization_pct",
+            0,
+            100,
+        )
+    if "exclusive_gpu" in payload:
+        if not isinstance(payload["exclusive_gpu"], bool):
+            raise AdapterError(field + ".exclusive_gpu must be boolean")
+        normalized["exclusive_gpu"] = payload["exclusive_gpu"]
     return normalized
 
 
@@ -277,29 +313,42 @@ def validate_running_job(payload, environment, manifest_path):
     requested = (
         None
         if payload["resources"] is None
-        else _resource(payload["resources"], "resources")
+        else _resource_hints(payload["resources"], "resources")
     )
     if payload["allocation"] is None:
         raise AdapterError("allocation is required")
     allocation = _resource(payload["allocation"], "allocation")
-    minimum_memory = TASK_PROFILES[task]["memory_mib"]
-    resources_to_validate = [("allocation", allocation)]
+    expected_memory = TASK_PROFILES[task]["memory_mib"]
+    if allocation["cpu_cores"] != 1:
+        raise AdapterError("allocation.cpu_cores must be exactly 1")
+    if allocation["memory_mib"] != expected_memory:
+        raise AdapterError(
+            "allocation.memory_mib must be exactly %d" % expected_memory
+        )
+    if (
+        allocation["gpu_count"] != 0
+        or allocation["gpu_memory_mib"] != 0
+        or allocation["gpu_utilization_pct"] != 0
+    ):
+        raise AdapterError("allocation must describe a CPU-only allocation")
     if requested is not None:
-        resources_to_validate.append(("resources", requested))
-    for field, resource in resources_to_validate:
-        if resource["cpu_cores"] != 1:
-            raise AdapterError(field + ".cpu_cores must be exactly 1")
-        if resource["memory_mib"] < minimum_memory:
+        if requested.get("cpu_cores", 1) != 1:
+            raise AdapterError("resources.cpu_cores must be exactly 1")
+        if requested.get("memory_mib", expected_memory) != expected_memory:
             raise AdapterError(
-                "%s.memory_mib must be at least %d" % (field, minimum_memory)
+                "resources.memory_mib must be exactly %d" % expected_memory
             )
         if (
-            resource["gpu_count"] != 0
-            or resource["gpu_memory_mib"] != 0
-            or resource["gpu_utilization_pct"] != 0
+            requested.get("gpu_count", 0) != 0
+            or requested.get("gpu_memory_mib", 0) != 0
+            or requested.get("gpu_utilization_pct", 0) != 0
         ):
-            raise AdapterError(field + " must describe a CPU-only allocation")
-    if requested is not None and allocation["memory_mib"] < requested["memory_mib"]:
+            raise AdapterError("resources must describe a CPU-only request")
+    if (
+        requested is not None
+        and "memory_mib" in requested
+        and allocation["memory_mib"] < requested["memory_mib"]
+    ):
         raise AdapterError("allocation.memory_mib may not be below the request")
     cpu_ids = payload["cpu_ids"]
     if not isinstance(cpu_ids, list):
@@ -374,6 +423,8 @@ def validate_running_job(payload, environment, manifest_path):
             raise AdapterError("protocol v2 does not define %s" % key)
     if environment.get("CUDA_VISIBLE_DEVICES", ""):
         raise AdapterError("CPU task received nonempty CUDA_VISIBLE_DEVICES")
+    if environment.get("NVIDIA_VISIBLE_DEVICES") != "void":
+        raise AdapterError("CPU task requires NVIDIA_VISIBLE_DEVICES=void")
     allowed_scheduler_environment = set(expected_environment) | {
         "SERVER_SCHEDULER_LEASE_ID",
         "SERVER_SCHEDULER_ATTEMPT",

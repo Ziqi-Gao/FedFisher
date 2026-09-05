@@ -114,7 +114,11 @@ Evaluation reports Top-2 hits/precision, signal ranks, and AUROC over all 100 ra
 covariates. Direct interaction-column intervention is retained only as a
 secondary diagnostic.
 
-## Smoke Command
+## Historical direct smoke command (do not run on the current host)
+
+This command documents the underlying scientific CLI only. It is not a
+registered ServerScheduler task and is not an authorized current-host
+execution path.
 
 ```bash
 python main.py \

@@ -67,6 +67,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
             ),
             "SERVER_SCHEDULER_STDOUT_LOG": payload["stdout_log"],
             "SERVER_SCHEDULER_STDERR_LOG": payload["stderr_log"],
+            "NVIDIA_VISIBLE_DEVICES": "void",
         }
         if payload["numa_node"] is not None:
             environment["SERVER_SCHEDULER_NUMA_NODE"] = str(payload["numa_node"])
@@ -89,6 +90,14 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
         self.assertIsNone(payload["resources"])
         validated = ADAPTER.load_running_job(path, self.environment(path, payload))
         self.assertIsNone(validated["resources"])
+
+    def test_sparse_memory_hint_round_trips_in_running_manifest(self):
+        path, payload = self.fixture("one-shot-running-job.json")
+        payload["resources"] = {"memory_mib": 8192}
+        validated = ADAPTER.validate_running_job(
+            payload, self.environment(path, payload), path
+        )
+        self.assertEqual(validated["resources"], {"memory_mib": 8192})
 
     def test_dispatch_is_fixed_and_executor_can_be_replaced_without_science(self):
         path, payload = self.fixture("one-shot-running-job.json")
@@ -138,6 +147,8 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
         too_many_cores = copy.deepcopy(payload)
         too_many_cores["allocation"]["cpu_cores"] = 2
         too_many_cores["cpu_ids"] = [64, 65]
+        wrong_fixed_memory = copy.deepcopy(payload)
+        wrong_fixed_memory["allocation"]["memory_mib"] = 12288
         gpu_request = copy.deepcopy(payload)
         gpu_request["resources"]["gpu_count"] = 1
         gpu_request["resources"]["gpu_memory_mib"] = 1024
@@ -148,6 +159,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
             invalid_index,
             invalid_count,
             too_many_cores,
+            wrong_fixed_memory,
             gpu_request,
             wrong_profile,
         ):
@@ -182,6 +194,12 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
         singular_v1 = self.environment(path, payload)
         singular_v1["SERVER_SCHEDULER_GPU_INDEX"] = ""
         cases.append(singular_v1)
+        missing_nvidia_isolation = self.environment(path, payload)
+        del missing_nvidia_isolation["NVIDIA_VISIBLE_DEVICES"]
+        cases.append(missing_nvidia_isolation)
+        exposed_nvidia = self.environment(path, payload)
+        exposed_nvidia["NVIDIA_VISIBLE_DEVICES"] = "all"
+        cases.append(exposed_nvidia)
         for environment in cases:
             with self.subTest(environment=environment):
                 with self.assertRaises(ADAPTER.AdapterError):

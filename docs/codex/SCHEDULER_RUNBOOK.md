@@ -49,7 +49,7 @@ shard_index: zero-based integer
 shard_count: task-specific allowed integer
 ```
 
-| Task | Allowed shard count | Profile | Minimum memory | GPU |
+| Task | Allowed shard count | Profile | Fixed host memory | GPU |
 | --- | --- | --- | --- | --- |
 | `effect-modifier-dslassocov-shard` | 1, 2, or 4 | fixed `cpu-1core` | 4096 MiB | 0 |
 | `effect-modifier-one-shot-lasso-shard` | 8 or 16 | fixed `cpu-1core` | 8192 MiB | 0 |
@@ -68,7 +68,11 @@ GPU jobs are disabled. Legacy GPU launchers, device polling, GPU locks, and
 manual `CUDA_VISIBLE_DEVICES` selection are not authorized bypasses. Any future
 GPU task requires a separately reviewed foreground adapter, parameter schema,
 memory/utilization/sharing/model profile, fixture suite, pilot, and central
-registration change.
+registration change. It must derive world size from the running allocation and
+`SERVER_SCHEDULER_GPU_COUNT`, preserve scheduler visibility, and use logical
+CUDA ordinals `0..N-1`. A scheduler-managed profile is allowed only after the
+same scientific result contract is proven at 1, 2, 3, and 4 GPUs; otherwise
+the proposal must declare a truthful fixed count.
 
 ## Request construction and operator handoff
 

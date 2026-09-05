@@ -8,7 +8,7 @@ the existing multi-round `dslassocov_*` implementation or its durable results.
 All new runs use the registered ServerScheduler task
 `effect-modifier-one-shot-lasso-shard`. One foreground job owns one
 deterministic shard for one reviewed variant, receives one physical CPU core
-and at least 8192 MiB host memory, and uses one compute thread. `shard_count`
+and fixed 8192 MiB host memory, and uses one compute thread. `shard_count`
 is exactly 8 or 16 and `0 <= shard_index < shard_count`; all other scientific
 configuration is fixed by the existing formal manager.
 

@@ -90,8 +90,8 @@ Source: [Scientific Reports article and method equations](https://www.nature.com
 
 All new runs use the registered ServerScheduler task
 `effect-modifier-dslassocov-shard`. One central job owns one deterministic
-shard, stays in the foreground, receives one physical CPU core, and requests at
-least 4096 MiB host memory. Parameters are limited to the four reviewed
+shard, stays in the foreground, receives one physical CPU core and fixed 4096
+MiB host memory. Parameters are limited to the four reviewed
 variants, `shard_count` in `1,2,4`, and a zero-based `shard_index` below that
 count. Run IDs, paths, seed range `0..299`, splits, and scientific
 hyperparameters are derived by the adapter and cannot be supplied by a caller.

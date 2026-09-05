@@ -12,19 +12,22 @@ scientific results:
 2. For any computation request, outbox, scheduler, registration, submission,
    status, or runtime work, also read `docs/codex/SCHEDULER_RUNBOOK.md`
    completely.
-3. When work touches an experiment subtree, read that subtree's nearest
+3. For ServerScheduler integration or migration work, also read the current
+   project handoff at `docs/codex/SCHEDULER_HANDOFF.md` completely.
+4. When work touches an experiment subtree, read that subtree's nearest
    `AGENTS.md` even if the session started at the repository root.
-4. Treat Git, scientific manifests, and ServerScheduler's live read-only state
+5. Treat Git, scientific manifests, and ServerScheduler's live read-only state
    as authoritative for current status. Never infer live status from project
    documentation.
-5. Use `/home/del6500/projects/FedFisher` as the only canonical source tree.
+6. Use `/home/del6500/projects/FedFisher` as the only canonical source tree.
    `results/server-scheduler-migration/` is a preserved historical clone and
    must not be edited, executed, imported, or used as a Codex working
    directory.
 
 The Codex context documents contain stable architecture and operating procedure
-only. Do not add active job IDs, queue states, completion counts, transient
-commit bindings, or other live experiment status to them.
+only. Put active migration status, tests, proposal/request evidence, transient
+commit bindings, and blockers only in `docs/codex/SCHEDULER_HANDOFF.md`; do not
+add those changing facts to the context or runbook.
 
 ## Allowed write scope
 
@@ -128,19 +131,36 @@ that remain elsewhere in the repository for audit or rollback purposes.
   request only below `/scr/del6500/FedFisher/scheduler/outbox/`; a
   ServerScheduler operator validates and submits it. An outbox file is not a
   submitted job.
-- Resource selection belongs to ServerScheduler. Project code must not select
-  physical CPUs or GPUs, implement global concurrency, poll devices, or create
-  project resource locks for centrally managed jobs.
+- Normal requests express scientific work only. They must not encode CPU/GPU
+  counts, device identities, memory or utilization reservations, exclusivity,
+  availability observations, or other machine choices in parameters, job IDs,
+  configuration, or filenames.
+- Resource selection belongs to ServerScheduler. Project code must not query
+  `nvidia-smi` or another local resource ledger to decide whether or how to
+  publish work; select physical CPUs or GPUs; implement global concurrency; or
+  create project resource locks, leases, queues, Screen/tmux fan-out, or
+  background schedulers for new jobs.
 - The registered project entrypoint must stay in the foreground. It must not
   create Screen/tmux sessions, daemonize, detach, or background the scientific
   task.
 - Use `SERVER_SCHEDULER_CPU_CORES`, the scheduler-provided CPU affinity, and
   one or fewer software workers/BLAS threads per allocated core. Every shard
   may process only its deterministic seed sequence.
-- GPU tasks must consume the existing scheduler-provided
-  `CUDA_VISIBLE_DEVICES` and treat the assigned device as CUDA device zero.
-  FedFisher GPU task submission is currently disabled; legacy GPU launchers
-  are not an authorized bypass.
+- A GPU entrypoint must derive its fixed-per-attempt world size from both the
+  running manifest and `SERVER_SCHEDULER_GPU_COUNT`, require them to agree with
+  the plural GPU identity environment, preserve the scheduler-provided
+  `CUDA_VISIBLE_DEVICES`, and use only logical CUDA ordinals `0..N-1`. It must
+  never reinterpret those ordinals as host indices. A running attempt is never
+  dynamically resized.
+- A GPU profile may declare `kind = "gpu"` and
+  `gpu_count_policy = "scheduler"` while omitting `gpu_count` only after tests
+  prove that the same entrypoint and scientific result contract are valid for
+  every centrally allowed count 1, 2, 3, and 4. Otherwise it must remain a
+  truthful fixed-count profile. FedFisher has no registered GPU task now;
+  legacy GPU launchers are not an authorized bypass.
+- Project sessions may create only disabled registration proposals. They must
+  not edit the central registration, enable a project or task, restart a
+  scheduler service, or call central validate/submit/dispatch commands.
 - Delivery is at least once. A zero process exit status is not sufficient
   scientific completion evidence. Resume only by validating the project run
   manifest, provenance, semantic result identity, artifact hashes, and the
@@ -156,27 +176,19 @@ that remain elsewhere in the repository for audit or rollback purposes.
 - Treat every process, Screen or tmux session, scheduler job, container, GPU
   context, and output tree not launched by the current FedFisher task as a
   foreign experiment, even when it uses a device needed by this project.
-- Before launching GPU work, inspect device utilization, memory use, compute
-  PIDs, process ownership, and existing FedFisher sessions. Report material
-  contention to the user.
-- Waiting for an idle GPU is the default. Running alongside an existing GPU
-  experiment is an overlay launch and requires explicit user authorization for
-  that launch. Authorization to overlay does not authorize any action against
-  the existing experiment.
-- Overlay launches must be additive and isolated: select devices with
-  `CUDA_VISIBLE_DEVICES`, use only FedFisher-owned processes, sessions,
-  environments, locks, logs, caches, runtime directories, and output paths,
-  and preserve every pre-existing process and file unchanged.
+- New GPU work may start only after ServerScheduler admits it and supplies the
+  allocation. A project session must not perform a direct or overlay launch,
+  wait on a locally observed device, or alter visibility to choose host GPUs.
 - Never terminate, signal, pause, resume, renice, rebind CPU or GPU affinity,
   attach a debugger to, modify the environment or files of, or otherwise
   control a foreign experiment. Never use GPU reset, MIG reconfiguration,
   clock or power changes, CUDA MPS changes, driver operations, `killall`, or a
   broad `pkill` to obtain resources for FedFisher.
-- If an overlay causes an out-of-memory error, resource conflict, instability,
-  or unacceptable interference, stop or adjust only the exact FedFisher
-  sessions and PIDs created by the current task. Resolve ownership and command
-  lines with read-only checks before any stop action; leave all foreign work
-  running and report the condition.
+- If a centrally admitted FedFisher task encounters an out-of-memory error,
+  resource conflict, instability, or unacceptable interference, leave all
+  foreign work unchanged and report the condition. Any action on the exact
+  FedFisher attempt remains a separate, explicit operation within the
+  scheduler ownership boundary.
 - Permission to start, restart, or stop FedFisher work never implies permission
   to interrupt another experiment. Any exception requires a separate, explicit
   user instruction naming the exact foreign target and action.

@@ -38,6 +38,11 @@ experiment.
   global concurrency. The project must honor `SERVER_SCHEDULER_CPU_CORES` and
   the existing scheduler-provided `CUDA_VISIBLE_DEVICES`; it must not poll
   devices or create project resource locks for centrally managed jobs.
+- Any future GPU entrypoint must cross-check the running allocation with
+  `SERVER_SCHEDULER_GPU_COUNT`, preserve `CUDA_VISIBLE_DEVICES`, and use only
+  logical CUDA ordinals `0..N-1`. It may claim scheduler-managed sizing only
+  after the same scientific contract passes fixtures at 1, 2, 3, and 4 GPUs;
+  until then it must remain fixed-count and disabled.
 - A central shard stays in the foreground, uses at most its allocated software
   threads, and processes only seeds congruent to its `shard_index` modulo
   `shard_count`.
@@ -106,27 +111,21 @@ experiment.
 - The `.slurm` runner is retained only as a legacy/export path for a real Slurm
   cluster; it is not the current-server entry point.
 
-## Legacy Shared-GPU Overlay Procedure (disabled for new work)
+## Legacy Shared-GPU Overlay Record (disabled for new work)
 
 This section records the old safety boundary for audit. It does not authorize
-an overlay launch or bypass the ServerScheduler registration requirement.
+an overlay launch or bypass the ServerScheduler registration requirement. No
+project session may execute this workflow, even after observing an idle device;
+new GPU work requires a reviewed central task and scheduler allocation.
 
-- Normal launches keep `WAIT_FOR_GPU_IDLE=1`; each slot waits for three
-  consecutive idle polls before starting its worker.
-- Only after the user explicitly authorizes sharing already occupied GPUs may
-  an agent launch this experiment with:
+- Historical launches used `WAIT_FOR_GPU_IDLE=1` and waited for three
+  consecutive idle polls. The historical overlay switch
+  `WAIT_FOR_GPU_IDLE=0` is retained in source only as audit evidence and is not
+  an authorized launch mode.
 
-  ```bash
-  WAIT_FOR_GPU_IDLE=0 bash scripts/launch_synthetic_effect_modifier_300seeds_local.sh
-  ```
-
-- Before an overlay launch, record the existing GPU compute PIDs, owners,
-  utilization, and memory use. Verify that the FedFisher allocation has
-  sufficient memory headroom, and tell the user that compute throughput may be
-  shared.
-- Overlay workers must remain one independently visible process per selected
-  physical GPU, selected through `CUDA_VISIBLE_DEVICES`, and must write only to
-  the FedFisher `/data` and `/scr` trees defined above.
+- Historical overlay workers were one process per selected physical GPU and
+  wrote only to the FedFisher `/data` and `/scr` trees. This is descriptive,
+  not permission for project-side device discovery or selection.
 - The only sessions that this experiment may control are those it created with
   the exact prefix `fedfisher_em_<RUN_ID>_w`. Before stopping or restarting a
   session, resolve its exact Screen name and child command line.
@@ -135,9 +134,9 @@ an overlay launch or bypass the ServerScheduler registration requirement.
   `nvidia-smi --gpu-reset`, MIG changes, clock or power changes, CUDA MPS
   changes, or edits to another experiment's code, environment, data, logs,
   checkpoints, or outputs.
-- If coexistence fails, terminate only the exact FedFisher Screen sessions or
-  FedFisher child PIDs from the current run. Other experiments must continue
-  unchanged, regardless of their GPU utilization or runtime.
+- Other experiments must continue unchanged regardless of their GPU
+  utilization or runtime. Process control requires a separate exact action and
+  cannot be inferred from this historical record.
 
 ## Validation
 
@@ -145,8 +144,9 @@ an overlay launch or bypass the ServerScheduler registration requirement.
   repository, followed by a small CPU data-contract check when dependencies are
   available.
 - Run `bash -n` on every changed shell or Slurm script.
-- Validate a one-element CUDA kernel and both NNGeometry `PMatDiag` and
-  `PMatKFAC` before launching workers after an environment change.
+- A future approved GPU pilot must validate a one-element CUDA kernel and both
+  NNGeometry `PMatDiag` and `PMatKFAC` through the registered foreground path
+  after an environment change; this is not authorization for a direct launch.
 
 ## Factorial Ablation Contract
 
@@ -209,8 +209,8 @@ an overlay launch or bypass the ServerScheduler registration requirement.
 ## dsLassoCov-style CPU Benchmark Contract
 
 - For new work, one ServerScheduler job owns one deterministic dsLassoCov
-  shard. The registered profile fixes one physical CPU core and at least 4096
-  MiB memory. Allowed shard counts are 1, 2, or 4. The adapter uses the existing
+  shard. The registered profile fixes one physical CPU core and 4096 MiB host
+  memory. Allowed shard counts are 1, 2, or 4. The adapter uses the existing
   manager/runner directly in the foreground and does not create local launch or
   seed locks.
 - The shell launcher, Screen sessions, and CPU-lock rules below are retained to
