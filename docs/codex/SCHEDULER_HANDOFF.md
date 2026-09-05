@@ -7,21 +7,21 @@ read-only durable state. The older migration inventory is historical only.
 
 ## Snapshot
 
-- Recorded: 2026-09-04 22:33 CDT.
+- Recorded: 2026-09-05 18:10 CDT.
 - The reviewed v2r2 implementation was committed as
   `95c7460c9251d2b35f6b91da1024ca84fb3fbd89` on `main`, eight commits ahead of
   `origin/main`.
-- The eight pilot requests below were generated from that clean HEAD. This
-  handoff update is the only subsequent worktree change and must be committed
-  before an operator submits a pilot.
+- The pilot-request handoff was committed as
+  `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`; `main` is nine commits ahead of
+  `origin/main`. The worktree was clean before this status update.
 - The installed central registration was inspected read-only at
   `/home/del6500/projects/ServerScheduler/config/projects/fedfisher.toml`. It
   remains enabled with status `cpu-pilot-enabled-gpu-blocked` and contains only
   the two fixed CPU tasks below. This project session did not modify it.
-- Read-only durable scheduler state still contains 68 FedFisher jobs: 61
-  completed, 7 failed, and none pending or running. The latest recorded update
-  is `2026-09-04T04:19:14Z`. Historical terminal states do not validate the new
-  source epoch.
+- Read-only durable scheduler state contains 76 FedFisher jobs: 69 completed,
+  7 historical failures, and none pending or running. All eight v2r2 pilot jobs
+  completed on attempt 1 with exit code 0; the latest pilot update is
+  `2026-09-05T05:55:30Z`.
 
 ## Current project-side contract
 
@@ -85,9 +85,10 @@ zero-GPU CPU tasks.
 ## Pilot requests
 
 Eight v2r2 generation-1 pilot requests were created under the project outbox
-from clean HEAD `95c7460c9251d2b35f6b91da1024ca84fb3fbd89`. Their common state is
-`submitted=false`; read-only central durable-state inspection found zero
-matching job IDs. File presence is not submission evidence.
+from clean HEAD `95c7460c9251d2b35f6b91da1024ca84fb3fbd89`, recorded in commit
+`cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`, and submitted by a
+ServerScheduler operator. All eight durable jobs are now `completed`, attempt
+1, exit code 0, with no failure reason.
 
 The requested pilot coverage is:
 
@@ -133,10 +134,17 @@ job_id=fedfisher-one-shot-local-permutation-v2r2-pilot-cohort-p1-shard-06-of-16
 job_id=fedfisher-one-shot-site-gaussian-local-permutation-v2r2-pilot-cohort-p1-shard-13-of-16
 ```
 
-An outbox file is not submitted. A ServerScheduler operator must validate and
-submit the pilots. Only after their central completion, current-source artifact
-validation, and paired invariants pass may the 72 disjoint remaining requests
-be generated and handed to the operator.
+The pilot scientific gate passed against clean current commit
+`cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`:
+
+- dsLasso: four manifests, 300 seed markers, and 600 result cells validated;
+  control/local, Gaussian/combined, and common-test invariants all passed.
+- one-shot: eight manifests and 444 result cells validated; 222 paired
+  control/local or Gaussian/combined comparisons passed for training, test,
+  payload, and aggregate-model fingerprints.
+- dsLasso stderr is empty. Each one-shot stderr contains only the same 228-byte
+  NetworkX duplicate-backend runtime warning; there is no stationarity,
+  artifact, adapter, or scheduler error.
 
 The outbox still contains 70 historical files. Sixty-eight have matching
 durable job records. These two old v2r1 files have no matching durable record
@@ -145,6 +153,34 @@ from them:
 
 - `/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-control-stationarity-full-scope-v2r1-pilot-shard-06-of-16.job-request.json`
 - `/scr/del6500/FedFisher/scheduler/outbox/fedfisher-one-shot-local-permutation-stationarity-full-scope-v2r1-pilot-shard-06-of-16.job-request.json`
+
+## Remaining requests
+
+After the pilot gate passed, 72 v2r2 generation-1 remaining requests were
+created from clean commit `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`:
+
+- 12 dsLasso requests: shards 1, 2, and 3 of 4 for every variant;
+- 60 one-shot requests: every shard except each variant's already completed
+  pilot shard.
+
+Together with the pilots, the 80 unique job IDs cover every dsLasso 0..3 shard
+and every one-shot 0..15 shard for all four variants exactly once. Every actual
+request passed the read-only ServerScheduler `JobRequest.from_file` parser,
+contains only `variant`, `shard_index`, and `shard_count`, and omits both
+`resources` and `execution_profile`. Central durable state currently contains
+zero matching remaining job IDs, so these files are not submitted.
+
+The complete per-request absolute path, SHA-256, job ID, task, and parameters
+are recorded in:
+
+```text
+/scr/del6500/FedFisher/scheduler/reports/fedfisher-v2r2-remaining-cohort-p1.inventory.json
+SHA-256 ee8b8cb54f13c84d9963f0b74e91be0d7f11dd9102bb6dde36c4e698a9296b00
+```
+
+That inventory records generation HEAD `cbcde8f`, a clean generation tree,
+`request_count=72`, and `submitted=false`. It is an audit report, not a job
+request or evidence of central acceptance.
 
 ## Proposal
 
@@ -194,6 +230,10 @@ read-only `JobRequest.from_file` parser with `resources=None` and
 `requested_profile=None`; their SHA-256 digests matched the generator report,
 their job IDs were unique, and their top-level and parameter fields were exact.
 
+After pilot scientific validation and remaining-request materialization, the
+22 focused request/adapter tests passed in 1.095 seconds. The complete 72-file
+inventory and its digest were independently reread after creation.
+
 ## Remaining legacy local scheduling surfaces
 
 The following remain preserved and executable in source for audit, but are not
@@ -222,24 +262,28 @@ blocked pending validated cutover and a separate exact deletion authorization.
 
 ## Blocking sequence
 
-1. Commit this handoff-only worktree change so the project is clean.
-2. Have a ServerScheduler operator validate and submit the eight pilot requests. This
-   project session must not call central validate/submit or restart services.
-3. After central termination, validate every pilot artifact and paired
-   invariant against the same source commit.
-4. Generate the 72 remaining requests, then hand them to the operator. Their
-   existence in the outbox will still not mean they were submitted.
+1. Commit this handoff-only status update so project provenance remains clean.
+2. Have a ServerScheduler operator validate and submit the 72 remaining
+   requests. This project session must not call central validate/submit or
+   restart services.
+3. Monitor all remaining jobs to terminal state without changing tracked
+   source.
+4. Validate all 1,200 dsLasso seed markers/2,400 result cells, all 7,200
+   one-shot result cells, complete four-variant paired invariants, stderr, and
+   manifest provenance before declaring the supplemental experiment complete.
 
 ## External-action record
 
-No central or GPU mutation occurred. This work did not edit ServerScheduler,
-submit/withdraw a job, change registration state, restart a service, signal a
-process, query a GPU, or write durable scientific results. It created eight
-unsubmitted request files in the project outbox, ran bounded CPU regressions
-and tests inside the project and FedFisher scratch roots, and created
+The eight pilot submissions and their scientific outputs were performed by the
+external ServerScheduler operator/attempts, not by this project inspection.
+This project work did not edit ServerScheduler, submit/withdraw a job, change
+registration state, restart a service, signal a process, or query a GPU. It
+created 72 unsubmitted remaining request files and one scratch audit inventory,
+and ran read-only pilot artifact/invariant validation plus bounded CPU tests
+inside the project and FedFisher scratch roots. Earlier work created
 `/scr/del6500/FedFisher/scheduler-regression/seed-285-maxiter/` for test temp and
 cache redirection. One legacy test attempted to start a disposable Screen
 session, but GNU Screen rejected it before creation because `/run/screen` has
 the wrong mode; the test was then made source-only. A separate `screen -ls`
-read-only check reported the same mode error. All central inspection remained
-read-only, and the outbox files have not been centrally validated or submitted.
+read-only check reported the same mode error. All current central inspection
+remained read-only; only the 72 new remaining files are still unsubmitted.
