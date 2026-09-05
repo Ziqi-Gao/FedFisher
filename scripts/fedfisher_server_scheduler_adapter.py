@@ -68,15 +68,15 @@ TASK_PROFILES = {
     ONE_SHOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
-    "control": "dslassocov_control_server_scheduler_v2r1_300seeds",
-    "site_gaussian_shift": "dslassocov_site_gaussian_shift_server_scheduler_v2r1_300seeds",
-    "local_permutation": "dslassocov_local_permutation_server_scheduler_v2r1_300seeds",
+    "control": "dslassocov_control_server_scheduler_v2r2_300seeds",
+    "site_gaussian_shift": "dslassocov_site_gaussian_shift_server_scheduler_v2r2_300seeds",
+    "local_permutation": "dslassocov_local_permutation_server_scheduler_v2r2_300seeds",
     "site_gaussian_local_permutation": (
-        "dslassocov_site_gaussian_local_permutation_server_scheduler_v2r1_300seeds"
+        "dslassocov_site_gaussian_local_permutation_server_scheduler_v2r2_300seeds"
     ),
 }
 ONE_SHOT_RUN_SUFFIX = (
-    "stationarity_polish_full_scope_server_scheduler_v2r1_300seeds"
+    "stationarity_4000iter_full_scope_server_scheduler_v2r2_300seeds"
 )
 DSLASSO_ENVIRONMENT = {
     "SEED_START": "0",

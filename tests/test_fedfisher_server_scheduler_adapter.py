@@ -242,7 +242,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
     def test_scheduler_run_names_do_not_collide_with_preserved_legacy_results(self):
         self.assertTrue(
             all(
-                "server_scheduler_v2r1_300seeds" in value
+                "server_scheduler_v2r2_300seeds" in value
                 for value in ADAPTER.DSLASSO_RUN_IDS.values()
             )
         )
@@ -252,7 +252,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
         )
         self.assertEqual(
             ADAPTER.ONE_SHOT_RUN_SUFFIX,
-            "stationarity_polish_full_scope_server_scheduler_v2r1_300seeds",
+            "stationarity_4000iter_full_scope_server_scheduler_v2r2_300seeds",
         )
 
     def test_scientific_argument_builders_keep_fixed_formal_contracts(self):
@@ -277,6 +277,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
         )
         self.assertIn("server_scheduler_v2", one_shot.run_id)
         self.assertEqual(one_shot.threads, 1)
+        self.assertEqual(one_shot.optimizer_max_iter, 4000)
 
     def test_v2_examples_use_automatic_profile_selection(self):
         example_root = (

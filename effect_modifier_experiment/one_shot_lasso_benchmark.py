@@ -30,6 +30,7 @@ from effect_modifier_experiment.dslassocov_benchmark import (
 )
 from effect_modifier_experiment.one_shot_local_logistic import (
     DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER,
     MOMENTUM_RESET_POLISH_RULE,
     MOMENTUM_RESET_POLISH_SCOPE,
     SMOOTHING_RULE,
@@ -188,7 +189,7 @@ class LocalLogisticConfig:
     lambda_min_ratio: float = 1e-3
     cv_seed_offset: int = 4000037
     scale_floor: float = 1e-12
-    optimizer_max_iter: int = 2000
+    optimizer_max_iter: int = DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER
     optimizer_polish_max_iter: int = DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER
     optimizer_tolerance: float = 1e-6
     optimizer_initial_step: float = 1.0

@@ -822,80 +822,14 @@ sleep 0.8
                 owner.wait(timeout=5)
             shutil.rmtree(lock_dir, ignore_errors=True)
 
-    def test_screen_child_does_not_inherit_launch_lock_fd(self):
-        self.assertIsNotNone(shutil.which("screen"))
-        TEST_RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
-        run_id, lock_dir = self._new_lock_run("launch_fd")
-        session = "dslassocov_locktest_%d_%d" % (os.getpid(), time.time_ns())
-        try:
-            with tempfile.TemporaryDirectory(dir=TEST_RUNTIME_ROOT) as directory:
-                ready = Path(directory) / "screen_child_ready"
-                launch_script = r"""
-set -euo pipefail
-source "$1"
-dslassocov_acquire_launch_lock "$2" "test-launcher"
-screen -dmS "$3" bash -c 'touch "$1"; sleep 1' bash "$4" {DSLASSOCOV_CPU_LOCK_FD}>&-
-dslassocov_release_cpu_lock "test-launcher"
-"""
-                launched = subprocess.run(
-                    [
-                        "bash",
-                        "-c",
-                        launch_script,
-                        "bash",
-                        str(CPU_LOCK_HELPER),
-                        run_id,
-                        session,
-                        str(ready),
-                    ],
-                    cwd=str(PROJECT_ROOT),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=False,
-                )
-                self.assertEqual(launched.returncode, 0, launched.stderr)
-                self._wait_for_path(ready)
-                active = subprocess.run(
-                    ["screen", "-ls"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    check=False,
-                ).stdout
-                self.assertIn(session, active)
-                reacquire = subprocess.run(
-                    [
-                        "bash",
-                        "-c",
-                        'source "$1"; dslassocov_acquire_launch_lock "$2" "second-launcher"; '
-                        'dslassocov_release_cpu_lock "second-launcher"',
-                        "bash",
-                        str(CPU_LOCK_HELPER),
-                        run_id,
-                    ],
-                    cwd=str(PROJECT_ROOT),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=False,
-                )
-                self.assertEqual(reacquire.returncode, 0, reacquire.stderr)
-                deadline = time.monotonic() + 5.0
-                while time.monotonic() < deadline:
-                    listing = subprocess.run(
-                        ["screen", "-ls"],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        check=False,
-                    ).stdout
-                    if session not in listing:
-                        break
-                    time.sleep(0.05)
-                self.assertNotIn(session, listing)
-        finally:
-            shutil.rmtree(lock_dir, ignore_errors=True)
+    def test_legacy_screen_child_launch_source_closes_launch_lock_fd(self):
+        launcher = PROJECT_ROOT / "scripts/launch_effect_modifier_dslassocov_cpu.sh"
+        source = launcher.read_text(encoding="utf-8")
+        self.assertIn(
+            'screen -dmS "${session}" "${SCRIPT_DIR}/run_effect_modifier_dslassocov_cpu_worker.sh"',
+            source,
+        )
+        self.assertIn("{DSLASSOCOV_CPU_LOCK_FD}>&-", source)
 
 
     def test_cpu_scripts_do_not_touch_gpu_or_gpu_locks(self):

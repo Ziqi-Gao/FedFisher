@@ -18,7 +18,7 @@ protocols.  It may not weaken either parent contract.
   invalid cells fail closed without overwrite.
 - Pre-cutover one-shot outputs are retained for audit but are non-authoritative
   and may not be resumed. New output uses the fixed
-  `stationarity_polish_full_scope_server_scheduler_v2r1_300seeds` suffix.
+  `stationarity_4000iter_full_scope_server_scheduler_v2r2_300seeds` suffix.
 
 - Preserve the multi-round `dslassocov_*` source and durable results as a
   reference.  Never delete, rename, or overwrite them.
@@ -47,7 +47,13 @@ protocols.  It may not weaken either parent contract.
   still fail closed, and CV must never fall back to a different lambda when the
   originally selected fit fails. Rejections emit canonical, versioned JSON to
   stderr with cell, scheduler attempt, optimizer, and pre/post polish context;
-  they must not create a result artifact or completion marker. MLP
+  they must not create a result artifact or completion marker. Formal runs fix
+  the primary local-logistic optimizer limit at 4000 iterations. This larger
+  limit does not change the tolerance, stationarity threshold, lambda grid, or
+  selection rule; every selected fold and final fit must still pass both
+  original residual checks. The deterministic seed-285 Gaussian non-IID
+  site-8 regression must retain at least one selected fit above 2000 iterations
+  and pass without momentum-reset polish. MLP
   explicit-interaction group regularization penalizes only the
   `covariate_dim` first-layer `A*X` input columns, with one L2 group over
   all first hidden units per column.  It must not be described as identifiable

@@ -13,7 +13,7 @@ is exactly 8 or 16 and `0 <= shard_index < shard_count`; all other scientific
 configuration is fixed by the existing formal manager.
 
 The adapter initializes both method families in the fixed
-`_stationarity_polish_full_scope_server_scheduler_v2r1_300seeds` namespace. It processes
+`_stationarity_4000iter_full_scope_server_scheduler_v2r2_300seeds` namespace. It processes
 only the shard's seed sequence, skips only cells whose manifest, provenance,
 semantic identity, completion marker, and artifact hashes validate, and
 refuses partial or invalid output. ServerScheduler owns CPU affinity,
@@ -43,6 +43,12 @@ Rejected fits emit versioned canonical JSON in the scheduler stderr log,
 including cell and attempt identity plus optimizer and pre/post polish fields.
 The diagnostic is not a scientific artifact or completion marker, so the cell
 remains missing and safely retryable after a reviewed source change.
+The formal primary optimizer limit is 4000 iterations. The tolerance,
+proximal-gradient/KKT threshold, lambda grid, and minimum-validation-loss
+selection rule are unchanged. This resolves the deterministic seed-285
+Gaussian non-IID site-8 hard cutoff, whose selected CV reports need as many as
+3020 iterations under the unchanged stationarity checks; it is not a failed-fit
+lambda fallback or threshold relaxation.
 The site back-transforms and
 uploads one payload: int64 `site_idx`, int64 `n_k`, and `2 + 2*d` float64
 raw-scale coefficients (202 coefficients at the formal default `d = 100`).
@@ -133,3 +139,18 @@ invalid manifests, and hash mismatches fail closed without overwrite.  The
 launcher and status command recognize only their `ff_os2_*` sessions and never
 wipe or control foreign processes. They are not part of the current central
 submission path.
+
+## Scheduler request rollout
+
+`scripts/prepare_fedfisher_scheduler_requests.py --phase pilot` creates the
+bounded v2r2 pilots only from a clean Git tree. The one-shot pilot shards are
+6/16 for control and local permutation, and 13/16 for Gaussian shift and the
+combined arm, so the preserved deterministic failure sequences are exercised.
+The files are written only to the FedFisher outbox and are not submitted jobs.
+
+After an operator has submitted those pilots, central state is terminal, and
+current-source manifests, every cell, hashes, completion markers, and paired
+invariants have passed, the same helper may create the disjoint remaining
+shards with `--phase remaining --confirm-pilots-validated`. Do not use that
+confirmation flag before completing the rollout gates in the root scheduler
+runbook.

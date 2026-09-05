@@ -28,6 +28,7 @@ from effect_modifier_experiment.one_shot_lasso_benchmark import (
     LocalLogisticConfig,
     MlpGroupLassoConfig,
     DEFAULT_MOMENTUM_RESET_POLISH_MAX_ITER,
+    DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER,
     MOMENTUM_RESET_POLISH_RULE,
     MOMENTUM_RESET_POLISH_SCOPE,
     SMOOTHING_RULE,
@@ -100,7 +101,11 @@ def parse_args(argv=None):
     parser.add_argument("--lambda-count", type=int, default=30)
     parser.add_argument("--lambda-min-ratio", type=float, default=1e-3)
     parser.add_argument("--cv-seed-offset", type=int, default=4000037)
-    parser.add_argument("--optimizer-max-iter", type=int, default=2000)
+    parser.add_argument(
+        "--optimizer-max-iter",
+        type=int,
+        default=DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER,
+    )
     parser.add_argument(
         "--optimizer-polish-max-iter",
         type=int,

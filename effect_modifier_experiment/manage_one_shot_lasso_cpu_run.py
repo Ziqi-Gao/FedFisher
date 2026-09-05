@@ -16,6 +16,7 @@ from effect_modifier_experiment.dslassocov_run_contract import (
     parse_env_file,
 )
 from effect_modifier_experiment.one_shot_lasso_benchmark import (
+    DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER,
     FAMILIES,
     VARIANT_CONTRACT,
 )
@@ -130,7 +131,7 @@ def formal_runner_args(
                 "--lambda-count", "30",
                 "--lambda-min-ratio", "0.001",
                 "--cv-seed-offset", "4000037",
-                "--optimizer-max-iter", "2000",
+                "--optimizer-max-iter", str(DEFAULT_LOCAL_LOGISTIC_OPTIMIZER_MAX_ITER),
                 "--optimizer-polish-max-iter", "50",
                 "--optimizer-tolerance", "1e-6",
                 "--optimizer-initial-step", "1.0",

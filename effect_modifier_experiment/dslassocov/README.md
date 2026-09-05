@@ -99,11 +99,19 @@ hyperparameters are derived by the adapter and cannot be supplied by a caller.
 ServerScheduler owns CPU selection, affinity, admission, logs, and global
 concurrency. The adapter sets every BLAS/OpenMP pool to one thread and calls the
 existing manager and runner directly. It skips only a fully validated seed
-marker and refuses partial or invalid artifacts. Scheduler-era output after
-the first pilot fix uses the fixed
-`dslassocov_<variant>_server_scheduler_v2r1_300seeds` namespace. The original
-`server_scheduler_v2_300seeds` pilot namespace is retained as failed-run audit
-evidence and must not be resumed or overwritten.
+marker and refuses partial or invalid artifacts. Scheduler-era output from the
+current common-source cohort uses the fixed
+`dslassocov_<variant>_server_scheduler_v2r2_300seeds` namespace. The original
+`server_scheduler_v2_300seeds` and later `server_scheduler_v2r1_300seeds`
+namespaces are retained as historical audit evidence and must not be resumed,
+overwritten, or combined with v2r2 results.
+
+`scripts/prepare_fedfisher_scheduler_requests.py --phase pilot` creates one
+bounded 0/4 shard per variant from a clean Git tree. Only after operator
+submission, central termination, current-source scientific validation, and
+paired-invariant checks may the helper create the other three shards per
+variant with `--phase remaining --confirm-pilots-validated`. Outbox files are
+not submitted jobs.
 
 The shell launcher, Screen workers, and lock paths described below are retained
 only to audit pre-cutover runs. They are not valid submission paths for new
