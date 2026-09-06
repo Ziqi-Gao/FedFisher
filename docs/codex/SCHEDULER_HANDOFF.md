@@ -7,21 +7,25 @@ read-only durable state. The older migration inventory is historical only.
 
 ## Snapshot
 
-- Recorded: 2026-09-05 18:10 CDT.
+- Recorded: 2026-09-06 14:08 CDT.
 - The reviewed v2r2 implementation was committed as
   `95c7460c9251d2b35f6b91da1024ca84fb3fbd89` on `main`, eight commits ahead of
   `origin/main`.
 - The pilot-request handoff was committed as
-  `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`; `main` is nine commits ahead of
-  `origin/main`. The worktree was clean before this status update.
+  `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`. All v2r2 scientific manifests
+  and results bind that clean commit. Final scientific validation was completed
+  from a clean `codex/v2r2-run-freeze` checkout at that exact commit before the
+  user restored `main` to
+  `1943817dd595f6acf7e968ab042b09269efde84f`, ten commits ahead of
+  `origin/main`. This handoff update is the only new worktree change.
 - The installed central registration was inspected read-only at
   `/home/del6500/projects/ServerScheduler/config/projects/fedfisher.toml`. It
   remains enabled with status `cpu-pilot-enabled-gpu-blocked` and contains only
   the two fixed CPU tasks below. This project session did not modify it.
-- Read-only durable scheduler state contains 76 FedFisher jobs: 69 completed,
-  7 historical failures, and none pending or running. All eight v2r2 pilot jobs
-  completed on attempt 1 with exit code 0; the latest pilot update is
-  `2026-09-05T05:55:30Z`.
+- Read-only durable scheduler state contains 148 FedFisher jobs: 141 completed,
+  7 historical failures, and none pending or running. All 80 v2r2 cohort jobs
+  are completed with exit code 0: 16 dsLasso shards and 64 one-shot shards.
+  The latest v2r2 update is `2026-09-06T15:20:56Z`.
 
 ## Current project-side contract
 
@@ -167,8 +171,16 @@ Together with the pilots, the 80 unique job IDs cover every dsLasso 0..3 shard
 and every one-shot 0..15 shard for all four variants exactly once. Every actual
 request passed the read-only ServerScheduler `JobRequest.from_file` parser,
 contains only `variant`, `shard_index`, and `shard_count`, and omits both
-`resources` and `execution_profile`. Central durable state currently contains
-zero matching remaining job IDs, so these files are not submitted.
+`resources` and `execution_profile`.
+
+A ServerScheduler operator subsequently submitted all 72 remaining requests.
+Read-only durable state now records all 72 as `completed` with exit code 0: 12
+dsLasso and 60 one-shot jobs. Sixty-four completed on attempt 1. Eight required
+attempt 2 after attempt 1 was classified as retryable `cpu_interrupted` with
+reason `scheduler and child processes are no longer alive`. In every such case,
+attempt 1 had already written the complete scientific shard and attempt 2
+validated the existing manifest-bound cells without overwriting them. Across
+pilots and remaining work, 72 jobs used one attempt and 8 used two attempts.
 
 The complete per-request absolute path, SHA-256, job ID, task, and parameters
 are recorded in:
@@ -179,8 +191,9 @@ SHA-256 ee8b8cb54f13c84d9963f0b74e91be0d7f11dd9102bb6dde36c4e698a9296b00
 ```
 
 That inventory records generation HEAD `cbcde8f`, a clean generation tree,
-`request_count=72`, and `submitted=false`. It is an audit report, not a job
-request or evidence of central acceptance.
+`request_count=72`, and `submitted=false`. That field records generation-time
+state only; the durable job records above are the later authoritative evidence
+of central acceptance and completion.
 
 ## Proposal
 
@@ -234,6 +247,34 @@ After pilot scientific validation and remaining-request materialization, the
 22 focused request/adapter tests passed in 1.095 seconds. The complete 72-file
 inventory and its digest were independently reread after creation.
 
+Final full-cohort scientific validation was run before leaving the clean frozen
+checkout at `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe`:
+
+- all 80 v2r2 jobs were `completed` with exit code 0; all expected attempt
+  stdout/stderr logs existed;
+- all 88 attempts had either empty stderr or the exact known two-line,
+  228-byte NetworkX duplicate-backend warning; no unexpected stderr and no
+  stdout Traceback, out-of-memory, killed, nonstationary, scientific-rejection,
+  or error signature was found;
+- all four dsLasso manifests matched current source provenance; the exact
+  inventory of 1,200 seed markers and 2,400 result cells passed semantic,
+  stationarity, artifact-hash, fit-metadata, and marker-hash validation;
+- the canonical full dsLasso invariant checker passed all control/local,
+  Gaussian/combined, and common-test checks and reported
+  `validated_result_cells=2400`;
+- all eight one-shot manifests matched current source provenance; the exact
+  inventory of 2,400 logistic and 4,800 MLP cells passed semantic identity,
+  communication-contract, artifact-hash, fit-metadata, and marker validation;
+- the canonical one-shot checker passed representative full four-arm seed 0
+  checks for both families, and the exhaustive check passed 3,600 paired-cell
+  comparisons plus 1,800 four-variant common-test checks across every seed,
+  split, and model.
+
+The common validated provenance digest for all v2r2 scientific output is
+`8e15387dbd94c719fd761ca40a19ba2cbe272f6124f1a05d521a22a0fc442b93`.
+The complete supplemental dsLasso and one-shot experiment is scientifically
+complete; central process exit alone was not used as the acceptance criterion.
+
 ## Remaining legacy local scheduling surfaces
 
 The following remain preserved and executable in source for audit, but are not
@@ -258,32 +299,33 @@ called by the central adapter and are not authorized launch paths:
 
 Scratch still retains the historical lock files and monitor artifacts recorded
 in the earlier handoff. File presence is not a live lease. Retirement remains
-blocked pending validated cutover and a separate exact deletion authorization.
+outside the completed scientific scope and requires a separate exact deletion
+authorization.
 
-## Blocking sequence
+## Remaining actions
 
-1. Commit this handoff-only status update so project provenance remains clean.
-2. Have a ServerScheduler operator validate and submit the 72 remaining
-   requests. This project session must not call central validate/submit or
-   restart services.
-3. Monitor all remaining jobs to terminal state without changing tracked
-   source.
-4. Validate all 1,200 dsLasso seed markers/2,400 result cells, all 7,200
-   one-shot result cells, complete four-variant paired invariants, stderr, and
-   manifest provenance before declaring the supplemental experiment complete.
+1. Commit this handoff-only completion update so `main` is clean again.
+2. No v2r2 supplemental computation, retry, or submission remains.
+3. The preserved legacy local scheduling surfaces may be retired only under a
+   separate exact authorization; their presence is not a completion blocker.
 
 ## External-action record
 
-The eight pilot submissions and their scientific outputs were performed by the
-external ServerScheduler operator/attempts, not by this project inspection.
-This project work did not edit ServerScheduler, submit/withdraw a job, change
-registration state, restart a service, signal a process, or query a GPU. It
-created 72 unsubmitted remaining request files and one scratch audit inventory,
-and ran read-only pilot artifact/invariant validation plus bounded CPU tests
-inside the project and FedFisher scratch roots. Earlier work created
+The 8 pilot and 72 remaining submissions and their scientific outputs were
+performed by the external ServerScheduler operator/attempts, not by this
+project inspection. This project work did not edit ServerScheduler,
+submit/withdraw a job, change registration state, restart a service, signal a
+process, or query a GPU. It created the 72 request files and one scratch audit
+inventory before operator submission, and ran read-only pilot and full-cohort
+artifact/invariant validation plus bounded CPU tests inside the project and
+FedFisher scratch roots. The user performed the final `git switch main`; the
+project session's own switch attempt failed before mutation because `.git` was
+read-only. Earlier work created
 `/scr/del6500/FedFisher/scheduler-regression/seed-285-maxiter/` for test temp and
 cache redirection. One legacy test attempted to start a disposable Screen
 session, but GNU Screen rejected it before creation because `/run/screen` has
 the wrong mode; the test was then made source-only. A separate `screen -ls`
 read-only check reported the same mode error. All current central inspection
-remained read-only; only the 72 new remaining files are still unsubmitted.
+remained read-only. A read-only attempt to inspect the user service/journal for
+the exact cause of the eight supervisor interruptions was denied by the local
+bus/journal permissions; no service action followed.
