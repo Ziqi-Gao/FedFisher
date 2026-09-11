@@ -6,6 +6,8 @@ objects.  Optimization aggregates only site-level loss and gradient vectors.
 """
 
 from dataclasses import dataclass
+from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import math
 from typing import Dict, List, Sequence, Tuple
@@ -17,6 +19,32 @@ from torch import nn
 
 METHOD_NAME = "dsLassoCov-style federated logistic LASSO"
 IMPLEMENTATION_LABEL = "Python benchmark; not official R/DataSHIELD dsLassoCov"
+
+# Observational only: unchanged callers have no communication observer, and
+# objective/optimizer values and return contracts are unaffected.
+_COMMUNICATION_OBSERVER = ContextVar("dslassocov_communication_observer", default=None)
+
+
+@contextmanager
+def observe_communication(observer):
+    """Observe every numeric aggregation payload during one scoped fit.
+
+    Events describe a single-process simulation, not real network transfers.
+    Context-local state is restored on success or failure, including nesting.
+    """
+    if observer is not None and not callable(observer):
+        raise ValueError("communication observer must be callable or None")
+    token = _COMMUNICATION_OBSERVER.set(observer)
+    try:
+        yield
+    finally:
+        _COMMUNICATION_OBSERVER.reset(token)
+
+
+def _payload_hash_update(digest, site_idx, count, *arrays):
+    digest.update(np.asarray([site_idx, count], dtype="<i8").tobytes())
+    for array in arrays:
+        digest.update(np.asarray(array, dtype="<f8", order="C").tobytes())
 
 VARIANT_CONTRACT = {
     "control": {
@@ -176,6 +204,8 @@ def aggregate_standardization(
     feature_dim = _validate_raw_sites(raw_sites)
     if scale_floor <= 0.0:
         raise ValueError("scale_floor must be positive")
+    observer = _COMMUNICATION_OBSERVER.get()
+    payload_hash = hashlib.sha256(b"dslassocov-standardization-payload-v1\0") if observer is not None else None
     total_count = 0
     feature_sum = np.zeros(feature_dim, dtype=np.float64)
     feature_square_sum = np.zeros(feature_dim, dtype=np.float64)
@@ -183,8 +213,12 @@ def aggregate_standardization(
     for site in raw_sites:
         site_counts.append(int(site.features.shape[0]))
         total_count += site.features.shape[0]
-        feature_sum += site.features.sum(axis=0, dtype=np.float64)
-        feature_square_sum += np.square(site.features).sum(axis=0, dtype=np.float64)
+        site_sum = site.features.sum(axis=0, dtype=np.float64)
+        site_square_sum = np.square(site.features).sum(axis=0, dtype=np.float64)
+        feature_sum += site_sum
+        feature_square_sum += site_square_sum
+        if observer is not None:
+            _payload_hash_update(payload_hash, site.site_idx, site.features.shape[0], site_sum, site_square_sum)
     means = feature_sum / total_count
     variances = np.maximum(feature_square_sum / total_count - np.square(means), 0.0)
     raw_scales = np.sqrt(variances)
@@ -198,6 +232,17 @@ def aggregate_standardization(
         "scale_floor": float(scale_floor),
         "constant_feature_indices": np.flatnonzero(constant_mask).astype(int).tolist(),
     }
+    if observer is not None:
+        for site in raw_sites:
+            _payload_hash_update(payload_hash, site.site_idx, site.features.shape[0], means, scales)
+        observer({
+            "kind": "standardization",
+            "num_sites": len(raw_sites),
+            "vector_elements": int(feature_dim),
+            "upload_bytes": len(raw_sites) * (16 + 16 * feature_dim),
+            "download_bytes": len(raw_sites) * 16 * feature_dim,
+            "payload_sha256": payload_hash.hexdigest(),
+        })
     return means, scales, report
 
 
@@ -245,10 +290,14 @@ def _aggregate_loss_and_gradient(
     total_count = sum(site.design.shape[0] for site in sites)
     if total_count <= 0:
         raise ValueError("federated objective requires at least one row")
+    observer = _COMMUNICATION_OBSERVER.get()
+    payload_hash = hashlib.sha256(b"dslassocov-objective-payload-v1\0") if observer is not None else None
     loss_sum = 0.0
     gradient_sum = np.zeros_like(coefficients) if include_gradient else None
     site_summaries = []
     for site in sites:
+        if observer is not None:
+            _payload_hash_update(payload_hash, site.site_idx, site.design.shape[0], coefficients)
         scores = site.design.dot(coefficients)
         site_loss_sum = float(
             np.sum(np.logaddexp(0.0, scores) - site.labels * scores)
@@ -269,7 +318,19 @@ def _aggregate_loss_and_gradient(
                     "loss_sum": site_loss_sum,
                 }
             )
+        if observer is not None:
+            values = (site_loss_sum, site_gradient_sum) if include_gradient else (site_loss_sum,)
+            _payload_hash_update(payload_hash, site.site_idx, site.design.shape[0], *values)
     loss = loss_sum / total_count
+    if observer is not None:
+        observer({
+            "kind": "loss_gradient" if include_gradient else "loss_only",
+            "num_sites": len(sites),
+            "vector_elements": int(coefficients.size),
+            "upload_bytes": len(sites) * (24 + (8 * coefficients.size if include_gradient else 0)),
+            "download_bytes": len(sites) * 8 * coefficients.size,
+            "payload_sha256": payload_hash.hexdigest(),
+        })
     if include_gradient:
         return loss, gradient_sum / total_count, site_summaries
     return loss

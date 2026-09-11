@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher comparison-pilot scientific parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "variant",
+    "cell",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "variant": {
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "cell": {
+      "enum": [
+        "dslassocov",
+        "local_logistic_lasso",
+        "r_unpenalized",
+        "r_adaptive_lasso",
+        "one_shot_fedavg_shallow",
+        "one_shot_group_lasso_shallow",
+        "fedavg_shallow_e1_patience",
+        "fedavg_shallow_e1_budget30",
+        "fedavg_shallow_e5_patience",
+        "fedavg_shallow_e5_budget30",
+        "fedavg_shallow_e10_patience",
+        "fedavg_shallow_e10_budget30",
+        "fedavg_shallow_e30_patience",
+        "fedavg_shallow_e30_budget30",
+        "one_shot_fedavg_deep",
+        "one_shot_group_lasso_deep",
+        "fedavg_deep_e1_patience",
+        "fedavg_deep_e1_budget30",
+        "fedavg_deep_e5_patience",
+        "fedavg_deep_e5_budget30",
+        "fedavg_deep_e10_patience",
+        "fedavg_deep_e10_budget30",
+        "fedavg_deep_e30_patience",
+        "fedavg_deep_e30_budget30"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "const": 0
+    },
+    "shard_count": {
+      "type": "integer",
+      "const": 1
+    }
+  }
+}

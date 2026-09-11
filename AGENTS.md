@@ -117,6 +117,13 @@ that remain elsewhere in the repository for audit or rollback purposes.
   ServerScheduler entrypoint. A program without a reviewed task name,
   parameter schema, resource profile, and fixture test is not authorized to
   run directly.
+- Deterministic visualization and reporting scripts are the sole local
+  execution exception. They may run directly in the foreground when they only
+  read already-completed scientific artifacts, compute presentation-level
+  aggregates such as means or standard errors, and write small tables or
+  figures below the FedFisher `/data` or `/scr` roots. They must not train or
+  fit models, generate datasets, perform model inference, change scientific
+  run manifests or completion evidence, or launch parallel/background work.
 - The project may validate a scheduler-owned running-job manifest, but it must
   never write ServerScheduler pending, running, history, lease, audit, or log
   state. Scientific outputs continue to belong under the FedFisher `/data` and
@@ -166,10 +173,24 @@ that remain elsewhere in the repository for audit or rollback purposes.
   manifest, provenance, semantic result identity, artifact hashes, and the
   task-specific completion marker. Partial or invalid output must fail closed
   without overwrite.
-- The only initially registered FedFisher tasks are the CPU-only
+- The only initially registered FedFisher scientific tasks are the CPU-only
   `effect-modifier-dslassocov-shard` and
-  `effect-modifier-one-shot-lasso-shard`. All other workloads remain blocked
+  `effect-modifier-one-shot-lasso-shard`. Except for the deterministic local
+  visualization/reporting allowance above, all other workloads remain blocked
   until separately adapted, profiled, fixture-tested, piloted, and registered.
+
+## Additive method-comparison experiments
+
+- For multiround FedAvg, homogeneous R-learner, or unified method timing work,
+  also read `effect_modifier_experiment/causal_comparison/AGENTS.md`.
+- Preserve the existing outcome-prediction/treatment-contrast implementation,
+  original scientific namespaces, and data-generating process. New comparison
+  recipes and completion evidence require separate manifest-bound namespaces.
+- Algorithm iterations, local epochs, communication phases, and measured
+  runtime must be reported separately. Include tuning and refitting costs;
+  numerical or round safety limits must never be relabeled as convergence.
+- New comparison task proposals do not authorize execution. Apply the same
+  schema/profile/fixture/operator-pilot/registration gates as every new task.
 
 ## Shared Compute Non-Interference
 

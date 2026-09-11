@@ -8,6 +8,13 @@ manifests are authoritative.
 `AGENTS.md` files are normative; this document is a descriptive operating
 reference. If they disagree, stop and follow the applicable `AGENTS.md`.
 
+Deterministic, foreground-only visualization and reporting scripts are outside
+the scheduler submission path when they only read completed scientific
+artifacts, compute presentation-level aggregates, and write small tables or
+figures below the FedFisher `/data` or `/scr` roots. This exception does not
+cover dataset generation, model fitting or inference, scientific run-state
+mutation, or parallel/background execution.
+
 ## Ownership boundary
 
 FedFisher owns scientific policy: allowed task parameters, deterministic seed

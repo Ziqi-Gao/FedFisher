@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-comparison-shard-r-unpenalized-control-v1-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-comparison-shard",
+  "parameters": {
+    "variant": "control",
+    "cell": "r_unpenalized",
+    "shard_index": 0,
+    "shard_count": 16
+  },
+  "priority": 0
+}

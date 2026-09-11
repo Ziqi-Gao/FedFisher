@@ -25,7 +25,11 @@ VARIANTS = (
 )
 DSLASSO_TASK = "effect-modifier-dslassocov-shard"
 ONE_SHOT_TASK = "effect-modifier-one-shot-lasso-shard"
-ALLOWED_TASKS = frozenset((DSLASSO_TASK, ONE_SHOT_TASK))
+COMPARISON_PILOT_TASK = "effect-modifier-comparison-pilot"
+COMPARISON_TASK = "effect-modifier-comparison-shard"
+# These new contracts are project-side proposals until centrally registered.
+COMPARISON_TASKS = (COMPARISON_PILOT_TASK, COMPARISON_TASK)
+ALLOWED_TASKS = frozenset((DSLASSO_TASK, ONE_SHOT_TASK, *COMPARISON_TASKS))
 JOB_FIELDS = frozenset(
     (
         "schema_version",
@@ -66,6 +70,8 @@ RESOURCE_FIELDS = frozenset(
 TASK_PROFILES = {
     DSLASSO_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 4096},
     ONE_SHOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    COMPARISON_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    COMPARISON_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
     "control": "dslassocov_control_server_scheduler_v2r2_300seeds",
@@ -249,6 +255,14 @@ def _resource_hints(payload, field):
 
 
 def _validate_parameters(task, parameters):
+    if task in COMPARISON_TASKS:
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from effect_modifier_experiment.causal_comparison.protocol import validate_parameters
+        try:
+            return validate_parameters(task, parameters)
+        except (ValueError, TypeError) as error:
+            raise AdapterError(str(error)) from error
     expected = frozenset(("variant", "shard_index", "shard_count"))
     _only_keys(parameters, expected, "parameters")
     variant = parameters["variant"]
@@ -640,6 +654,9 @@ def execute_task(job):
         return _run_dslasso(job)
     if job["task"] == ONE_SHOT_TASK:
         return _run_one_shot(job)
+    if job["task"] in COMPARISON_TASKS:
+        from effect_modifier_experiment.causal_comparison.runner import run_shard
+        return run_shard(job)
     raise AdapterError("unreachable task dispatch")
 
 

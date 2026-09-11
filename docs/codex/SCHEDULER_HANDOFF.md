@@ -5,7 +5,196 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
-## Snapshot
+## Comparison pilot request handoff — 2026-09-10
+
+The user subsequently instructed the project to send the experiment requests.
+The authorized next computation is the bounded comparison pilot; full
+300-seed requests remain behind central and scientific pilot acceptance.
+
+- Read-only inspection immediately before request preparation found the same
+  148 terminal FedFisher jobs (141 completed, 7 historical failures), no
+  comparison jobs, no comparison requests in outbox, and no comparison output
+  namespaces. The installed central registration still listed only the two
+  older tasks. It was not edited by this project task.
+- The durable FedFisher intake control was also inspected read-only. It is
+  armed from `2026-09-09T18:01:42Z` for the existing registered tasks. The
+  current intake implementation scans only top-level outbox JSON files and
+  persists rejection receipts for unregistered tasks. Do not publish these
+  new-task requests into that automatic intake surface before registration.
+- The complete reviewed source is being frozen on the local branch
+  `codex/comparison-pilot-v1`. The pre-existing historical comparison report
+  and reporting-policy edits are preserved in this source snapshot; no old
+  scientific output is changed. Source publication to a remote is not part of
+  this handoff.
+- New builder: `scripts/prepare_comparison_pilot_requests.py`. It accepts only
+  a positive generation number and creates the fixed pilot cohort from a
+  clean source tree. It does not create a formal cohort or submit anything.
+- Planned generation 1 contains **96 protocol-v2 requests**, exactly
+  **24 scientific configurations x 4 variants**. Each request fixes
+  `shard_index=0`, `shard_count=1`, and task
+  `effect-modifier-comparison-pilot`; the task runs **seed 0, IID and non-IID**,
+  for 192 scientific cells in total. No GPU FedFisher job is included.
+- Every request contains only schema version, job ID, project, task, four
+  scientific parameters, and priority. Resources and execution profile are
+  omitted. No old request name or scientific namespace is reused.
+- Request-phase validation passed: **30** focused request-builder, comparison
+  adapter and comparison contract tests in **1.425 seconds**, including nine
+  new request-publication tests. Evidence:
+  `/scr/del6500/FedFisher/comparison-validation/pilot-request-tests.log`.
+  The disabled proposal also passed the installed ServerScheduler's pure
+  `load_registration` parser; this was a read-only parser call, not central
+  registration or CLI validation. The prior 162-test implementation regression
+  evidence remains recorded below.
+
+The generation-1 delivery inventory, published only after all 96 request files
+are created and revalidated, is:
+
+```text
+/scr/del6500/FedFisher/scheduler/reports/fedfisher-comparison-v1-pilot-cohort-p1.inventory.json
+```
+
+Actual request files are confined to the operator-review directory
+`/scr/del6500/FedFisher/scheduler/outbox/fedfisher-comparison-v1-pilot-cohort-p1/`.
+The current nonrecursive automatic intake does not admit this directory.
+This is an immutable delivery bundle, not a project scheduling queue. The
+immutable inventory records each
+absolute path, SHA-256, job ID, parameters, configuration, expected run ID and
+seed/split coverage, together with clean Git/source provenance and reviewed
+source-file hashes. Its existence and validation, not this pre-generation
+handoff text, establish that the complete request bundle was written. A
+partial bundle without its inventory must not be submitted. An inventory with
+`submitted=false` records delivery to the project outbox, not central
+acceptance.
+
+**Operator action:** inspect the disabled additive
+`effect_modifier_experiment/server_scheduler/comparison-registration-proposal.toml`,
+the pilot parameter schema and fixtures, and the request inventory. Review the
+provisional profile, register/admit the pilot task centrally, then validate and
+submit only the inventory's exact request list. Do not replace the installed
+registration with the additive proposal or enable formal work prematurely.
+The project session must not perform those central mutations or commands.
+
+Immediately before submission/start, verify that canonical HEAD and clean
+source provenance still equal the inventory's values. Leave that source
+unchanged through pilot completion and paired scientific validation. Record
+post-freeze receipts and transient observations in FedFisher scratch reports;
+editing this tracked handoff during the cohort would change its provenance.
+The durable central job records are the eventual acceptance/status authority.
+
+## Method-comparison extension — 2026-09-10
+
+The user authorized implementation of additional comparisons and timing, with
+the existing prediction-difference procedure retained. This section supersedes
+the implementation-status portion of the older v2r2 snapshot below; it does not
+change or revalidate that frozen scientific cohort.
+
+- Work started on `main` at `3838f0c`, with existing user changes in root
+  `AGENTS.md`, `SCHEDULER_RUNBOOK.md`, and the untracked
+  `scripts/make_one_shot_lasso_fedfisher_comparison.py`. Those edits were
+  preserved. During the implementation phase, no commit, central registration
+  change, outbox request, pilot, formal run, GPU operation, or process control
+  was performed. The subsequent request phase is recorded above.
+- Before source edits, read-only durable scheduler inspection found 148
+  FedFisher jobs: 141 completed and 7 historical failures, with no nonterminal
+  jobs. All 80 v2r2 jobs were completed, exit 0. Twelve v2r2 run manifests
+  retained clean source commit `cbcde8fdf7998aeed6601c6d1ecd0fde3915dffe` and
+  provenance `8e15387dbd94c719fd761ca40a19ba2cbe272f6124f1a05d521a22a0fc442b93`.
+  The earlier full scientific validation is recorded below. This already
+  dirty, later checkout cannot claim a fresh current-source validation of
+  those frozen outputs; they were neither resumed nor modified.
+- The read-only installed central registration still contained only the two
+  existing CPU tasks. New names `effect-modifier-comparison-pilot` and
+  `effect-modifier-comparison-shard` are project-side contracts and a disabled
+  additive proposal, not live registration or submission evidence.
+
+### Implementation and scientific scope
+
+`effect_modifier_experiment/causal_comparison/` contains fixed recipes, true
+multiround FedAvg, shared-effect R estimators, wrappers around existing CPU
+LASSO/one-shot methods, unified probability-scale evaluation, timing,
+provenance-bound immutable artifacts, and completed-artifact reporting.
+
+- No standard X-learner was added. Outcome methods retain `[A,X,A*X]` training,
+  consistent treatment/control prediction differences, and raw-X intervention.
+  Existing dsLassoCov is already an iterative gradient method; its objective,
+  CV and stationarity rules remain intact, with optional communication
+  observation covering the actual aggregation calls.
+- The 24 fixed cells cover iterative dsLassoCov, local logistic LASSO, matched
+  one-shot FedAvg and group-LASSO for two MLP architectures, two homogeneous
+  R estimators, and E=1/5/10/30 multiround FedAvg for both architectures under
+  validation-patience and fixed-total-30-epoch protocols. Selection plus full
+  refit costs count in full. Safety exhaustion is not scientific completion.
+- R nuisances remain local with nested training-only selection/cross-fitting.
+  The server receives coefficient/precision/count summaries and imposes one
+  shared effect vector. The unpenalized and adaptive-LASSO versions differ in
+  the final penalty only. Sample-size scaling, shared EBIC degrees of freedom,
+  constant-response handling, numerical failure rules and reference-code
+  deviations are documented in the new README.
+- Preserve the existing DGP and four factorial variants. The R model is a
+  linear probability-effect working model on this binary, label-partitioned
+  DGP. It does not inherit all assumptions of the reference paper. New common
+  endpoints use probability contrasts, with logit endpoints retained only for
+  outcome models. Expected Top-k recovery handles cutoff ties uniformly; old
+  index-tie metrics remain diagnostics and old result metrics are unchanged.
+- `main.py --record_timing` and optional `train_model.py` hooks observe the
+  original Fisher path. Both Fisher computations still actually run; component
+  sums are labeled estimates and the actual path is marked not directly
+  comparable. These hooks do not supply a GPU execution contract or measured
+  standalone FedFisher results.
+- New pilot namespaces contain seed 0 and both splits; formal namespaces
+  contain seeds 0..299 with deterministic 8/16-way shards. Both require clean
+  finalized provenance. Partial/invalid cells fail closed without overwrite;
+  retries validate manifests, scientific identity, semantics, hashes and
+  markers before skipping. The original v2r2 task namespaces remain unchanged.
+
+### Project-side review package and next gate
+
+- Disabled proposal:
+  `effect_modifier_experiment/server_scheduler/comparison-registration-proposal.toml`.
+- Strict parameter schemas and unsubmitted examples:
+  `comparison-{pilot,shard}-parameters.schema.json` and corresponding
+  `server_scheduler/examples/comparison-*.job-request.json`.
+- Sole execution path remains
+  `scripts/fedfisher_server_scheduler_adapter.py`; both new tasks inherit its
+  complete protocol-v2 running-manifest/environment/allocation validation.
+- The draft fixed one-core, 8192 MiB, zero-GPU envelope and fallback runtimes
+  are provisional review inputs, not empirical profiles. An operator must
+  review/merge the disabled proposal and admit bounded pilots before any
+  formal cohort. Pilots must establish runtime/memory suitability, convergence,
+  all four-variant paired invariants and scientifically valid completion.
+- Finalize source/configuration and commit before operator pilot requests.
+  Do not reuse historical requests or output namespaces. Do not submit formal
+  work merely because the code fixtures pass. The user has not been asked to
+  approve a speculative central action; the concrete review package is local.
+
+### Development validation evidence
+
+- Full no-bytecode, one-thread CPU regression suite: **162 tests passed** in
+  27.672 seconds (`python -B -m unittest discover -s tests -p 'test_*.py' -v`).
+  This includes the existing 98 regressions and 64 added tests. Numerical
+  fixtures are deliberately small; no full-dimension pilot was run locally.
+- After the last artifact seed/site-identity binding change, all **16** focused
+  comparison contract tests passed again in 0.906 seconds. They cover paired
+  composition, true tiny FedAvg fitting, ties, immutable retry behavior,
+  rehashed semantic tampering, partial output and symlink rejection.
+- Separate earlier checks also passed: R/FedAvg/timing numerical fixtures,
+  legacy output equality with/without observation, complete new-task v2
+  manifest fixtures, and reporting aggregation/invariant checks.
+- No-cache compilation of 23 changed/untracked Python files, strict JSON
+  parsing of six new JSON files, TOML parsing of the disabled proposal, and
+  `git diff --check` passed. The Python count includes the user's pre-existing
+  untracked comparison-report script, which was inspected but not modified.
+- The only suite warning was the previously observed NetworkX duplicate
+  `nx-loopback` backend warning. There were no test failures or GPU calls.
+- Logs:
+  `/scr/del6500/FedFisher/comparison-validation/full-suite.log` and
+  `/scr/del6500/FedFisher/comparison-validation/final-contract-tests.log`.
+  All test temporary output and caches used this scratch subtree or existing
+  FedFisher test scratch subdirectories. No new durable scientific result was
+  generated. These checks are development evidence, not pilot acceptance or
+  new-method performance results.
+
+## Historical v2r2 snapshot
 
 - Recorded: 2026-09-06 14:08 CDT.
 - The reviewed v2r2 implementation was committed as

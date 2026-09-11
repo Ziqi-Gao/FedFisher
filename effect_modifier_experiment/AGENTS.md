@@ -4,6 +4,24 @@ This directory documents the additive `SyntheticEffectModifier` experiment. It
 does not replace the existing `SyntheticBinary` prediction-intervention
 experiment.
 
+## Additive comparisons and timing
+
+- Method-comparison work under `causal_comparison/` additionally follows that
+  directory's `AGENTS.md`. Its common cross-family endpoint is raw-X
+  probability-scale treatment-contrast intervention; outcome-model logit
+  results remain separate. Historical endpoints and artifacts are unchanged.
+- Preserve the existing prediction-difference procedure. No standard
+  pseudo-outcome X-learner is added by this extension.
+- Compare multiround FedAvg under explicit local-epoch/stop-rule recipes;
+  retain the existing iterative dsLassoCov-style logistic objective. R methods
+  share final effect coefficients and keep nuisance models local.
+- Apply the comparison's explicit tie handling to sparse recovery metrics;
+  an all-zero importance vector cannot count as perfect recovery because true
+  covariates happen to occupy the first indices.
+- Timing hooks in the original path are observational and optional. They must
+  preserve training and Fisher calculations, report actual component scope,
+  reject overwriting old artifacts, and provide no new execution bypass.
+
 ## Scope
 
 - Keep this experiment additive and isolated under `effect_modifier_experiment/`.

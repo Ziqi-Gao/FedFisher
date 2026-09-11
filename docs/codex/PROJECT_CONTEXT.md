@@ -161,6 +161,12 @@ invariants.
   `effect_modifier_experiment/server_scheduler/`.
 - Tests and scheduler fixtures: `tests/` and
   `tests/fixtures/server_scheduler/`.
+- Additive multiround FedAvg, homogeneous R methods, common probability-scale
+  comparison, timing, and immutable comparison cells:
+  `effect_modifier_experiment/causal_comparison/`. Read its `AGENTS.md` and
+  `README.md` for scientific recipes and scope; task registration remains a
+  separate operator-controlled gate. Its probability-scale recovery handles
+  cutoff ties explicitly and does not replace historical logit endpoints.
 
 Launchers, local workers, Screen sessions, CPU/GPU locks, direct Python compute
 commands, and Slurm files are preserved legacy or export surfaces. They are not

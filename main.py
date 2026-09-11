@@ -3,6 +3,7 @@ import copy
 import csv
 import os
 import random
+from contextlib import nullcontext
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,12 @@ from utils.prediction_intervention import (
     add_model_prediction_intervention,
     train_pooled_prediction_model,
     write_prediction_intervention_outputs,
+)
+from effect_modifier_experiment.causal_comparison.measurement import (
+    MethodTimer,
+    timed_call,
+    validate_timing_output_path,
+    write_timing_json,
 )
 
 
@@ -51,6 +58,10 @@ parser.add_argument("--num_clients", type=int, required=False, default=None)
 parser.add_argument("--num_rounds", type=int, required=False, default=1)
 parser.add_argument("--local_epochs", type=int, required=False, default=30)
 parser.add_argument("--output_dir", type=str, required=False, default=".")
+parser.add_argument(
+    "--record_timing", action="store_true",
+    help="Write new per-algorithm wall/CPU timing sidecars under /data or /scr; synchronize CUDA explicitly.",
+)
 parser.add_argument("--synthetic_split", type=str, required=False, default="noniid", choices=["iid", "noniid"])
 parser.add_argument("--synthetic_num_train", type=int, required=False, default=10000)
 parser.add_argument("--synthetic_num_test", type=int, required=False, default=10000)
@@ -373,8 +384,26 @@ prediction_site_summary_csv = filename + "_" + args_parser.prediction_interventi
 latest_prediction_context = None
 local_prediction_intervention_done = False
 
+if args_parser.record_timing:
+    # Check the complete new prefix before any model fitting. Timing must not
+    # be added by rerunning over historical scientific artifacts.
+    if len(set(algs_to_run)) != len(algs_to_run):
+        parser.error("--record_timing requires distinct algorithms")
+    for timing_output in (
+        filename_csv, site_gaussian_manifest_csv, feature_detail_csv,
+        feature_summary_csv, prediction_detail_csv, prediction_summary_csv,
+        prediction_model_summary_csv, prediction_site_summary_csv,
+    ):
+        validate_timing_output_path(timing_output)
+    for timing_alg in algs_to_run:
+        validate_timing_output_path(filename + "_" + timing_alg + "_timing.json")
+
 for alg in algs_to_run:
     print("Running algorithm", alg)
+    method_timing = (
+        MethodTimer(alg, synchronize=torch.cuda.synchronize)
+        if args_parser.record_timing else None
+    )
 
     np.random.seed(3)
     dataset_train, dataset_train_global, dataset_test_global, net_cls_counts = get_dataset(
@@ -496,12 +525,15 @@ for alg in algs_to_run:
 
         for i in ind:
             print("Training Local Model ", i)
-            net_glob.train()
-            local = LocalUpdate(args=args, dataset=dataset_train[i])
-            model_vector, model, F_kfac, F_diag = local.train_and_compute_fisher(copy.deepcopy(net_glob), args["n_c"])
+            with method_timing.measure("train") if method_timing is not None else nullcontext():
+                net_glob.train()
+                local = LocalUpdate(args=args, dataset=dataset_train[i])
+                model_vector, model, F_kfac, F_diag = local.train_and_compute_fisher(
+                    copy.deepcopy(net_glob), args["n_c"], timing=method_timing,
+                )
             model_vectors.append(model_vector)
             models.append(model)
-            test_acc, test_loss = test_img(model, dataset_test_global, args)
+            test_acc, test_loss = timed_call(method_timing, "evaluation", test_img, model, dataset_test_global, args)
             print("Local Model ", i, "Test Acc. ", test_acc, "Test Loss ", test_loss)
             local_model_accs.append(test_acc.flatten()[0])
             local_model_loss.append(test_loss)
@@ -517,7 +549,8 @@ for alg in algs_to_run:
     dict_results["local_model_test_accuracies_" + str(alpha) + "_" + str(t)] = local_model_accs
     dict_results["local_model_test_losses_" + str(alpha) + "_" + str(t)] = local_model_loss
 
-    net_glob = get_one_shot_model(
+    net_glob = timed_call(
+        method_timing, "aggregation", get_one_shot_model,
         alg,
         d,
         n,
@@ -536,7 +569,7 @@ for alg in algs_to_run:
         net_cls_counts,
     )
 
-    test_acc, test_loss = test_img(net_glob, dataset_test_global, args)
+    test_acc, test_loss = timed_call(method_timing, "evaluation", test_img, net_glob, dataset_test_global, args)
     print("Test Acc. ", test_acc, "Test Loss", test_loss)
     dict_results[alg + "_test_loss_" + str(seed) + "_" + str(t)] = test_loss
     dict_results[alg + "_test_acc_" + str(seed) + "_" + str(t)] = test_acc
@@ -571,7 +604,8 @@ for alg in algs_to_run:
             "synthetic_dim": args["synthetic_dim"],
             "synthetic_signal_dim": recovery_signal_dim,
         }
-        add_model_feature_importance(
+        timed_call(
+            method_timing, "evaluation", add_model_feature_importance,
             feature_detail_rows,
             feature_summary_rows,
             alg,
@@ -605,7 +639,8 @@ for alg in algs_to_run:
             "synthetic_signal_dim": recovery_signal_dim,
         }
         prediction_seed = seed + sum(ord(ch) for ch in alg)
-        add_model_prediction_intervention(
+        timed_call(
+            method_timing, "evaluation", add_model_prediction_intervention,
             prediction_detail_rows,
             prediction_summary_rows,
             prediction_model_summary_rows,
@@ -630,7 +665,8 @@ for alg in algs_to_run:
             # Local models are trained before aggregation; avoid duplicate rows across algs.
             for local_idx, local_model in enumerate(models):
                 local_seed = seed + 10000 + local_idx
-                add_model_prediction_intervention(
+                timed_call(
+                    method_timing, "evaluation", add_model_prediction_intervention,
                     prediction_detail_rows,
                     prediction_summary_rows,
                     prediction_model_summary_rows,
@@ -664,6 +700,54 @@ for alg in algs_to_run:
         writer = csv.writer(csv_file)
         for i in dict_results.keys():
             writer.writerow([i, dict_results[i]])
+
+    if method_timing is not None:
+        timing_record = method_timing.to_dict()
+        training_components = timing_record["stages"]["train"]["components"]
+        required_components = ["sgd"]
+        if alg == "fedfisher_diag":
+            required_components.append("fisher_diag")
+        elif alg == "fedfisher_kfac":
+            required_components.append("fisher_kfac")
+        timing_record.update({
+            "dataset": dataset,
+            "model": model_name,
+            "seed": seed,
+            "split": args_parser.synthetic_split,
+            "alpha": alpha,
+            "rounds_argument": num_rounds,
+            "actual_path_comparable": False,
+            "actual_path_note": (
+                "Every selected algorithm executed SGD plus BOTH Diag and KFAC Fisher computations. "
+                "Aggregation remains outside the legacy rounds loop. GPU and CPU runtime are not directly comparable."
+            ),
+            "necessary_train_component_sum": {
+                "measured_standalone_runtime": False,
+                "basis": "sum of measured components; excludes wrapper/setup overhead and is not a method-only run",
+                "components": required_components,
+                **{
+                    key: sum(training_components[name][key] for name in required_components)
+                    for key in ("wall_seconds", "cpu_seconds")
+                },
+            },
+            "aggregation_includes_tuning": alg != "fedavg",
+            "tuning_note": "Fisher validation-based parameter selection is included in aggregation; no separate timing",
+            "evaluation_note": (
+                "Includes local/global accuracy and requested feature/intervention analyses; "
+                "pooled baselines, data preparation, CSV/JSON writes are excluded. "
+                "Optional local-model interventions occur only for the first selected algorithm."
+            ),
+            "communication": {
+                "execution_model": "single_process_simulation",
+                "actual_network_measured": False,
+                "accounted": False,
+                "reason": (
+                    "The original path has no serialized upload boundary; Fisher compression reconstructs "
+                    "floating-point matrices and uses local training data. Wire payload bytes were not measured."
+                ),
+            },
+        })
+        write_timing_json(filename + "_" + alg + "_timing.json", timing_record)
 
 
 with open(filename_csv, "w") as csv_file:
