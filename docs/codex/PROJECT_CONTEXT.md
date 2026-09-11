@@ -28,7 +28,7 @@ root.
 
 FedFisher is a binary-tabular federated-learning research repository centered
 on one-shot aggregation, with an additional iterative dsLassoCov-style
-benchmark. It currently contains three data paths:
+benchmark. It contains these separate data paths:
 
 1. `SyntheticBinary`: sparse Gaussian binary classification used for prediction
    and signal-recovery experiments.
@@ -37,13 +37,19 @@ benchmark. It currently contains three data paths:
    effects, unequal site sizes, and noise covariates.
 3. `LocalBinaryCSV`: a compatibility loader for local CSV data. It has no
    registered central task.
+4. `SyntheticEffectModifierSCMV2`: an independent observed-data SCM under
+   `effect_modifier_experiment/one_shot_effects/data.py`. It generates site,
+   covariates, treatment and outcome in that order, with shared probability-scale
+   CATE and a separate evaluator truth object. It does not change the original
+   generator or its outcome-label partitioning.
 
 The original Fisher-aggregation path implements FedAvg, diagonal FedFisher, and
 KFAC FedFisher through `main.py`, `train_model.py`, `run_one_shot_algs.py`,
-`algs/fisher_avg.py`, and `utils/compress_fisher.py`. This scientific path is
-not currently registered for central execution. The two registered CPU tasks
-are LASSO benchmarks that reuse the effect-modifier data-generating process and
+`algs/fisher_avg.py`, and `utils/compress_fisher.py`. Preserve this scientific
+path separately from new adapters. The original two CPU task contracts are
+LASSO benchmarks that reuse the effect-modifier data-generating process and
 evaluation protocol; they do not run `fedfisher_diag` or `fedfisher_kfac`.
+Current admission must be verified against the live central registration.
 
 ## Data-generating processes
 
@@ -167,6 +173,16 @@ invariants.
   `README.md` for scientific recipes and scope; task registration remains a
   separate operator-controlled gate. Its probability-scale recovery handles
   cutoff ties explicitly and does not replace historical logit endpoints.
+- FedFisher-EM, DR-Sieve and their independent common-protocol baselines:
+  `effect_modifier_experiment/one_shot_effects/`. Its `AGENTS.md`, `README.md`
+  and `SPECIFICATION.md` describe the observed-data interfaces, T/V/H split,
+  original-site target weights, serialized one-upload boundary, SCMV2 and legacy
+  compatibility, and separately defined absolute and squared scores. Modules
+  separate data, basis/nuisance fitting, Fisher aggregation/compression,
+  evaluation, reporting, immutable artifacts and scheduler composition.
+  Its `ose_v1_*_pilot` namespaces never reuse historical completion evidence.
+  Stage expansion requires source-matched full-gradient diagnostic evidence;
+  task admission and live status remain operator-owned, recorded in the handoff.
 
 Launchers, local workers, Screen sessions, CPU/GPU locks, direct Python compute
 commands, and Slurm files are preserved legacy or export surfaces. They are not

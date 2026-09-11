@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher one-shot effects v1 fixed-seed-0 pilot parameters",
+  "description": "Disabled proposal; compression recipes require the matching completed linearity gate. No formal seed cohort or caller-selected resource parameters.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recipe",
+    "dataset"
+  ],
+  "properties": {
+    "recipe": {
+      "type": "string",
+      "enum": [
+        "dr_spline",
+        "dr_linear",
+        "r_unpenalized",
+        "r_adaptive_lasso",
+        "aggregation_shallow",
+        "linearity_shallow",
+        "fedavg_shallow",
+        "compression_shallow_fisher_gradient_r16",
+        "compression_shallow_fisher_gradient_r32",
+        "compression_shallow_fisher_gradient_r64",
+        "compression_shallow_euclidean_gradient_r16",
+        "compression_shallow_euclidean_gradient_r32",
+        "compression_shallow_euclidean_gradient_r64",
+        "compression_shallow_random_orthogonal_r16",
+        "compression_shallow_random_orthogonal_r32",
+        "compression_shallow_random_orthogonal_r64",
+        "aggregation_deep",
+        "linearity_deep",
+        "fedavg_deep",
+        "compression_deep_fisher_gradient_r16",
+        "compression_deep_fisher_gradient_r32",
+        "compression_deep_fisher_gradient_r64",
+        "compression_deep_euclidean_gradient_r16",
+        "compression_deep_euclidean_gradient_r32",
+        "compression_deep_euclidean_gradient_r64",
+        "compression_deep_random_orthogonal_r16",
+        "compression_deep_random_orthogonal_r32",
+        "compression_deep_random_orthogonal_r64"
+      ]
+    },
+    "dataset": {
+      "type": "string",
+      "enum": [
+        "scmv2_base",
+        "scmv2_covariate_shift",
+        "scmv2_correlated_shift",
+        "scmv2_interaction",
+        "scmv2_null",
+        "legacy_control_iid",
+        "legacy_control_noniid",
+        "legacy_site_gaussian_shift_iid",
+        "legacy_site_gaussian_shift_noniid",
+        "legacy_local_permutation_iid",
+        "legacy_local_permutation_noniid",
+        "legacy_site_gaussian_local_permutation_iid",
+        "legacy_site_gaussian_local_permutation_noniid"
+      ]
+    }
+  }
+}

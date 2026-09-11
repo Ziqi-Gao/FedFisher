@@ -1,0 +1,231 @@
+{
+  "formal": "Not prepared: requires accepted pilots, reviewed source and a separate formal contract.",
+  "later_small_scenario_checks": [
+    {
+      "dataset": "scmv2_base",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "r_unpenalized"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "r_adaptive_lasso"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "fedavg_shallow"
+    },
+    {
+      "dataset": "scmv2_covariate_shift",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_covariate_shift",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "scmv2_covariate_shift",
+      "recipe": "r_unpenalized"
+    },
+    {
+      "dataset": "scmv2_covariate_shift",
+      "recipe": "r_adaptive_lasso"
+    },
+    {
+      "dataset": "scmv2_covariate_shift",
+      "recipe": "fedavg_shallow"
+    },
+    {
+      "dataset": "scmv2_correlated_shift",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_correlated_shift",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "scmv2_correlated_shift",
+      "recipe": "r_unpenalized"
+    },
+    {
+      "dataset": "scmv2_correlated_shift",
+      "recipe": "r_adaptive_lasso"
+    },
+    {
+      "dataset": "scmv2_correlated_shift",
+      "recipe": "fedavg_shallow"
+    },
+    {
+      "dataset": "scmv2_interaction",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_interaction",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "scmv2_interaction",
+      "recipe": "r_unpenalized"
+    },
+    {
+      "dataset": "scmv2_interaction",
+      "recipe": "r_adaptive_lasso"
+    },
+    {
+      "dataset": "scmv2_interaction",
+      "recipe": "fedavg_shallow"
+    },
+    {
+      "dataset": "scmv2_null",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_null",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "scmv2_null",
+      "recipe": "r_unpenalized"
+    },
+    {
+      "dataset": "scmv2_null",
+      "recipe": "r_adaptive_lasso"
+    },
+    {
+      "dataset": "scmv2_null",
+      "recipe": "fedavg_shallow"
+    }
+  ],
+  "protocol": "one-shot-effects-v1",
+  "purpose": "reviewable scientific stages; not requests or submission",
+  "stage2": [
+    {
+      "dataset": "scmv2_base",
+      "recipe": "aggregation_shallow"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "aggregation_deep"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "linearity_shallow"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "linearity_deep"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "dr_spline"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "aggregation_shallow"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "aggregation_deep"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "linearity_shallow"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "linearity_deep"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "dr_linear"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "dr_spline"
+    }
+  ],
+  "stage3_after_matching_linearity_gate": [
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_fisher_gradient_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_fisher_gradient_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_fisher_gradient_r64"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_euclidean_gradient_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_euclidean_gradient_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_euclidean_gradient_r64"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_random_orthogonal_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_random_orthogonal_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_shallow_random_orthogonal_r64"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_fisher_gradient_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_fisher_gradient_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_fisher_gradient_r64"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_euclidean_gradient_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_euclidean_gradient_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_euclidean_gradient_r64"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_random_orthogonal_r16"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_random_orthogonal_r32"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "compression_deep_random_orthogonal_r64"
+    }
+  ]
+}

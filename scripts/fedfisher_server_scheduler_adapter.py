@@ -27,9 +27,12 @@ DSLASSO_TASK = "effect-modifier-dslassocov-shard"
 ONE_SHOT_TASK = "effect-modifier-one-shot-lasso-shard"
 COMPARISON_PILOT_TASK = "effect-modifier-comparison-pilot"
 COMPARISON_TASK = "effect-modifier-comparison-shard"
+ONE_SHOT_EFFECTS_PILOT_TASK = "effect-modifier-one-shot-effects-pilot"
 # These new contracts are project-side proposals until centrally registered.
 COMPARISON_TASKS = (COMPARISON_PILOT_TASK, COMPARISON_TASK)
-ALLOWED_TASKS = frozenset((DSLASSO_TASK, ONE_SHOT_TASK, *COMPARISON_TASKS))
+ALLOWED_TASKS = frozenset(
+    (DSLASSO_TASK, ONE_SHOT_TASK, *COMPARISON_TASKS, ONE_SHOT_EFFECTS_PILOT_TASK)
+)
 JOB_FIELDS = frozenset(
     (
         "schema_version",
@@ -72,6 +75,7 @@ TASK_PROFILES = {
     ONE_SHOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     COMPARISON_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     COMPARISON_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    ONE_SHOT_EFFECTS_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
     "control": "dslassocov_control_server_scheduler_v2r2_300seeds",
@@ -255,6 +259,14 @@ def _resource_hints(payload, field):
 
 
 def _validate_parameters(task, parameters):
+    if task == ONE_SHOT_EFFECTS_PILOT_TASK:
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from effect_modifier_experiment.one_shot_effects.protocol import validate_parameters
+        try:
+            return validate_parameters(task, parameters)
+        except (ValueError, TypeError) as error:
+            raise AdapterError(str(error)) from error
     if task in COMPARISON_TASKS:
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
@@ -657,6 +669,9 @@ def execute_task(job):
     if job["task"] in COMPARISON_TASKS:
         from effect_modifier_experiment.causal_comparison.runner import run_shard
         return run_shard(job)
+    if job["task"] == ONE_SHOT_EFFECTS_PILOT_TASK:
+        from effect_modifier_experiment.one_shot_effects.runner import run_job
+        return run_job(job)
     raise AdapterError("unreachable task dispatch")
 
 

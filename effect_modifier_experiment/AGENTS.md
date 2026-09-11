@@ -4,6 +4,21 @@ This directory documents the additive `SyntheticEffectModifier` experiment. It
 does not replace the existing `SyntheticBinary` prediction-intervention
 experiment.
 
+## Additive one-shot effect methods
+
+- `one_shot_effects/` has its own nearest `AGENTS.md` and scientific
+  `SPECIFICATION.md`. Read both for FedFisher-EM, DR-Sieve, SCMV2, and their
+  common T/V/H protocol; the legacy DGP and factorial rules below continue to
+  govern the original `SyntheticEffectModifier` namespace only.
+- SCMV2 is the explicitly separate S -> X -> A -> Y generator. Do not impose
+  the legacy X1/X2-only treatment/outcome mechanism or outcome-label site
+  allocation on this new dataset.
+- Keep its strict Fisher objective, score-metric damping, DR pseudo-outcome
+  regression, existing R adaptation and evaluator truth as separate modules.
+  Deployable servers receive serialized summaries only.
+- Its bounded pilot recipes and source-bound results use independent names;
+  they never authorize the historical launchers or reuse old completion evidence.
+
 ## Additive comparisons and timing
 
 - Method-comparison work under `causal_comparison/` additionally follows that

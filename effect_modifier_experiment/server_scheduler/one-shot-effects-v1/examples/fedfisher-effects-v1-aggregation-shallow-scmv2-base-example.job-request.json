@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-effects-v1-aggregation-shallow-scmv2-base-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-one-shot-effects-pilot",
+  "parameters": {
+    "recipe": "aggregation_shallow",
+    "dataset": "scmv2_base"
+  },
+  "priority": 0
+}

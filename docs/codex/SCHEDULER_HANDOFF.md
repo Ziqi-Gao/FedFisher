@@ -5,6 +5,147 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## FedFisher-EM / DR-Sieve implementation and source incident — 2026-09-11
+
+The latest user request is implementation, necessary numerical tests, scientific
+configuration, documentation and disabled scheduler integration for two new
+methods. It does not authorize a new scientific pilot or a 300-seed expansion.
+The implementation is on `codex/em-dr-sieve-review`, in the isolated development
+worktree `/home/del6500/projects/FedFisher/.git/codex-review/em-dr-sieve-v1`.
+This worktree is inside the permitted repository root and invisible to the
+canonical scientific source inventory; it is not an alternative registered
+execution path. **Do not apply this branch to the canonical checkout while the
+older comparison cohort depends on its frozen source.**
+
+### Older formal cohort and incident evidence
+
+The previously authorized comparison pilot was accepted before its formal
+request bundle was prepared. Its acceptance report is
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-comparison-v1-pilot-cohort-p1.acceptance.json`
+(SHA-256 `92c782976f26514348f40cd1750ee2610eafae5c08da2ccf8c73398ee4d09e52`).
+The formal inventory at
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-comparison-v1-formal-cohort-p1.inventory.json`
+contains 1,536 requests / 57,600 cells, 24 method configurations, four variants,
+16 deterministic shards, seeds 0..299 and both splits. Its source is
+`3f7727b00af6834cb7895c8701a1ab89f57a5330`, with provenance digest
+`1a038643ee3cf60719515ccfa8816491e6e0078324a80dd491cd4d0a3b64c61f`.
+Its generation-time `submitted=false` is not later live admission evidence.
+
+At new-development bootstrap (`2026-09-11T00:53:33Z`), durable read-only state
+showed no active FedFisher jobs and no formal-comparison jobs. New source edits
+started from the clean request-bound commit. The external operator subsequently
+admitted the old formal requests during development. A later read-only check
+discovered active jobs and deterministic clean-source failures. Development
+agents were interrupted, all new changes were preserved in stash
+`c1eda3764b615715a4fc57c2cf5d1eab3eec1a94`, and the two modified tracked files
+were restored after checking they matched the saved stash. Stash cleanup left
+those tracked changes because an unrelated `.agents/` mount could not be
+removed; no action was taken on that mount. The restored canonical checkout's
+complete source/provenance hashes were then verified against the formal
+inventory. Work resumed only in the isolated development worktree above.
+
+At `2026-09-11T01:17:11Z`, the formal task's durable state was **885 failed,
+643 pending, 8 running**. All 885 failed stderr logs ended with
+`ValueError: comparison execution requires a finalized clean source tree`;
+that guard precedes scientific fitting and output-store initialization. The
+canonical checkout was clean at the original `3f7727b` and exact original
+provenance. This timestamped observation is not a claim about future status.
+Detailed incident evidence is
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-em-dr-sieve-source-conflict-20260911.json`
+(SHA-256 `b923b2040f346d3b63e4517f64b4e267e745c1eaa1405d8a26933e185fb032d1`).
+
+The project did not edit central state, withdraw or resubmit a job, restart
+services, signal a process, modify scientific artifacts or query GPUs. An
+operator must inspect current durable state and handle failed old requests
+under the original source binding. Keep any subsequent receipts/evidence in
+FedFisher scratch while the canonical source remains frozen. Do not interpret
+these admission/source failures as algorithmic performance failures.
+
+### New implementation and review package
+
+The additive `effect_modifier_experiment/one_shot_effects/` package keeps data,
+observed/evaluator types, local algorithms, serialized wire payloads, server
+aggregation, evaluation, model archives, semantic validation, reporting and
+scheduler composition separate. It includes:
+
+- Independent SCMV2 base/shift/correlated/interaction/null scenarios, preserved
+  legacy data wrapping, common outcome-independent 70/15/15 T/V/H, original
+  site-size target weights, and evaluator-only truth.
+- Strict target-weighted mean-diagonal Fisher aggregation without aggregation
+  damping; an explicitly separate replay of the original quantized/unweighted
+  validation-selected rule and its same-objective strict solution. Original
+  Fisher source files remain unchanged.
+- Complete-gradient diagnostic scoring before three rank-16/32/64 compression
+  strategies, streamed direction construction, H summaries, actual serialized
+  bytes including directions/metadata/padding, separately charged broadcasts,
+  and a saved source-matched engineering gate before low-rank pilot execution.
+- One-shot DR-Sieve linear/spline, three separately fitted T-only logistic
+  nuisances with nested cross-fitting, adaptive group LASSO selected by V
+  summary risk, and exact un-clipped H basis scores. Existing homogeneous R
+  implementations remain intact; a separate common-target adapter and matched
+  one-upload FedAvg baseline are included.
+- Distinct absolute external and squared H endpoints, tie-aware recovery,
+  CATE RMSE/sqrt-PEHE, null recovery marked inapplicable, compute stages and
+  paired equal-rank/equal-actual-byte compression reports.
+
+The sole foreground adapter adds task `effect-modifier-one-shot-effects-pilot`.
+The disabled additive proposal, strict parameter schema, 12 stage-2 examples,
+staged pilot plan and running fixture are under
+`effect_modifier_experiment/server_scheduler/one-shot-effects-v1/` and
+`tests/fixtures/server_scheduler/`. Requests allow only `recipe` and `dataset`;
+seed 0 is fixed and no formal task is added. The one-core / 8192 MiB /
+86400-second profile is an **unmeasured review estimate**, not an empirically
+accepted resource profile. No new-method request was published to outbox,
+submitted, registered or executed as a pilot in this development task.
+
+Full definitions, limitations and result fields are in the new subtree's
+`README.md`, `SPECIFICATION.md` and nearest `AGENTS.md`; parent agent/context
+routing is supplemented without changing the root operating protocol. New
+scientific outputs, once separately admitted, belong only in
+`/data/del6500/FedFisher/effect_modifier_experiment/outputs/ose_v1_*_pilot/`.
+Test caches, isolated fixture outputs and validation logs are under
+`/scr/del6500/FedFisher/one-shot-effects-validation/`.
+
+### Validation and next gate
+
+Development uses small single-thread numerical fixtures, not the default DGP
+or an admitted pilot. They check Fisher normalization and the strict objective,
+linearization and compressed-score algebra, weighted DR objective/risk/score
+identities and KKT, observed-data isolation, wire bytes, immutable artifacts,
+real tiny end-to-end composition and the shared protocol-v2 adapter.
+Final integration regression: **251 tests passed in 39.242 seconds**. The log is
+`/scr/del6500/FedFisher/one-shot-effects-validation/full-suite-final.log`.
+Its SHA-256 is `cf2494f13b22347832b39b633e2d2424513ee016c028fd8535865d094286f70d`.
+The suite loads modules from the isolated development worktree. One unchanged
+legacy launcher-refusal fixture intentionally refuses a worktree, so
+the test runner first verified both launcher/lock-helper source files were
+byte-identical, then exercised that rejection fixture against the canonical
+files. Its deliberately oversubscribed inputs exit before locks, outputs or
+scientific execution. No test was skipped and no production root guard was
+weakened. The preceding integration pass exposed this worktree-only guard and
+a new test's mistaken expectation that the production registration point into
+the worktree; the latter assertion was corrected to the fixed canonical
+entrypoint, leaving the registration unchanged.
+
+The full regression includes real tiny DR, FedAvg, strict/legacy aggregation
+and compression composition, artifact serialization/restoration, refusal of
+missing/failed full-gradient prerequisites before computation, and semantic
+rejection after an attacker-like result/marker rehash. Local audits also bind
+reviewed nuisance settings/fold counts/convergence, common initialization,
+training updates and observed input hashes. Raw accuracy observations and the
+complete old optimizer trajectory are explicitly outside summary-only proof.
+The only warning was the existing NetworkX duplicate `nx-loopback` backend
+warning. No-cache Python syntax, new JSON/TOML parsing and staged diff whitespace
+checks passed. Original DGP, models, Fisher implementations, dsLassoCov and
+`causal_comparison/` sources have no changes in this branch.
+
+Keep the canonical checkout unchanged through the older cohort. Review this
+branch's concrete changes and completed tests separately; before eventual
+new-method admission, finalize a clean canonical source version, review/merge
+the disabled registration proposal through the operator, profile and admit only
+the bounded stage-2 pilots, and validate their scientific completion. Code and
+fixture success do not establish statistical validity, superiority or novelty.
+
 ## Comparison pilot request handoff — 2026-09-10
 
 The user subsequently instructed the project to send the experiment requests.
