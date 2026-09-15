@@ -1,0 +1,11 @@
+{
+  "job_id": "fedfisher-effects-replay-v1-fisher-shallow-legacy-control-iid-example",
+  "parameters": {
+    "dataset": "legacy_control_iid",
+    "recipe": "fisher_shallow"
+  },
+  "priority": 0,
+  "project": "FedFisher",
+  "schema_version": 2,
+  "task": "effect-modifier-effects-replay-pilot"
+}

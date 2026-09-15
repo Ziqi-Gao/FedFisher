@@ -1,0 +1,11 @@
+{
+  "job_id": "fedfisher-effects-replay-v1-fisher-shallow-scmv2-base-example",
+  "parameters": {
+    "dataset": "scmv2_base",
+    "recipe": "fisher_shallow"
+  },
+  "priority": 0,
+  "project": "FedFisher",
+  "schema_version": 2,
+  "task": "effect-modifier-effects-replay-pilot"
+}

@@ -5,6 +5,104 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+
+## Checkpoint replay diagnostic extension — 2026-09-15 UTC
+
+The user authorized exactly five seed-zero replay diagnostics, with no retraining,
+compression or large seed cohort. Up to four later training diagnostics remain
+conditional on these findings and require separate recipes/admission. Scientific
+scope and fixed grids are in `effect_modifier_experiment/one_shot_effects/diagnostics/README.md`.
+
+### Accepted baseline and development boundary
+
+Before edits, canonical was clean `cec1477d711765f9ed1ba9fd0e50032286cb6508`.
+Read-only central durable records showed 1,785 completed and 902 failed historical
+FedFisher jobs, with no nonterminal job. The prior twelve effects pilot units had
+already passed complete artifact, execution and paired validation at
+`2026-09-14T23:41:30.376749+00:00`; all four full-gradient approximation gates failed.
+The preserved acceptance report is
+`/data/del6500/FedFisher/effect_modifier_experiment/recovery_audit/fedfisher-effects-p1-acceptance-20260914/effects-pilot-p1.acceptance-evidence.json`,
+SHA-256 `67c226f165c6c3daf20aae7082bf92897573f317009c6d77140d173fef2f57cc`.
+This supersedes the old pending-cutover narrative below. The older full comparison
+cohort was also scientifically accepted before the effects source cutover; its
+recovery records remain in the prior scratch handoff supplements and durable audit.
+
+The new source-bound inventory pins ten relevant original units / 150 files,
+verified against that accepted report, plus original generation code bytes checked
+against Git `cec1477`. All five source pairs were restored and summary-validated
+read-only without data generation or inference. Original scientific outputs and
+method/generator implementations are unchanged. Original and replay provenance
+are separate; no old current-source guard was weakened.
+
+### Implementation and safety checks
+
+`one_shot_effects/diagnostics/` separates the fixed protocol/source inputs, data
+replay gate, Fisher/DR calculations, pure semantic validation and immutable replay
+artifacts. The shared foreground adapter adds only
+`effect-modifier-effects-replay-pilot`. No training or formal task is added.
+
+The implementation covers fixed actual/random-direction finite differences,
+ReLU boundary classification, cached nine-point path curves, sigmoid-of-linear-
+logit diagnostic, full-H five-permutation gate reproduction, SCMV2 model-quality
+comparisons, local T/V/H outcome scores and both thirty-candidate DR paths.
+Original DR V selection is retained; test curves cannot choose lambda or epochs.
+Failed gradient checks are preserved as diagnostic findings and block progression.
+
+Independent review found and corrected an input-proof gap: old observed-row hashes
+did not include test-site assignment or evaluator truth. The new pre-inference
+check compares those against a reference generated through pinned original SCM
+code and labels its hashes as new replay evidence. Tiny mutation fixtures reject
+site-ID swaps preserving counts and internally consistent changed CATE truth.
+Replay started records additionally require valid scheduler job identity, positive
+attempt/runtime, the reviewed profile and final allocation.
+
+The full one-thread, no-bytecode project regression passed **309 tests in
+43.056 seconds**, with no failures or skips; log:
+`/scr/del6500/FedFisher/effects-replay-validation/full-suite.log`.
+The final Fisher observational-consistency hardening is additionally covered by
+its focused fixtures and the tiny full replay/semantic-validation integration
+test before source freeze. Exact final logs/hashes are recorded in the scratch
+handoff supplement. The real-source restore check did not generate data or run
+model inference. Numerical tests used small explicit fixtures only.
+
+Completed-result CSV/PNG reporting uses the unchanged Python 3.9 science
+environment for validation, then the already installed read-only
+`/opt/anaconda3/bin/python` / Matplotlib 3.10.6 for one sequential foreground
+JSON-only rendering step. Nine reporting fixtures passed, including actual PNG
+rendering with fabricated fixture data. Initial optional dependency downloads
+failed DNS resolution, including an allowed escalated attempt; no package or
+environment was modified and the existing renderer resolved the limitation.
+
+### Operator package and pending admission
+
+The disabled additive registration proposal, exact five-case schema, source
+examples and running fixture are under
+`effect_modifier_experiment/server_scheduler/effects-replay-v1/` and
+`tests/fixtures/server_scheduler/effects-replay-pilot-running-job.json`.
+The installed central registration was inspected read-only and has no replay task.
+Its existing tasks must remain intact when an operator reviews the additive
+proposal. The proposed one-core/8192-MiB/86400-second envelope is unmeasured;
+fixture success is not runtime/memory-profile acceptance.
+
+After source finalization, `scripts/prepare_effects_replay_requests.py --generation 1`
+creates exactly five requests in the nested operator-review outbox
+`/scr/del6500/FedFisher/scheduler/outbox/fedfisher-effects-replay-v1-pilot-cohort-p1/`
+and writes its inventory last at
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-effects-replay-v1-pilot-cohort-p1.inventory.json`.
+The actual inventory, not this preparatory paragraph, establishes publication.
+It binds the clean diagnostic source and all original input hashes. Recheck both
+immediately before operator registration/submission. No top-level auto-intake
+request, central registration/state edit, central CLI, restart or process action
+is performed by this project task. No previous one-time restart permission is
+reused. Nested outbox files are not submitted jobs.
+
+Keep source unchanged after publication through execution and full acceptance.
+Post-freeze receipts, dependency limitations, final test evidence and actual
+inventory hashes go in a new scratch handoff supplement. Replay scientific outputs
+are confined to `/data/del6500/FedFisher/effect_modifier_experiment/outputs/ose_replay_v1_*_pilot/`;
+validation caches/logs are under `/scr/del6500/FedFisher/effects-replay-validation/`.
+
+
 ## FedFisher-EM / DR-Sieve implementation and source incident — 2026-09-11
 
 The latest user request is implementation, necessary numerical tests, scientific

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher effects replay v1 fixed-seed-0 diagnostic parameters",
+  "description": "Exactly five checkpoint replay cases. No training, compression, new seeds or caller-selected resources.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["recipe", "dataset"],
+  "properties": {
+    "recipe": {"type": "string", "enum": ["fisher_shallow", "fisher_deep", "dr_path"]},
+    "dataset": {"type": "string", "enum": ["scmv2_base", "legacy_control_iid"]}
+  },
+  "oneOf": [
+    {"properties": {"recipe": {"enum": ["fisher_shallow", "fisher_deep"]}}},
+    {"properties": {"recipe": {"const": "dr_path"}, "dataset": {"const": "scmv2_base"}}}
+  ]
+}

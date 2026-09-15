@@ -1,0 +1,30 @@
+{
+  "compression_authorized": false,
+  "new_seeds_authorized": false,
+  "seed": 0,
+  "source_examples_only": true,
+  "stage1_replay": [
+    {
+      "dataset": "scmv2_base",
+      "recipe": "fisher_shallow"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "fisher_deep"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "fisher_shallow"
+    },
+    {
+      "dataset": "legacy_control_iid",
+      "recipe": "fisher_deep"
+    },
+    {
+      "dataset": "scmv2_base",
+      "recipe": "dr_path"
+    }
+  ],
+  "task_count": 5,
+  "training_tasks_authorized": false
+}

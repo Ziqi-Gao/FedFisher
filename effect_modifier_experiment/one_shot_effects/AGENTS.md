@@ -4,6 +4,10 @@ Inherit the root and parent operating protocols. This additive subtree
 implements the user's FedFisher-EM / DR-Sieve specification and an independent
 SCMV2 dataset. The parent's legacy DGP defaults remain unchanged.
 
+Checkpoint replay diagnostics are isolated in `diagnostics/`; read its nearest
+`AGENTS.md` and `README.md` for the fixed five-task scope, dual-source provenance,
+pre-inference fingerprint gates and conditional later training diagnostics.
+
 - Keep data generation, observed-data types, methods, evaluation, result
   validation and scheduler composition separate. Reuse established model and
   numerical components without changing historical method definitions.
