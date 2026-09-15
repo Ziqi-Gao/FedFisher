@@ -1,6 +1,7 @@
 """Presentation fixtures use fabricated small JSON, never scientific replay."""
 from contextlib import ExitStack
 import csv
+import copy
 import hashlib
 import importlib.util
 import json
@@ -261,6 +262,152 @@ class ReplayReportingTests(unittest.TestCase):
             path.write_text('modified')
             with self.assertRaisesRegex(ValueError, 'changed after validation'):
                 REPORT.load_completed()
+
+    def recovery_fixture(self):
+        from effect_modifier_experiment.dslassocov_run_contract import env_text
+        from effect_modifier_experiment.one_shot_effects.diagnostics import protocol
+        from effect_modifier_experiment.one_shot_effects.wire import canonical
+        old = dict(git_commit='a'*40, provenance_sha256='b'*64, git_dirty='0',
+                   git_status_sha256='c'*64, source_tree_sha256='d'*64)
+        current = dict(old, git_commit='e'*40, provenance_sha256='f'*64)
+        inventory = dict(provenance=old, requests=[])
+        retained = []
+        for params in protocol.cohort_plan():
+            config = protocol.run_config(protocol.PILOT_TASK, params)
+            if params['recipe'] != 'fisher_deep':
+                job_id = 'fedfisher-effects-replay-fixture-' + config['run_id']
+                digest = hashlib.sha256(canonical(config).encode()).hexdigest()
+                request = dict(job_id=job_id, configuration=config, configuration_sha256=digest)
+                inventory['requests'].append(request)
+                identity = dict(run_id=config['run_id'], config_sha256=digest,
+                    provenance_sha256=old['provenance_sha256'], seed=0, **params)
+                directory = self.temporary/config['run_id']
+                unit = directory/'seed_000'
+                unit.mkdir(parents=True)
+                manifest = dict(format_version='2', protocol=protocol.PROTOCOL, run_id=config['run_id'],
+                    config_json=canonical(config), config_sha256=digest, **old)
+                (directory/'run_manifest.env').write_text(env_text(manifest.items()))
+                (unit/'started.json').write_text(json.dumps(dict(identity=identity, execution=dict(job_id=job_id))))
+                (unit/'result.json').write_text(json.dumps(dict(identity=identity, fixture=params)))
+                done = dict(identity=identity, artifacts={name: hashlib.sha256((unit/name).read_bytes()).hexdigest()
+                    for name in ('started.json', 'result.json')})
+                (unit/'done.json').write_text(json.dumps(done))
+                artifacts = [dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+                    for path in (directory/'run_manifest.env', unit/'started.json', unit/'result.json', unit/'done.json')]
+                retained.append(dict(job_id=job_id, parameters=params, artifacts=artifacts))
+            else:
+                unit = self.temporary/config['run_id']/'seed_000'
+                unit.mkdir(parents=True)
+                body = json.dumps(dict(fixture=params))
+                (unit/'result.json').write_text(body)
+                (unit/'done.json').write_text(json.dumps(dict(artifacts={
+                    'result.json': hashlib.sha256(body.encode()).hexdigest()})))
+        inventory_path = self.temporary/'inventory.json'
+        inventory_path.write_text(json.dumps(inventory))
+        envelope = dict(source_inventory=dict(path=str(inventory_path),
+            sha256=hashlib.sha256(inventory_path.read_bytes()).hexdigest()), retained=retained)
+        evidence_path = self.temporary/'recovery-evidence.json'
+        evidence_path.write_text(json.dumps(envelope))
+        return current, inventory, envelope, evidence_path
+
+    def test_recovery_loader_retains_three_frozen_semantic_checks_and_two_current_stores(self):
+        current, inventory, envelope, evidence_path = self.recovery_fixture()
+        stores = []
+
+        def store_factory(config, received):
+            self.assertEqual(received, current)
+            self.assertEqual(config['recipe'], 'fisher_deep')
+            store = SimpleNamespace(unit_dir=self.temporary/config['run_id']/'seed_000',
+                                    status=mock.Mock(return_value='validated'))
+            stores.append(store)
+            return store
+
+        with mock.patch('effect_modifier_experiment.one_shot_effects.artifacts.current_provenance', return_value=current), \
+                mock.patch('effect_modifier_experiment.one_shot_effects.diagnostics.artifacts.ReplayArtifactStore',
+                           side_effect=store_factory), \
+                mock.patch('effect_modifier_experiment.one_shot_effects.diagnostics.recovery.verify_recovery_evidence',
+                           return_value=envelope) as verify, \
+                mock.patch('effect_modifier_experiment.one_shot_effects.diagnostics.validation.validate_result') as semantic:
+            records, provenance = REPORT.load_completed(evidence_path)
+        self.assertEqual(provenance, current)
+        self.assertEqual(len(stores), 2)
+        self.assertEqual(semantic.call_count, 3)
+        self.assertEqual(verify.call_count, 2)
+        self.assertEqual(len(records), 5)
+        self.assertEqual([item['origin'] for item in records].count('retained_p2'), 3)
+        self.assertEqual([item['origin'] for item in records].count('replayed_current'), 2)
+        for result, config, identity in (call.args for call in semantic.call_args_list):
+            self.assertEqual(result['identity'], identity)
+            self.assertEqual(identity['provenance_sha256'], inventory['provenance']['provenance_sha256'])
+            self.assertNotEqual(identity['provenance_sha256'], current['provenance_sha256'])
+        self.assertTrue(all(item['recovery_evidence']['path'] == str(evidence_path) for item in records))
+
+    def test_retained_semantic_failure_or_changed_hash_stops_reporting(self):
+        _, inventory, envelope, _ = self.recovery_fixture()
+        retained = envelope['retained'][0]
+        with mock.patch('effect_modifier_experiment.one_shot_effects.diagnostics.validation.validate_result',
+                        side_effect=ValueError('invalid saved CATE gate')) as semantic:
+            with self.assertRaisesRegex(ValueError, 'invalid saved CATE'):
+                REPORT._retained_record(retained, inventory)
+            semantic.assert_called_once()
+        result = next(item for item in retained['artifacts'] if Path(item['path']).name == 'result.json')
+        Path(result['path']).write_text('{}')
+        with mock.patch('effect_modifier_experiment.one_shot_effects.diagnostics.validation.validate_result') as semantic:
+            with self.assertRaisesRegex(ValueError, 'changed after validation'):
+                REPORT._retained_record(retained, inventory)
+            semantic.assert_not_called()
+
+    def test_retained_manifest_identity_and_complete_inventory_cannot_be_bypassed(self):
+        _, inventory, envelope, _ = self.recovery_fixture()
+        retained = envelope['retained'][0]
+        extra = Path(retained['artifacts'][1]['path']).parent/'unexpected.json'
+        extra.write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'paths/inventory differ'):
+            REPORT._retained_record(retained, inventory)
+        extra.unlink()
+        altered = copy.deepcopy(inventory)
+        altered['provenance']['git_commit'] = '9'*40
+        with self.assertRaisesRegex(ValueError, 'manifest differs'):
+            REPORT._retained_record(retained, altered)
+        marker = next(item for item in retained['artifacts'] if Path(item['path']).name == 'done.json')
+        body = json.loads(Path(marker['path']).read_text())
+        body['identity']['provenance_sha256'] = '0'*64
+        Path(marker['path']).write_text(json.dumps(body))
+        marker['sha256'] = hashlib.sha256(Path(marker['path']).read_bytes()).hexdigest()
+        with self.assertRaisesRegex(ValueError, 'completion/execution identities differ'):
+            REPORT._retained_record(retained, inventory)
+
+    def test_mixed_epoch_report_preserves_execution_sources_and_origin_in_rows_and_index(self):
+        records = [fisher_record(gate=False), fisher_record(recipe='fisher_deep', gate=False)]
+        for record, origin, commit, digest in zip(records, ('retained_p2', 'replayed_current'),
+                ('a'*40, 'b'*40), ('c'*64, 'd'*64)):
+            record.update(origin=origin, execution_run_id=origin+'-run',
+                execution_provenance=dict(git_commit=commit, provenance_sha256=digest),
+                recovery_evidence=dict(path=str(self.temporary/'evidence.json'), sha256='e'*64))
+        current = records[1]['execution_provenance']
+        summary = REPORT.write_report(records, current, self.temporary/'mixed')
+        self.assertTrue(summary['mixed_execution_epochs'])
+        self.assertIsNone(summary['diagnostic_provenance'])
+        self.assertEqual(summary['reporting_source_provenance'], current)
+        self.assertEqual(len(summary['execution_provenances']), 2)
+        for row, source, record in zip(summary['status'], summary['inputs'], records):
+            self.assertEqual(row['origin'], record['origin'])
+            self.assertEqual(row['execution_git_commit'], record['execution_provenance']['git_commit'])
+            self.assertEqual(source['execution_provenance'], record['execution_provenance'])
+            self.assertEqual(source['recovery_evidence'], record['recovery_evidence'])
+
+    def test_recovery_option_selects_separate_default_output(self):
+        with mock.patch.object(REPORT, 'load_completed', return_value=([], {})) as loader, \
+                mock.patch.object(REPORT, 'write_report', return_value=dict(files={})) as writer, \
+                mock.patch('builtins.print'):
+            evidence = self.temporary/'evidence.json'
+            self.assertEqual(REPORT.main(['--recovery-evidence', str(evidence)]), 0)
+            loader.assert_called_once_with(evidence)
+            self.assertEqual(writer.call_args.args[2], REPORT.RECOVERY_OUTPUT)
+            loader.reset_mock()
+            REPORT.main([])
+            loader.assert_called_once_with(None)
+            self.assertEqual(writer.call_args.args[2], REPORT.DEFAULT_OUTPUT)
 
 
 if __name__ == '__main__':

@@ -18,6 +18,7 @@ PROJECT_ROOT = Path('/home/del6500/projects/FedFisher')
 DATA_ROOT = Path('/data/del6500/FedFisher')
 SCRATCH_ROOT = Path('/scr/del6500/FedFisher')
 DEFAULT_OUTPUT = DATA_ROOT / 'effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p2'
+RECOVERY_OUTPUT = DATA_ROOT / 'effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p3-recovered'
 PRESENTATION_PYTHON = Path('/opt/anaconda3/bin/python')
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -45,12 +46,79 @@ def configure_runtime():
     sys.dont_write_bytecode = True
 
 
-def load_completed():
+def _bound_json(binding):
+    path = safe_path(Path(binding['path']))
+    body = path.read_bytes()
+    if hashlib.sha256(body).hexdigest() != binding['sha256']:
+        raise ValueError('recovery input changed after validation: ' + str(path))
+    return json.loads(body)
+
+
+def _retained_record(retained, inventory):
+    """Read previously accepted bytes; never impersonate their execution source."""
+    from effect_modifier_experiment.dslassocov_run_contract import parse_env_file
+    from effect_modifier_experiment.one_shot_effects.diagnostics import protocol
+    from effect_modifier_experiment.one_shot_effects.diagnostics.validation import validate_result
+    from effect_modifier_experiment.one_shot_effects.wire import canonical
+    request = next(item for item in inventory['requests'] if item['job_id'] == retained['job_id'])
+    config, provenance = request['configuration'], inventory['provenance']
+    digest = hashlib.sha256(canonical(config).encode()).hexdigest()
+    if digest != request['configuration_sha256']:
+        raise ValueError('retained configuration digest differs')
+    identity = dict(run_id=config['run_id'], config_sha256=digest,
+        provenance_sha256=provenance['provenance_sha256'], seed=config['seed'],
+        recipe=config['recipe'], dataset=config['dataset'])
+    bindings = {Path(item['path']).name: item for item in retained['artifacts']}
+    if len(retained['artifacts']) != 4 or set(bindings) != {'run_manifest.env', 'started.json', 'result.json', 'done.json'}:
+        raise ValueError('retained completed artifact inventory differs')
+    path = safe_path(Path(bindings['result.json']['path']))
+    if (path.parent.name != 'seed_000' or path.parent.parent.name != config['run_id']
+            or any(Path(item['path']) != (path.parent.parent / name if name == 'run_manifest.env'
+                   else path.parent / name) for name, item in bindings.items())
+            or {item.name for item in path.parent.iterdir()} != {'started.json', 'result.json', 'done.json'}
+            or {item.name for item in path.parent.parent.iterdir()} != {'run_manifest.env', 'seed_000'}):
+        raise ValueError('retained scientific artifact paths/inventory differ')
+    manifest_path = safe_path(Path(bindings['run_manifest.env']['path']))
+    if hashlib.sha256(manifest_path.read_bytes()).hexdigest() != bindings['run_manifest.env']['sha256']:
+        raise ValueError('retained manifest changed after validation')
+    expected_manifest = dict(format_version='2', protocol=protocol.PROTOCOL,
+        run_id=config['run_id'], config_json=canonical(config), config_sha256=digest, **provenance)
+    if parse_env_file(manifest_path) != expected_manifest:
+        raise ValueError('retained manifest differs from frozen execution configuration/provenance')
+    done, started = (_bound_json(bindings[name]) for name in ('done.json', 'started.json'))
+    if (set(done) != {'identity', 'artifacts'} or done['identity'] != identity
+            or done['artifacts'] != {name: bindings[name]['sha256'] for name in ('started.json', 'result.json')}
+            or set(started) != {'identity', 'execution'} or started['identity'] != identity
+            or started['execution']['job_id'] != retained['job_id']):
+        raise ValueError('retained completion/execution identities differ')
+    result = _bound_json(bindings['result.json'])
+    validate_result(result, config, identity)
+    return dict(**retained['parameters'], result=result, source_path=str(path),
+        source_sha256=bindings['result.json']['sha256'], execution_run_id=config['run_id'],
+        execution_provenance=provenance, origin='retained_p2')
+
+
+def load_completed(recovery_evidence=None):
     from effect_modifier_experiment.one_shot_effects.artifacts import current_provenance, read_json
     from effect_modifier_experiment.one_shot_effects.diagnostics import protocol
     from effect_modifier_experiment.one_shot_effects.diagnostics.artifacts import ReplayArtifactStore
     provenance, records = current_provenance(), []
+    envelope, retained, evidence_binding = None, {}, None
+    if recovery_evidence is not None:
+        from effect_modifier_experiment.one_shot_effects.diagnostics.recovery import verify_recovery_evidence
+        evidence_path = safe_path(Path(recovery_evidence))
+        evidence_binding = dict(path=str(evidence_path), sha256=hashlib.sha256(evidence_path.read_bytes()).hexdigest())
+        envelope = verify_recovery_evidence(evidence_path)
+        inventory = _bound_json(envelope['source_inventory'])
+        retained = {(item['parameters']['recipe'], item['parameters']['dataset']): item
+                    for item in envelope['retained']}
     for parameters in protocol.cohort_plan():
+        previous = retained.get((parameters['recipe'], parameters['dataset']))
+        if previous is not None:
+            record = _retained_record(previous, inventory)
+            record['recovery_evidence'] = evidence_binding
+            records.append(record)
+            continue
         config = protocol.run_config(protocol.PILOT_TASK, parameters)
         store = ReplayArtifactStore(config, provenance)
         if store.status() != 'validated':
@@ -60,7 +128,15 @@ def load_completed():
         digest = hashlib.sha256(body).hexdigest()
         if digest != read_json(store.unit_dir / 'done.json')['artifacts']['result.json']:
             raise ValueError('completed replay result changed after validation')
-        records.append(dict(**parameters, result=json.loads(body), source_path=str(path), source_sha256=digest))
+        record = dict(**parameters, result=json.loads(body), source_path=str(path), source_sha256=digest,
+            execution_run_id=config['run_id'], execution_provenance=provenance,
+            origin='replayed_current' if envelope is not None else 'current_source')
+        if evidence_binding is not None:
+            record['recovery_evidence'] = evidence_binding
+        records.append(record)
+    if envelope is not None:
+        if verify_recovery_evidence(evidence_path) != envelope or _bound_json(evidence_binding) != envelope:
+            raise ValueError('recovery evidence changed during report read')
     if current_provenance() != provenance:
         raise ValueError('diagnostic source changed during report read')
     return records, provenance
@@ -72,6 +148,10 @@ def tables(records):
         'fisher_activation_flips', 'model_quality', 'outcome_prediction', 'dr_path', 'dr_feature_path')}
     for record in records:
         identity = {key: record[key] for key in ('recipe', 'dataset')}
+        if 'execution_provenance' in record:
+            identity.update(origin=record['origin'], execution_run_id=record['execution_run_id'],
+                execution_git_commit=record['execution_provenance']['git_commit'],
+                execution_provenance_sha256=record['execution_provenance']['provenance_sha256'])
         diagnostic = record['result']['diagnostic']
         if record['recipe'] == 'dr_path':
             result['status'].append(dict(**identity, diagnostic_state='complete_original_selection_preserved'))
@@ -277,10 +357,17 @@ def write_report(records, provenance, output):
     for record in records:
         files.extend(dr_figure(record, output, plt) if record['recipe'] == 'dr_path'
                      else fisher_figures(record, output, plt))
-    summary = dict(kind='presentation_only_not_scientific_completion', diagnostic_provenance=provenance,
+    execution_provenances = {record['execution_provenance']['provenance_sha256']: record['execution_provenance']
+                             for record in records if 'execution_provenance' in record}
+    mixed = len(execution_provenances) > 1
+    summary = dict(kind='presentation_only_not_scientific_completion',
+        diagnostic_provenance=None if mixed else provenance, reporting_source_provenance=provenance,
+        mixed_execution_epochs=mixed, execution_provenances=execution_provenances,
         plotting_runtime=dict(python_executable=sys.executable,
                               matplotlib_version=plt.matplotlib.__version__ if plt is not None else None),
-        inputs=[{key: item[key] for key in ('recipe', 'dataset', 'source_path', 'source_sha256')} for item in records],
+        inputs=[{key: item[key] for key in ('recipe', 'dataset', 'source_path', 'source_sha256',
+            'execution_run_id', 'execution_provenance', 'origin', 'recovery_evidence') if key in item}
+            for item in records],
         status=presentation['status'], selection_changed=False, expansion_authorized=False,
         interpretation='single_seed_diagnostics; test_curves_do_not_select_models; no_significance_or_FDR_claim',
         files={name: hashlib.sha256((output / name).read_bytes()).hexdigest() for name in files})
@@ -291,11 +378,15 @@ def write_report(records, provenance, output):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output-dir', type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument('--output-dir', type=Path)
+    parser.add_argument('--recovery-evidence', type=Path,
+        help='validated P2 retention evidence; combine its three accepted cells with the two current deep replays')
     args = parser.parse_args(argv)
+    if args.output_dir is None:
+        args.output_dir = RECOVERY_OUTPUT if args.recovery_evidence is not None else DEFAULT_OUTPUT
     safe_path(args.output_dir)
     configure_runtime()
-    records, provenance = load_completed()
+    records, provenance = load_completed(args.recovery_evidence)
     summary = write_report(records, provenance, args.output_dir)
     print(json.dumps(dict(report=str(args.output_dir / 'report.json'), input_count=len(records),
                           files=len(summary['files']), expansion_authorized=False), sort_keys=True))

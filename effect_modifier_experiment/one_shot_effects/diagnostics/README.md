@@ -156,6 +156,15 @@ Outbox creation is not central submission.
 
 New results live in
 `/data/del6500/FedFisher/effect_modifier_experiment/outputs/ose_replay_v1_*_pilot/`.
+Deep recovery results use `ose_replay_v1r3_fisher_deep_*_pilot/` and preserve the
+old deep directories. A `deep-recovery` request cohort covers only the two deep
+datasets; the original five-cell scientific plan is unchanged. Its immutable
+evidence envelope binds the earlier inventory, frozen-source audit, exact three
+retained completed cells, and two failed attempts, including central identities
+and artifact hashes. Request publication checks this evidence before and after
+writing. Neither a result file nor a done marker substitutes for successful
+execution and semantic acceptance. Historical results are read only through
+explicit acceptance evidence, never by relaxing the current-source store guard.
 Each manifest binds source/configuration and original inputs. A seed unit contains
 only `started.json`, `result.json`, `done.json`; no newly trained checkpoint or
 deployable upload is produced. Validation recomputes summary arithmetic and

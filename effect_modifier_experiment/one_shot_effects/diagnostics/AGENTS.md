@@ -41,3 +41,12 @@ implements the user's bounded diagnostic plan, separately from method fitting.
 - No direct scientific CLI. Tiny one-thread numerical fixtures are permitted;
   real replay inference and data generation require the registered foreground
   adapter. Reports may read completed results without fitting or inference.
+- The source freeze includes non-ignored untracked reporting scripts and tests.
+  The foreground reporting allowance concerns execution, not changes to frozen
+  source while attempts are running. Preserve other work when finalizing a new
+  clean source; never remove such files or weaken provenance checks to pass a job.
+- Partial-cohort recovery uses new request identities and separate result
+  namespaces for failed attempts. Retained completed cells need explicit hashed
+  frozen-source acceptance evidence; their execution provenance must remain
+  distinct from the recovery source in combined reports. A saved done marker
+  alone cannot turn a centrally failed attempt into an accepted retained cell.

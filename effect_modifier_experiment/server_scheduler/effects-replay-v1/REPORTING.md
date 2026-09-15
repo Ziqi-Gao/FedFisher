@@ -7,6 +7,29 @@ checks original source bindings through that validator and reads the completed
 JSON only; it never generates data, runs inference, fits a model, selects a
 lambda, or changes scientific manifests or completion markers.
 
+The optional `--recovery-evidence /absolute/path/to/recovery-evidence.json`
+selects the reviewed recovery partition: retain exactly the three accepted P2
+cells (two shallow Fisher cells and DR), and require both deep Fisher cells to
+validate through the unchanged current-source store in their new namespaces.
+The evidence verifier checks the frozen P2 inventory, original requests, all
+bound artifacts, and terminal central job identities/states. Retained cells are
+read only after checking their manifest, saved configuration and execution
+provenance, complete artifact inventory, completion hashes and semantic result
+contract. No old store is constructed with a substituted current provenance;
+no current-source guard is weakened. Missing, changed or unaccepted retained
+evidence rejects the report, as does either incomplete new deep replay.
+
+With `--recovery-evidence`, the default output is
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p3-recovered`.
+Without the option, the original current-source-only validation mode remains
+available and defaults to the P2 path shown below. That mode cannot combine old
+P2 output with a later execution epoch; use the recovery evidence explicitly.
+Each recovered input and table row identifies `retained_p2` or
+`replayed_current`, its execution run ID, and its actual execution provenance.
+`report.json` records the reporting-source provenance separately and labels
+`mixed_execution_epochs`; it does not assign the current commit to retained
+scientific results. The evidence file path and hash are recorded with inputs.
+
 After scientific completion, use the unchanged diagnostic checkout:
 
 ```bash

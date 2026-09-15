@@ -6,6 +6,96 @@ verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
 
+## Replay P2 acceptance and deep recovery — 2026-09-15 UTC
+
+The user requested completed-task inspection, correction and replacement
+requests. Live durable central inspection found all five P2 tasks terminal:
+the two shallow Fisher cells and the combined DR path completed with exit 0;
+both deep Fisher cells failed with exit 1. All used attempt 1. No FedFisher job
+was nonterminal at recovery bootstrap. The replay task is now centrally
+registered; the previous unregistered/prepared descriptions below are historical.
+
+Both failures occurred during final source validation, not in the numerical
+diagnostic. SCMV2 deep raised `one-shot effects require a finalized clean source
+tree` before writing its result. Legacy deep wrote result/done, then the final
+status check raised `current source provenance differs from the scientific
+manifest`. Its error handler encountered the same dirty-source condition.
+Preserve both directories, including the legacy completion files; do not treat
+the failed process as accepted or weaken the source guard.
+
+Canonical HEAD remained `b7ba5afa6ab9f0086c90a4111b65af631fc68947`, with two
+pre-existing non-ignored untracked files:
+`scripts/make_completed_noniid_visualizations.py` and
+`tests/test_completed_noniid_visualizations.py`. Their contents are preserved
+unchanged when freezing the recovery source. The runtime logs prove source
+mutation during completion; the current file inventory is not a complete
+historical trace of each in-flight change. Reporting's local execution allowance
+does not exclude newly written source/test files from provenance.
+
+Before any recovery edit, all 277 tracked files were byte-checked against the
+frozen Git tree, and the original source-hash framing reproduced the P2 clean
+source digest. Four available replay results passed the unchanged pure semantic
+validator with model forward calls prohibited. Exactly three also had successful
+central execution and are retained. Legacy deep remains unaccepted despite its
+valid saved arithmetic; SCMV2 deep has only manifest/started. Original pilot
+inputs (ten units / 150 files), P2 requests, manifests, identities and completion
+hashes were checked unchanged. This is explicit frozen-source historical
+acceptance, not a claim that the dirty canonical tree passed store.status().
+
+Durable evidence is under
+`/data/del6500/FedFisher/effect_modifier_experiment/replay_audit/fedfisher-effects-replay-v1-pilot-cohort-p2-acceptance-20260915/`:
+
+- `p2-frozen-source-scientific-audit.json`, SHA-256
+  `7f62ae0431eb7ab488ea4d463bc266968a39d832f0a5b98fe7f7abfeb32fd0e2`.
+- `deep-recovery-evidence.json`, SHA-256
+  `ef740be76c1ab838a694b333eb3eb5a98eb101b2b7da4c99d5884ad03296f0aa`.
+
+The retained shallow SCMV2/legacy gradient gates both passed, with zero stable
+failures and exact full-H source replay. Relative tau/score errors remain
+1.04797/1.75936 and 1.04249/1.72224 respectively, above both .25 limits. On SCMV2,
+shallow local CATE RMSE is .31512–.40591; prediction averaging .16344, parameter
+FedAvg .26037, strict FedFisher .30379, versus zero prediction .09134. The large
+T-versus-V/H outcome-loss gap supports a local overfitting diagnosis; parameters
+also distort the averaged prediction function. These observations do not authorize
+test-driven tuning. DR retains the original V-selected linear/spline candidates,
+9/15 nonzero groups, with no significance or FDR claim. The two failed deep
+executions are excluded from accepted conclusions.
+
+Recovery changes only the failed deep output identities to
+`ose_replay_v1r3_fisher_deep_{dataset}_pilot`. The science task/schema/profile,
+seed, DGP, models, diagnostic functions, grids and tolerances are unchanged.
+`scripts/prepare_effects_replay_requests.py --generation 3 --cohort deep-recovery
+--recovery-evidence /data/del6500/FedFisher/effect_modifier_experiment/replay_audit/fedfisher-effects-replay-v1-pilot-cohort-p2-acceptance-20260915/deep-recovery-evidence.json`
+publishes exactly two replacement requests after a clean source freeze. It binds
+the new source plus the retained-three/replaced-two evidence and verifies hashes
+before/after publication. P2 requests and all scientific outputs remain immutable.
+No training, compression, new seed or rerun of the three accepted cells is added.
+
+The replacement bundle is the nested operator-review outbox
+`/scr/del6500/FedFisher/scheduler/outbox/fedfisher-effects-replay-v1-deep-recovery-cohort-p3/`.
+Its inventory is
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-effects-replay-v1-deep-recovery-cohort-p3.inventory.json`.
+The operator must review the new clean source binding and admit those exact two
+requests through the existing registration, preserving all central task settings.
+Outbox publication is not central submission. No central state/service/process
+action is performed by this project recovery session. Keep source frozen through
+replacement execution and acceptance; final hashes/receipts belong in a new
+scratch handoff supplement and durable preparation audit.
+
+Combined reporting takes `--recovery-evidence`, retains the three accepted P2
+cells under their actual execution provenance, and requires current-clean
+validation for both new deep results. Per-cell origins are explicit. The default
+current-only reader continues to enforce its original provenance boundary.
+The shared recovery evidence reader performs file/hash/schema checks only.
+
+Recovery validation passed **342 project tests in 44.813 seconds**, including
+adversarial recovery-evidence validation, mixed-provenance reporting and the
+pre-existing non-IID visualization fixtures. The full log is
+`/scr/del6500/FedFisher/effects-replay-validation/recovery3/full-recovery-suite.log`.
+The two preserved visualization files are included unchanged in the recovery
+freeze so that later report execution does not leave untracked source behind.
+
+
 ## Replay gradient-audit correction and P2 supersession — 2026-09-15 UTC
 
 The user independently reviewed clean `9a31cb2f400591080b0664b1363d4718f1812b92`

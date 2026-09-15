@@ -59,7 +59,8 @@ class EffectsReplayAdapterTests(unittest.TestCase):
             self.assertFalse(config["fitting_allowed"])
             self.assertFalse(config["expansion_authorized"])
             self.assertEqual(config["training_tasks"], 0)
-            self.assertTrue(config["run_id"].startswith("ose_replay_v1_"))
+            expected_epoch = 'ose_replay_v1r3_' if parameters['recipe'] == 'fisher_deep' else 'ose_replay_v1_'
+            self.assertTrue(config['run_id'].startswith(expected_epoch))
             self.assertEqual(config["run_id"], protocol.run_id(protocol.PILOT_TASK, parameters))
         job = copy.deepcopy(self.job)
         job["parameters"] = dict(recipe="dr_path", dataset="legacy_control_iid")

@@ -9,6 +9,9 @@ import tempfile
 import unittest
 from unittest import mock
 
+from effect_modifier_experiment.one_shot_effects.diagnostics import recovery as RECOVERY
+from effect_modifier_experiment.one_shot_effects.diagnostics.recovery import verify_recovery_evidence
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
@@ -66,7 +69,8 @@ class ReplayRequestTests(unittest.TestCase):
             self.assertIn("original_source_provenance", config)
             self.assertEqual(len(config["sources"]), 2)
             self.assertEqual(item["run_id"], config["run_id"])
-            self.assertTrue(item["run_id"].startswith("ose_replay_v1_"))
+            epoch = "v1r3" if request["parameters"]["recipe"] == "fisher_deep" else "v1"
+            self.assertTrue(item["run_id"].startswith("ose_replay_" + epoch + "_"))
             self.assertEqual(item["filename"], request["job_id"] + ".job-request.json")
             self.assertEqual(item["request_sha256"], hashlib.sha256(REQUESTS._encoded(request)).hexdigest())
         self.assertEqual(actual, REQUESTS.EXPECTED_CELLS)
@@ -214,6 +218,238 @@ class ReplayRequestTests(unittest.TestCase):
         self.assertEqual(REQUESTS._pending_path(target).read_bytes(), b"fixture")
         with self.assertRaises(FileExistsError):
             REQUESTS._atomic_create(target, b"replacement")
+
+    def recovery_fixture(self):
+        """Build a tiny frozen audit, never access real scientific output."""
+        directory = self.temporary / "frozen-p2"
+        directory.mkdir()
+        central_root, output_root = directory / "central-jobs", directory / "outputs"
+        central_root.mkdir()
+        output_root.mkdir()
+        self.stack.enter_context(mock.patch.object(RECOVERY, "CENTRAL_JOBS_ROOT", central_root))
+        self.stack.enter_context(mock.patch.object(RECOVERY, "OUTPUT_ROOT", output_root))
+
+        def save(path, value):
+            body = REQUESTS._encoded(value)
+            path.write_bytes(body)
+            return dict(path=str(path), sha256=hashlib.sha256(body).hexdigest())
+
+        records, retained, replaced, audited = [], [], [], []
+        for spec in REQUESTS.build_requests(2):
+            request = spec["request"]
+            parameters = request["parameters"]
+            run_id = "ose_replay_v1_"+parameters["recipe"]+"_"+parameters["dataset"]+"_pilot"
+            binding = save(directory / spec["filename"], request)
+            old = dict(binding, job_id=request["job_id"], task=request["task"],
+                       parameters=parameters, run_id=run_id)
+            records.append(old)
+            is_deep = parameters["recipe"] == "fisher_deep"
+            job = dict(job_id=request["job_id"], project="FedFisher", task=request["task"],
+                       parameters=parameters, state="failed" if is_deep else "completed",
+                       exit_code=1 if is_deep else 0)
+            central = save(central_root / (request["job_id"]+".json"), job)
+            relative_paths = ["run_manifest.env", "seed_000/started.json"]
+            if not is_deep or parameters["dataset"] == "legacy_control_iid":
+                relative_paths.extend(["seed_000/result.json", "seed_000/done.json"])
+            (output_root / run_id / "seed_000").mkdir(parents=True)
+            artifacts = [save(output_root / run_id / relative, {"fixture": relative})
+                         for relative in relative_paths]
+            item = dict(job_id=request["job_id"], parameters=parameters, run_id=run_id,
+                        scientific_status="unaccepted_failed_execution" if is_deep else "validated_frozen_source",
+                        central_state=job["state"], central_job=central, artifacts=artifacts)
+            (replaced if is_deep else retained).append(item)
+            audited.append(dict(job_id=request["job_id"], parameters=parameters, run_id=run_id,
+                                historical_scientific_acceptance=not is_deep,
+                                manifest_and_started_valid=True,
+                                artifact_integrity_valid=len(artifacts) == 4,
+                                pure_semantic_validation="passed" if len(artifacts) == 4 else "unavailable_no_result",
+                                scientific_files={relative: artifact["sha256"]
+                                                  for relative, artifact in zip(relative_paths, artifacts)},
+                                central=dict(central, state=job["state"], exit_code=job["exit_code"])))
+        inventory = dict(generation=2, bundle="fedfisher-effects-replay-v1-pilot",
+                         task=REQUESTS.protocol.PILOT_TASK, request_count=5,
+                         bundle_ready=True, worktree_status="clean", provenance=provenance(),
+                         requests=records)
+        inventory_binding = save(directory / "inventory.json", inventory)
+        audit = dict(source=dict(bound_provenance=provenance(),
+                                 inventory_sha256=inventory_binding["sha256"],
+                                 all_tracked_bytes_equal_bound_git_tree=True,
+                                 tracked_source_sha256=provenance()["source_tree_sha256"]),
+                     all_scientific_artifacts_unchanged_during_audit=True, cells=audited)
+        envelope = dict(schema_version=1, cohort="deep-recovery",
+                        source_inventory=inventory_binding,
+                        audit_evidence=save(directory / "audit.json", audit),
+                        retained=retained, replaced=replaced)
+        path = directory / "recovery-evidence.json"
+        save(path, envelope)
+        return path, envelope, save
+
+    def test_deep_recovery_covers_only_two_failed_cells_with_new_job_and_run_ids(self):
+        specs = REQUESTS.build_requests(3, "deep-recovery")
+        self.assertEqual(len(specs), 2)
+        self.assertEqual({tuple(item["request"]["parameters"][key] for key in ("recipe", "dataset"))
+                          for item in specs}, REQUESTS.REPLACED_CELLS)
+        self.assertTrue(all(item["run_id"].startswith("ose_replay_v1r3_fisher_deep_") for item in specs))
+        self.assertTrue(all("-deep-recovery-cohort-p3-" in item["request"]["job_id"] for item in specs))
+        self.assertEqual(REQUESTS.inventory_name(3, "deep-recovery"),
+                         "fedfisher-effects-replay-v1-deep-recovery-cohort-p3.inventory.json")
+        self.assertFalse({item["filename"] for item in specs} &
+                         {item["filename"] for item in REQUESTS.build_requests(2)})
+        for generation in (1, 2):
+            with self.assertRaisesRegex(ValueError, "generation 3"):
+                REQUESTS.build_requests(generation, "deep-recovery")
+        for cohort in (None, "remaining", "fisher_deep"):
+            with self.assertRaisesRegex(ValueError, "cohort"):
+                REQUESTS.build_requests(3, cohort)
+
+    def test_recovery_requires_frozen_evidence_and_a_new_namespace_before_writing(self):
+        with self.assertRaisesRegex(ValueError, "requires frozen"):
+            REQUESTS.write_requests(3, "deep-recovery")
+        path, _, _ = self.recovery_fixture()
+        with self.assertRaisesRegex(ValueError, "only valid"):
+            REQUESTS.write_requests(3, "full", path)
+        with mock.patch.object(REQUESTS.protocol, "run_id", side_effect=lambda task, p:
+                               "ose_replay_v1_"+p["recipe"]+"_"+p["dataset"]+"_pilot"):
+            with self.assertRaisesRegex(ValueError, "new result namespaces"):
+                REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertFalse(self.outbox.exists())
+
+    def test_recovery_inventory_binds_retained_and_replaced_files_and_writes_two_only(self):
+        path, envelope, _ = self.recovery_fixture()
+        self.assertEqual(verify_recovery_evidence(path), envelope)
+        before = {str(p): p.read_bytes() for p in path.parent.rglob("*") if p.is_file()}
+        inventory = REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertEqual(inventory["request_count"], 2)
+        self.assertEqual(inventory["retained_request_count"], 3)
+        self.assertEqual(inventory["coverage"], dict(fisher_replays=2, dr_path_replays=0, seeds=[0]))
+        self.assertEqual(inventory["recovery"]["evidence"], envelope)
+        self.assertEqual(inventory["recovery"]["sha256"], hashlib.sha256(path.read_bytes()).hexdigest())
+        self.assertFalse(inventory["submitted"])
+        self.assertFalse(inventory["requires_operator_registration"])
+        self.assertTrue(inventory["requires_operator_source_review"])
+        self.assertEqual(len(list(self.outbox.rglob("*.job-request.json"))), 2)
+        self.assertEqual({str(p): p.read_bytes() for p in path.parent.rglob("*") if p.is_file()}, before)
+        self.assertEqual(json.loads(Path(inventory["inventory_path"]).read_text()), inventory)
+
+    def test_recovery_rejects_wrong_partition_status_and_central_termination(self):
+        path, envelope, save = self.recovery_fixture()
+        for case in ("duplicate", "status", "central-state", "central-identity"):
+            changed = json.loads(json.dumps(envelope))
+            if case == "duplicate":
+                changed["retained"][0] = changed["retained"][1]
+            elif case == "status":
+                changed["replaced"][0]["scientific_status"] = "validated_frozen_source"
+            else:
+                record = changed["retained"][0]
+                central = json.loads(Path(record["central_job"]["path"]).read_text())
+                if case == "central-state":
+                    central.update(state="failed", exit_code=1)
+                else:
+                    central["parameters"] = dict(recipe="fisher_deep", dataset="scmv2_base")
+                record["central_job"] = save(path.parent / (case+".json"), central)
+            save(path, changed)
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertFalse(self.outbox.exists())
+
+    def test_recovery_rejects_changed_artifact_or_bound_symlink(self):
+        path, envelope, save = self.recovery_fixture()
+        artifact = Path(envelope["retained"][0]["artifacts"][0]["path"])
+        body = artifact.read_bytes()
+        artifact.write_bytes(body+b" ")
+        with self.assertRaisesRegex(ValueError, "hash mismatch"):
+            verify_recovery_evidence(path)
+        artifact.write_bytes(body)
+        target = path.parent / "relocated-artifact.json"
+        target.write_bytes(body)
+        artifact.unlink()
+        artifact.symlink_to(target)
+        with self.assertRaisesRegex(ValueError, "ordinary bound"):
+            verify_recovery_evidence(path)
+
+    def test_recovery_rejects_rehashed_empty_or_unaccepted_audit(self):
+        path, envelope, save = self.recovery_fixture()
+        audit_path = Path(envelope["audit_evidence"]["path"])
+        original = json.loads(audit_path.read_text())
+        for case in ("empty", "source", "inventory", "tracked", "mutated-artifacts",
+                     "missing-cell", "unaccepted", "invalid-manifest", "invalid-integrity", "invalid-semantics"):
+            changed = json.loads(json.dumps(envelope))
+            audit = json.loads(json.dumps(original))
+            if case == "empty":
+                audit = {"fixture": True}
+            elif case == "source":
+                audit["source"]["bound_provenance"]["git_commit"] = "e" * 40
+            elif case == "inventory":
+                audit["source"]["inventory_sha256"] = "e" * 64
+            elif case == "tracked":
+                audit["source"]["all_tracked_bytes_equal_bound_git_tree"] = False
+            elif case == "mutated-artifacts":
+                audit["all_scientific_artifacts_unchanged_during_audit"] = False
+            elif case == "missing-cell":
+                audit["cells"].pop()
+            else:
+                key, value = {"unaccepted": ("historical_scientific_acceptance", False),
+                              "invalid-manifest": ("manifest_and_started_valid", False),
+                              "invalid-integrity": ("artifact_integrity_valid", False),
+                              "invalid-semantics": ("pure_semantic_validation", "failed")}[case]
+                audit["cells"][0][key] = value
+            changed["audit_evidence"] = save(audit_path, audit)
+            save(path, changed)
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertFalse(self.outbox.exists())
+
+    def test_recovery_rejects_incomplete_or_relocated_artifact_inventory(self):
+        path, envelope, save = self.recovery_fixture()
+        audit_path = Path(envelope["audit_evidence"]["path"])
+        original = json.loads(audit_path.read_text())
+        for case in ("missing-bound-file", "one-file-audit", "relocated-artifact"):
+            changed = json.loads(json.dumps(envelope))
+            audit = json.loads(json.dumps(original))
+            if case == "missing-bound-file":
+                changed["retained"][0]["artifacts"].pop()
+            elif case == "one-file-audit":
+                changed["retained"][0]["artifacts"] = changed["retained"][0]["artifacts"][:1]
+                audit["cells"][0]["scientific_files"] = {"run_manifest.env":
+                    audit["cells"][0]["scientific_files"]["run_manifest.env"]}
+            else:
+                binding = changed["retained"][0]["artifacts"][0]
+                copy = path.parent / "same-bytes-wrong-location.json"
+                copy.write_bytes(Path(binding["path"]).read_bytes())
+                binding["path"] = str(copy)
+            changed["audit_evidence"] = save(audit_path, audit)
+            save(path, changed)
+            with self.subTest(case=case), self.assertRaisesRegex(ValueError, "scientific file inventory"):
+                verify_recovery_evidence(path)
+
+    def test_recovery_rejects_forged_central_location_even_when_audit_and_hash_agree(self):
+        path, envelope, save = self.recovery_fixture()
+        record = envelope["retained"][0]
+        body = json.loads(Path(record["central_job"]["path"]).read_text())
+        record["central_job"] = save(path.parent / "forged-central.json", body)
+        audit_path = Path(envelope["audit_evidence"]["path"])
+        audit = json.loads(audit_path.read_text())
+        audit["cells"][0]["central"].update(record["central_job"])
+        envelope["audit_evidence"] = save(audit_path, audit)
+        save(path, envelope)
+        with self.assertRaisesRegex(ValueError, "authoritative job path"):
+            REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertFalse(self.outbox.exists())
+
+    def test_recovery_change_during_publication_keeps_two_requests_without_ready_inventory(self):
+        path, envelope, _ = self.recovery_fixture()
+        original = REQUESTS._atomic_create
+
+        def change_audit(target, data):
+            original(target, data)
+            if target.name.endswith(".job-request.json"):
+                Path(envelope["audit_evidence"]["path"]).write_text('{"changed": true}')
+
+        with mock.patch.object(REQUESTS, "_atomic_create", side_effect=change_audit):
+            with self.assertRaisesRegex(ValueError, "hash mismatch"):
+                REQUESTS.write_requests(3, "deep-recovery", path)
+        self.assertEqual(len(list(self.outbox.rglob("*.job-request.json"))), 2)
+        self.assertFalse((self.reports / REQUESTS.inventory_name(3, "deep-recovery")).exists())
 
 
 if __name__ == "__main__":

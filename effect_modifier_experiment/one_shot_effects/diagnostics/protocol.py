@@ -23,7 +23,10 @@ def validate_parameters(task, parameters):
 
 def run_id(task, parameters):
     p = validate_parameters(task, parameters)
-    return 'ose_replay_v1_'+p['recipe']+'_'+p['dataset']+'_pilot'
+    # Preserve the P2 deep directories after their final source checks failed,
+    # including the legacy result whose final process check did not complete.
+    epoch = 'v1r3' if p['recipe'] == 'fisher_deep' else 'v1'
+    return 'ose_replay_'+epoch+'_'+p['recipe']+'_'+p['dataset']+'_pilot'
 
 
 def source_bindings():
