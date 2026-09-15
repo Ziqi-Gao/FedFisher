@@ -49,6 +49,8 @@ def _finite(value):
 def _gradient_record(record, config, site, theta, local_theta):
     n = config['sample_rows_per_site']
     site_id = site['site_id']
+    if type(record['audit_version']) is not int or record['audit_version'] != 2:
+        raise ValueError('original pilot and per-output coverage audit version required')
     if record['site_id'] != site_id:
         raise ValueError('gradient site order changed')
     sample_seed = [config['seed'], config['sample_seed_stream'], site_id]
@@ -61,13 +63,24 @@ def _gradient_record(record, config, site, theta, local_theta):
             or record['normalized_random_direction_sha256'] != array_hash(random / np.linalg.norm(random))
             or record['selected_row_ids_sha256'] != array_hash(np.asarray(record['selected_row_ids'], dtype=np.int64))):
         raise ValueError('gradient sample/direction seed evidence differs')
-    if record['columns'] != ['control_binary_log_odds', 'treated_binary_log_odds', 'probability_CATE']:
+    columns = ['control_binary_log_odds', 'treated_binary_log_odds', 'probability_CATE']
+    direction_names = ('actual_aggregation', 'fixed_random')
+    if record['columns'] != columns:
         raise ValueError('finite-difference columns differ')
-    expected_pairs = [(direction, step) for direction in ('actual_aggregation', 'fixed_random')
+    expected_pairs = [(direction, step) for direction in direction_names
                       for step in config['fd_steps']]
     if [(item['direction'], item['step']) for item in record['checks']] != expected_pairs:
         raise ValueError('finite-difference directions or step grid differ')
+    original = record['original_pilot']
+    original_tau = np.asarray(original['tau'])
+    original_derivatives = np.asarray(original['directional_derivatives'])
+    if original_tau.shape != (n,) or original_derivatives.shape != (n, 2):
+        raise ValueError('original pilot derivative observations do not align with fixed rows/directions')
+    norms = dict(actual_aggregation=float(np.linalg.norm(theta - local_theta)),
+                 fixed_random=float(np.linalg.norm(random)))
+    coverage_counts = {name: np.zeros(3, dtype=np.int64) for name in direction_names}
     stable_count, failures, boundary, prior_derivatives = 0, 0, 0, {}
+    original_stable_count, original_failures = 0, 0
     for item in record['checks']:
         actual, numerical = np.asarray(item['autograd']), np.asarray(item['finite_difference'])
         stable, within = np.asarray(item['stable_activation_mask']), np.asarray(item['within_tolerance'])
@@ -87,16 +100,30 @@ def _gradient_record(record, config, site, theta, local_theta):
             _close(item[key], expected.tolist(), config['replay_tolerance'])
         if not np.array_equal(within, expected_within):
             raise ValueError('finite-difference pass mask disagrees with tolerances')
-        norm = float(np.linalg.norm(theta - local_theta)) if item['direction'] == 'actual_aggregation' else float(np.linalg.norm(random))
+        norm = norms[item['direction']]
         _close(item['direction_original_norm'], norm, config['replay_tolerance'])
         if item['degenerate_zero_direction'] is not (norm == 0):
             raise ValueError('zero direction classification differs')
         if any(np.asarray(value).shape != (2,) or np.any(np.asarray(value) < 0) or np.any(np.asarray(value) > 1)
                for value in item['layer_boundary_fraction_control_treated'].values()):
             raise ValueError('invalid ReLU boundary proportions')
-        stable_count += int(stable.sum())
-        failures += int((stable & ~within).sum())
-        boundary += int((~stable).sum())
+        direction_index = direction_names.index(item['direction'])
+        original_absolute = np.abs(original_derivatives[:, direction_index] - numerical[:, 2])
+        original_threshold = config['fd_atol'] + config['fd_rtol'] * np.abs(original_derivatives[:, direction_index])
+        original_within = np.asarray(item['original_pilot_within_fd_tolerance'])
+        if original_within.shape != (n,) or original_within.dtype.kind != 'b':
+            raise ValueError('original pilot finite-difference mask dimensions differ')
+        _close(item['original_pilot_absolute_error_vs_fd'], original_absolute.tolist(), config['replay_tolerance'])
+        _close(item['original_pilot_fd_tolerance'], original_threshold.tolist(), config['replay_tolerance'])
+        if not np.array_equal(original_within, original_absolute <= original_threshold):
+            raise ValueError('original pilot finite-difference pass mask disagrees with observations')
+        if norm != 0:
+            stable_count += int(stable.sum())
+            failures += int((stable & ~within).sum())
+            boundary += int((~stable).sum())
+            coverage_counts[item['direction']] += stable.sum(axis=0)
+            original_stable_count += int(stable[:, 2].sum())
+            original_failures += int((stable[:, 2] & ~original_within).sum())
     baseline, t0_outputs = np.asarray(record['baseline_autograd_outputs']), np.asarray(record['t0_model_outputs'])
     if baseline.shape != (n, 3) or t0_outputs.shape != (n, 3):
         raise ValueError('t0 predictions must align with diagnostic rows')
@@ -105,18 +132,54 @@ def _gradient_record(record, config, site, theta, local_theta):
     p = sigmoid(baseline[:, :2])
     chain = np.column_stack([p[:, 1] * (1 - p[:, 1]) * prior_derivatives[name][:, 1] -
                             p[:, 0] * (1 - p[:, 0]) * prior_derivatives[name][:, 0]
-                            for name in ('actual_aggregation', 'fixed_random')])
+                            for name in direction_names])
     _close(record['sigmoid_chain_derivative'], chain.tolist(), config['replay_tolerance'])
-    tau_derivative = np.column_stack([prior_derivatives[name][:, 2] for name in ('actual_aggregation', 'fixed_random')])
+    tau_derivative = np.column_stack([prior_derivatives[name][:, 2] for name in direction_names])
     if chain.shape != (n, 2):
         raise ValueError('chain-rule derivative dimensions differ')
     chain_error = float(np.max(np.abs(chain - tau_derivative)))
     _close(record['chain_rule_maximum_absolute_error'], chain_error, config['replay_tolerance'])
     if record['chain_rule_tolerance'] != 1e-12 or record['chain_rule_passed'] is not (chain_error <= 1e-12):
         raise ValueError('sigmoid chain-rule consistency decision differs')
+    tau_error_vs_new = np.abs(original_tau - baseline[:, 2])
+    tau_error_vs_model = np.abs(original_tau - t0_outputs[:, 2])
+    derivative_error = np.abs(original_derivatives - tau_derivative)
+    derivative_threshold = 1e-12 + 1e-9 * np.abs(tau_derivative)
+    original_tau_passed = bool(np.all(tau_error_vs_new <= 1e-12) and np.all(tau_error_vs_model <= 1e-12))
+    original_derivative_passed = bool(np.all(derivative_error <= derivative_threshold))
+    original_passed = original_tau_passed and original_derivative_passed and original_failures == 0
+    expected_original = dict(
+        function='effect_modifier_experiment.one_shot_effects.fisher_summary.tau_and_directional_derivatives',
+        tau=original_tau.tolist(), directional_derivatives=original_derivatives.tolist(),
+        tau_absolute_error_vs_new=tau_error_vs_new.tolist(), tau_absolute_error_vs_model=tau_error_vs_model.tolist(),
+        derivative_absolute_error_vs_new=derivative_error.tolist(), tau_tolerance=1e-12,
+        derivative_atol=1e-12, derivative_rtol=1e-9,
+        derivative_tolerance_vs_new=derivative_threshold.tolist(), tau_passed=original_tau_passed,
+        derivative_passed=original_derivative_passed, stable_fd_checks=original_stable_count,
+        stable_fd_failures=original_failures, passed=original_passed)
+    _close(original, expected_original, config['replay_tolerance'])
+    if (original['tau_tolerance'] != 1e-12 or original['derivative_atol'] != 1e-12
+            or original['derivative_rtol'] != 1e-9):
+        raise ValueError('original pilot consistency tolerance changed')
+    expected_coverage = {}
+    for name in direction_names:
+        zero = norms[name] == 0
+        required = not (zero and name == 'actual_aggregation')
+        missing = [column for index, column in enumerate(columns)
+                   if required and coverage_counts[name][index] == 0]
+        status = ('not_applicable_zero_direction' if not required else
+                  'inconclusive' if missing else 'complete')
+        expected_coverage[name] = dict(status=status, required=required,
+            stable_checks_by_output={column: int(coverage_counts[name][index])
+                                     for index, column in enumerate(columns)}, missing_outputs=missing)
+    _close(record['coverage'], expected_coverage, config['replay_tolerance'])
+    coverage_complete = all(not item['required'] or item['status'] == 'complete'
+                            for item in expected_coverage.values())
+    failed = t0_error > 1e-12 or chain_error > 1e-12 or not original_passed or failures != 0
+    status = 'failed' if failed else 'inconclusive' if not coverage_complete else 'passed'
     expected = dict(stable_checks=stable_count, stable_failures=failures, boundary_checks=boundary,
-        t0_passed=t0_error <= 1e-12,
-        passed=t0_error <= 1e-12 and chain_error <= 1e-12 and failures == 0 and stable_count > 0)
+        t0_passed=t0_error <= 1e-12, coverage_complete=coverage_complete,
+        status=status, passed=status == 'passed')
     if record['t0_tolerance'] != 1e-12 or record['t0_maximum_absolute_error'] < 0:
         raise ValueError('invalid t0 check')
     for key, value in expected.items():
@@ -200,12 +263,17 @@ def validate_fisher_diagnostic(report, config, sources):
             arrays, _ = unpack_payload(blob, TRAINING_METHOD)
             _gradient_record(record, config, site, theta, arrays['theta'])
         gradients = report['gradient_checks']
-        expected_gate = dict(passed=all(item['passed'] for item in gradients),
+        statuses = [item['status'] for item in gradients]
+        status = 'failed' if 'failed' in statuses else 'inconclusive' if 'inconclusive' in statuses else 'passed'
+        expected_gate = dict(status=status, passed=status == 'passed',
             t0_passed=all(item['t0_passed'] for item in gradients),
+            coverage_complete=all(item['coverage_complete'] for item in gradients),
+            original_pilot_passed=all(item['original_pilot']['passed'] for item in gradients),
+            original_pilot_stable_fd_failures=sum(item['original_pilot']['stable_fd_failures'] for item in gradients),
             stable_checks=sum(item['stable_checks'] for item in gradients),
             stable_failures=sum(item['stable_failures'] for item in gradients),
             boundary_checks=sum(item['boundary_checks'] for item in gradients),
-            reason='all_stable_activation_finite_differences_and_t0_must_pass; boundary_rows_are_diagnostic')
+            reason='original_pilot_and_new_derivatives_must_agree_and_pass_stable_FD; each_required_direction_and_output_needs_coverage; zero_actual_direction_is_not_applicable')
         _close(report['implementation_gate'], expected_gate, config['replay_tolerance'])
         if expected_gate['passed']:
             _path(report['parameter_path'], config, sites, weights, source['config']['dgp']['covariate_dim'])

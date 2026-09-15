@@ -240,12 +240,17 @@ def diagnose_fisher(config, data, plans, sources):
                                      normalized_random_direction_sha256=array_hash(random_direction / np.linalg.norm(random_direction)),
                                      **check))
     phases['gradient_audit'] = dict(wall_seconds=perf_counter() - wall, cpu_seconds=process_time() - cpu)
-    gate = dict(passed=all(value['passed'] for value in gradient_records),
+    statuses = [value['status'] for value in gradient_records]
+    status = 'failed' if 'failed' in statuses else 'inconclusive' if 'inconclusive' in statuses else 'passed'
+    gate = dict(status=status, passed=status == 'passed',
         t0_passed=all(value['t0_passed'] for value in gradient_records),
+        coverage_complete=all(value['coverage_complete'] for value in gradient_records),
+        original_pilot_passed=all(value['original_pilot']['passed'] for value in gradient_records),
+        original_pilot_stable_fd_failures=sum(value['original_pilot']['stable_fd_failures'] for value in gradient_records),
         stable_checks=sum(value['stable_checks'] for value in gradient_records),
         stable_failures=sum(value['stable_failures'] for value in gradient_records),
         boundary_checks=sum(value['boundary_checks'] for value in gradient_records),
-        reason='all_stable_activation_finite_differences_and_t0_must_pass; boundary_rows_are_diagnostic')
+        reason='original_pilot_and_new_derivatives_must_agree_and_pass_stable_FD; each_required_direction_and_output_needs_coverage; zero_actual_direction_is_not_applicable')
     result = dict(implementation_gate=gate, gradient_checks=gradient_records,
         parameter_path=None, full_H_endpoint=None, model_quality=None,
         cost_scope=dict(training=False, Fisher_recomputed=False, optimizer_updates=0,

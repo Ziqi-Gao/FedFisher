@@ -19,7 +19,7 @@ REPORT = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(REPORT)
 
 
-def fisher_record(recipe='fisher_shallow', dataset='scmv2_base', gate=True, endpoint=True):
+def fisher_record(recipe='fisher_shallow', dataset='scmv2_base', gate=True, endpoint=True, status=None):
     points = []
     for t in (0., .1, 1.):
         moments = dict(rmse=.2*t, centered_rmse=.1*t, mean_error=.05*t,
@@ -43,7 +43,22 @@ def fisher_record(recipe='fisher_shallow', dataset='scmv2_base', gate=True, endp
         local_outcome_metrics=[dict(site_id=0, T=outcome, V=outcome, H=outcome)],
         saved_model_outcome_metrics={'parameter_FedAvg': dict(test=outcome,
                                   sites=[dict(site_id=0, T=outcome, V=outcome, H=outcome)])})
-    diagnostic = dict(implementation_gate=dict(passed=gate, stable_checks=6, stable_failures=0 if gate else 1),
+    status = status or ('passed' if gate else 'failed')
+    coverage = {name: dict(required=True, status='complete', missing_outputs=[],
+        stable_checks_by_output=dict(control_binary_log_odds=6, treated_binary_log_odds=6,
+                                     probability_CATE=6)) for name in ('actual_aggregation', 'fixed_random')}
+    if status == 'inconclusive':
+        for direction in coverage.values():
+            direction.update(status='inconclusive', missing_outputs=['treated_binary_log_odds', 'probability_CATE'])
+            direction['stable_checks_by_output'].update(treated_binary_log_odds=0, probability_CATE=0)
+    pilot = dict(function='fisher_summary.tau_and_directional_derivatives', passed=status != 'failed',
+        tau_passed=True, derivative_passed=status != 'failed', stable_fd_checks=12 if status != 'inconclusive' else 0,
+        stable_fd_failures=1 if status == 'failed' else 0, tau_absolute_error_vs_new=[0., 0.],
+        tau_absolute_error_vs_model=[0., 0.], derivative_absolute_error_vs_new=[[.2 if status == 'failed' else 0., 0.]])
+    diagnostic = dict(implementation_gate=dict(passed=gate, status=status, stable_checks=36,
+            stable_failures=1 if status == 'failed' else 0, coverage_complete=status != 'inconclusive',
+            original_pilot_passed=pilot['passed'], original_pilot_stable_fd_failures=pilot['stable_fd_failures']),
+        gradient_checks=[dict(site_id=0, audit_version=2, status=status, coverage=coverage, original_pilot=pilot)],
         parameter_path=dict(target_weighted_points=points, sites=[dict(site_id=0, points=points)]) if gate else None,
         full_H_endpoint=dict(replay_matches_source=endpoint,
             linearization=dict(gate=dict(relative_tau_rmse=.4, relative_score_linf=.5,
@@ -97,12 +112,42 @@ class ReplayReportingTests(unittest.TestCase):
         self.assertEqual(feature['H_rank_min'], 1)
 
     def test_failure_status_omits_uncomputed_quality_without_relabeling_as_success(self):
-        tables = REPORT.tables([fisher_record(gate=False), fisher_record(recipe='fisher_deep', endpoint=False)])
+        tables = REPORT.tables([fisher_record(gate=False), fisher_record(gate=False, status='inconclusive'),
+                               fisher_record(recipe='fisher_deep', endpoint=False)])
         self.assertEqual([row['diagnostic_state'] for row in tables['status']],
-                         ['gradient_check_failed_or_inconclusive', 'full_H_endpoint_mismatch'])
+                         ['gradient_check_failed', 'gradient_check_inconclusive', 'full_H_endpoint_mismatch'])
+        self.assertEqual([row['implementation_gate_status'] for row in tables['status']],
+                         ['failed', 'inconclusive', 'passed'])
         self.assertEqual(tables['model_quality'], [])
         self.assertEqual(tables['outcome_prediction'], [])
         self.assertEqual(len(tables['fisher_prediction_errors']), 48)
+
+    def test_gradient_tables_expose_missing_CATE_coverage_and_original_gradient_failure(self):
+        tables = REPORT.tables([fisher_record(gate=False, status='inconclusive'),
+                                fisher_record(recipe='fisher_deep', gate=False)])
+        missing = [row for row in tables['fisher_gradient_coverage'] if row['missing_output']]
+        self.assertEqual(len(missing), 4)
+        self.assertEqual({row['direction'] for row in missing}, {'actual_aggregation', 'fixed_random'})
+        self.assertTrue(all(row['stable_checks'] == 0 and row['required'] for row in missing))
+        self.assertEqual({row['output'] for row in missing}, {'treated_binary_log_odds', 'probability_CATE'})
+        self.assertFalse(tables['status'][0]['coverage_complete'])
+        original = tables['fisher_original_pilot_audit'][1]
+        self.assertFalse(original['passed'])
+        self.assertFalse(original['derivative_passed'])
+        self.assertEqual(original['stable_fd_failures'], 1)
+        self.assertEqual(original['maximum_derivative_absolute_error_vs_new'], .2)
+
+    def test_zero_actual_direction_keeps_not_applicable_coverage_label(self):
+        record = fisher_record()
+        coverage = record['result']['diagnostic']['gradient_checks'][0]['coverage']['actual_aggregation']
+        coverage.update(required=False, status='not_applicable_zero_direction', missing_outputs=[])
+        coverage['stable_checks_by_output'] = dict.fromkeys(coverage['stable_checks_by_output'], 0)
+        rows = [row for row in REPORT.tables([record])['fisher_gradient_coverage']
+                if row['direction'] == 'actual_aggregation']
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(all(row['coverage_status'] == 'not_applicable_zero_direction'
+                            and not row['required'] and not row['missing_output']
+                            and row['stable_checks'] == 0 for row in rows))
 
     def test_fabricated_results_render_figures_csv_and_hashed_presentation_only_index(self):
         records = [fisher_record(), fisher_record(recipe='fisher_deep', dataset='legacy_control_iid'), dr_record()]
@@ -122,6 +167,11 @@ class ReplayReportingTests(unittest.TestCase):
             rows = list(csv.DictReader(stream))
         self.assertEqual(json.loads(rows[0]['coefficients']), [0.])
         self.assertEqual(rows[0]['H_rank_min'], '1')
+        with (output/'fisher_gradient_coverage.csv').open() as stream:
+            coverage = list(csv.DictReader(stream))
+        self.assertEqual({row['output'] for row in coverage},
+                         {'control_binary_log_odds', 'treated_binary_log_odds', 'probability_CATE'})
+        self.assertIn('fisher_original_pilot_audit.csv', summary['files'])
         self.assertFalse((output/'done.json').exists())
         self.assertFalse((output/'run_manifest.env').exists())
         with self.assertRaises(FileExistsError):
@@ -130,7 +180,8 @@ class ReplayReportingTests(unittest.TestCase):
     def test_empty_diagnostics_produce_status_without_uncomputed_figures(self):
         output = self.temporary/'failed-gate'
         summary = REPORT.write_report([fisher_record(gate=False)], {}, output)
-        self.assertEqual(set(summary['files']), {'status.csv'})
+        self.assertEqual(set(summary['files']),
+                         {'status.csv', 'fisher_gradient_coverage.csv', 'fisher_original_pilot_audit.csv'})
 
     def test_symlink_and_outside_paths_fail_before_output(self):
         real = self.temporary/'real'

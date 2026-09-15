@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
 
+from .. import fisher_summary
 from ..fisher_models import input_coordinates, model_vector
 
 
@@ -110,12 +111,21 @@ The finite-difference audit additionally differentiates tau independently.
 
 
 def gradient_check(model, x, delta, random_direction, steps, atol, rtol):
-    """Audit normalized actual/random directions and explicitly label kinks."""
+    """Audit both derivative implementations, with nonvacuous stable coverage.
+
+Use the original summary module's live function binding: that is the function
+called by the pilot's full-gradient summary, including when regression fixtures
+deliberately corrupt it. Agreement with an old saved replay is insufficient.
+    """
     theta = model_vector(model)
     supplied = dict(actual_aggregation=np.asarray(delta), fixed_random=np.asarray(random_direction))
     directions, norms = [], {}
     for name, value in supplied.items():
+        if value.shape != theta.shape or not np.isfinite(value).all():
+            raise ValueError('finite aligned audit direction required')
         norm = float(np.linalg.norm(value))
+        if not np.isfinite(norm):
+            raise ValueError('finite audit direction norm required')
         norms[name] = norm
         directions.append(value / norm if norm > 0 else np.zeros_like(value))
     directions = np.column_stack(directions)
@@ -127,8 +137,30 @@ def gradient_check(model, x, delta, random_direction, steps, atol, rtol):
     original = outputs(model, x, activations=True)
     endpoint = np.column_stack((original['logits'], original['tau']))
     t0_max = float(np.max(np.abs(endpoint - baseline)))
+    pilot_tau, pilot_derivative = fisher_summary.tau_and_directional_derivatives(model, x, directions)
+    pilot_tau, pilot_derivative = np.asarray(pilot_tau), np.asarray(pilot_derivative)
+    if (pilot_tau.shape != (len(x),) or pilot_derivative.shape != (len(x), 2)
+            or not np.isfinite(pilot_tau).all() or not np.isfinite(pilot_derivative).all()):
+        raise ValueError('original pilot returned invalid tau or directional derivatives')
+    pilot_tau_error = np.abs(pilot_tau - baseline[:, 2])
+    pilot_model_error = np.abs(pilot_tau - endpoint[:, 2])
+    pilot_derivative_error = np.abs(pilot_derivative - derivative[:, 2, :])
+    pilot_derivative_tolerance = 1e-12 + 1e-9 * np.abs(derivative[:, 2, :])
+    pilot = dict(function='effect_modifier_experiment.one_shot_effects.fisher_summary.tau_and_directional_derivatives',
+        tau=pilot_tau.tolist(), directional_derivatives=pilot_derivative.tolist(),
+        tau_absolute_error_vs_new=pilot_tau_error.tolist(),
+        tau_absolute_error_vs_model=pilot_model_error.tolist(),
+        derivative_absolute_error_vs_new=pilot_derivative_error.tolist(),
+        tau_tolerance=1e-12, derivative_atol=1e-12, derivative_rtol=1e-9,
+        derivative_tolerance_vs_new=pilot_derivative_tolerance.tolist(),
+        tau_passed=bool(np.all(pilot_tau_error <= 1e-12) and np.all(pilot_model_error <= 1e-12)),
+        derivative_passed=bool(np.all(pilot_derivative_error <= pilot_derivative_tolerance)),
+        stable_fd_checks=0, stable_fd_failures=0)
+    columns = ['control_binary_log_odds', 'treated_binary_log_odds', 'probability_CATE']
+    coverage = {}
     records, stable_count, failures, boundary_count = [], 0, 0, 0
     for index, name in enumerate(supplied):
+        counts = np.zeros(3, dtype=int)
         for step in steps:
             plus = outputs(at_vector(model, theta + step * directions[:, index]), x, activations=True)
             minus = outputs(at_vector(model, theta - step * directions[:, index]), x, activations=True)
@@ -145,23 +177,45 @@ def gradient_check(model, x, delta, random_direction, steps, atol, rtol):
             absolute = np.abs(numerical - derivative[:, :, index])
             threshold = atol + rtol * np.abs(derivative[:, :, index])
             within = absolute <= threshold
-            stable_count += int(stable.sum())
-            failures += int((stable & ~within).sum())
-            boundary_count += int((~stable).sum())
+            # Zero displacement has no finite-difference information. Preserve
+            # the raw masks, but never count these vacuous checks as coverage.
+            effective = stable & (norms[name] > 0)
+            stable_count += int(effective.sum())
+            failures += int((effective & ~within).sum())
+            boundary_count += int((~stable).sum()) if norms[name] > 0 else 0
+            counts += effective.sum(axis=0)
+            pilot_fd_error = np.abs(numerical[:, 2] - pilot_derivative[:, index])
+            pilot_fd_tolerance = atol + rtol * np.abs(pilot_derivative[:, index])
+            pilot_fd_within = pilot_fd_error <= pilot_fd_tolerance
+            pilot['stable_fd_checks'] += int(effective[:, 2].sum())
+            pilot['stable_fd_failures'] += int((effective[:, 2] & ~pilot_fd_within).sum())
             records.append(dict(direction=name, step=step, direction_original_norm=norms[name],
                 degenerate_zero_direction=norms[name] == 0,
                 autograd=derivative[:, :, index].tolist(), finite_difference=numerical.tolist(),
                 absolute_error=absolute.tolist(),
                 relative_error_floor_1e_12=(absolute / np.maximum(1e-12, np.abs(derivative[:, :, index]))).tolist(),
                 tolerance=threshold.tolist(), stable_activation_mask=stable.tolist(),
-                within_tolerance=within.tolist(), layer_boundary_fraction_control_treated=layer_crossings))
-    return dict(columns=['control_binary_log_odds', 'treated_binary_log_odds', 'probability_CATE'],
+                within_tolerance=within.tolist(), layer_boundary_fraction_control_treated=layer_crossings,
+                original_pilot_absolute_error_vs_fd=pilot_fd_error.tolist(),
+                original_pilot_fd_tolerance=pilot_fd_tolerance.tolist(),
+                original_pilot_within_fd_tolerance=pilot_fd_within.tolist()))
+        required = name != 'actual_aggregation' or norms[name] > 0
+        missing = [column for column, count in zip(columns, counts) if count == 0] if required else []
+        coverage[name] = dict(required=required,
+            status=('not_applicable_zero_direction' if not required else 'inconclusive' if missing else 'complete'),
+            stable_checks_by_output=dict(zip(columns, counts.tolist())), missing_outputs=missing)
+    pilot['passed'] = pilot['tau_passed'] and pilot['derivative_passed'] and pilot['stable_fd_failures'] == 0
+    coverage_complete = all(not value['required'] or value['status'] == 'complete' for value in coverage.values())
+    failed = t0_max > 1e-12 or chain_error > 1e-12 or failures > 0 or not pilot['passed']
+    status = 'failed' if failed else 'passed' if coverage_complete else 'inconclusive'
+    return dict(audit_version=2, columns=columns,
         baseline_autograd_outputs=baseline.tolist(), t0_model_outputs=endpoint.tolist(),
         t0_maximum_absolute_error=t0_max, t0_tolerance=1e-12, t0_passed=t0_max <= 1e-12,
         stable_checks=stable_count, stable_failures=failures, boundary_checks=boundary_count,
         sigmoid_chain_derivative=chain.tolist(), chain_rule_maximum_absolute_error=chain_error,
         chain_rule_tolerance=1e-12, chain_rule_passed=chain_error <= 1e-12,
-        passed=t0_max <= 1e-12 and chain_error <= 1e-12 and failures == 0 and stable_count > 0, checks=records,
+        original_pilot=pilot, coverage=coverage, coverage_complete=coverage_complete,
+        status=status, passed=status == 'passed', checks=records,
         boundary_rule='any_baseline_or_plus_or_minus_zero_or_sign_change_in_any_ReLU; excluded_from_code_error_gate')
 
 

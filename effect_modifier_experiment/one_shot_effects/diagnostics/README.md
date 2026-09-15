@@ -63,6 +63,30 @@ The same audit compares the probability-effect derivative from direct autograd
 with the sigmoid chain rule applied to the two log-odds derivatives (tolerance
 `1e-12`), without an additional gradient pass.
 
+Gradient audit version 2 also invokes the actual original pilot function via
+`fisher_summary.tau_and_directional_derivatives` on those same rows and normalized
+directions. Its tau must agree with both the new implementation and the model
+at t=0 within `1e-12`. Its directional derivatives must agree with the new direct
+CATE autograd within `1e-12 + 1e-9*abs(new_derivative)`, including the common
+autograd subgradient at boundaries. Independently compare the original function
+with central differences on stable CATE entries using the unchanged FD tolerance
+and the original derivative's magnitude. The recorded original values, errors,
+tolerances and decisions are rechecked by the inference-free semantic validator.
+Reproducing a saved full-H result cannot substitute for this implementation audit.
+
+For each nonzero direction separately, every output (control log-odds, treated
+log-odds, CATE) needs at least one stable sample/step comparison across the three
+fixed steps. Save all six coverage counts and missing outputs. Counts from one
+direction or output cannot compensate for missing coverage elsewhere. A zero
+actual aggregation displacement is labeled `not_applicable_zero_direction` and
+requires the random direction's complete coverage; a zero random direction is
+`inconclusive`. All zero-direction observations are excluded from usable and
+boundary check totals. No extra rows, directions or step sizes are selected after
+seeing the results. Any implementation mismatch gives `failed`; otherwise missing
+required coverage gives `inconclusive`; only complete passing checks give `passed`.
+Both blocked statuses preserve the audit but leave path, full-H and model-quality
+diagnostics unevaluated. Thus unavailable CATE checks cannot certify correctness.
+
 Local directional derivatives of the two log-odds are computed once per sampled
 original/intervened row and reused across all t. Compare their exact path values,
 direct CATE Taylor expansion, and the diagnostic difference of two exact

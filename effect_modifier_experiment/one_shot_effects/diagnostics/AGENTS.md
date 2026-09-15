@@ -14,6 +14,16 @@ implements the user's bounded diagnostic plan, separately from method fitting.
   An input mismatch fails closed; original artifacts remain read-only.
 - Fixed H subsamples and random directions must not depend on predictions,
   variable roles or outcomes. Reuse local derivatives across the parameter path.
+- Audit the actual original pilot function through
+  `fisher_summary.tau_and_directional_derivatives` on the same fixed rows and
+  normalized directions. Compare its tau and derivatives with the independent
+  implementation and stable central differences; source replay equality alone
+  cannot certify the original implementation.
+- Require stable finite-difference coverage separately for control log-odds,
+  treated log-odds and CATE in each required direction. Missing coverage is
+  `inconclusive`, not a pass. A zero actual aggregation direction is explicitly
+  inapplicable; a zero random direction is inconclusive. Zero directions never
+  contribute usable checks. Persist and semantically revalidate these decisions.
 - Separate binary log-odds, probability effects, direct CATE Taylor expansion
   and sigmoid-of-linear-logit diagnostics. The latter is not a replacement for
   the deployed quadratic summary contract.

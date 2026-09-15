@@ -17,7 +17,7 @@ import subprocess
 PROJECT_ROOT = Path('/home/del6500/projects/FedFisher')
 DATA_ROOT = Path('/data/del6500/FedFisher')
 SCRATCH_ROOT = Path('/scr/del6500/FedFisher')
-DEFAULT_OUTPUT = DATA_ROOT / 'effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p1'
+DEFAULT_OUTPUT = DATA_ROOT / 'effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p2'
 PRESENTATION_PYTHON = Path('/opt/anaconda3/bin/python')
 sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -67,7 +67,8 @@ def load_completed():
 
 
 def tables(records):
-    result = {name: [] for name in ('status', 'fisher_prediction_errors', 'fisher_score_agreement',
+    result = {name: [] for name in ('status', 'fisher_gradient_coverage', 'fisher_original_pilot_audit',
+        'fisher_prediction_errors', 'fisher_score_agreement',
         'fisher_activation_flips', 'model_quality', 'outcome_prediction', 'dr_path', 'dr_feature_path')}
     for record in records:
         identity = {key: record[key] for key in ('recipe', 'dataset')}
@@ -88,16 +89,33 @@ def tables(records):
                                if key in ('rank_min', 'rank_max', 'average_rank')}))
             continue
         endpoint = diagnostic.get('full_H_endpoint')
-        state = ('gradient_check_failed_or_inconclusive' if not diagnostic['implementation_gate']['passed']
+        gate = diagnostic['implementation_gate']
+        state = ('gradient_check_' + gate['status'] if not gate['passed']
                  else 'full_H_endpoint_mismatch' if endpoint and not endpoint['replay_matches_source']
                  else 'diagnostics_complete')
         result['status'].append(dict(**identity, diagnostic_state=state,
-            implementation_gate_passed=diagnostic['implementation_gate']['passed'],
+            implementation_gate_passed=gate['passed'], implementation_gate_status=gate['status'],
             full_H_replay_matches_source=endpoint['replay_matches_source'] if endpoint else None,
-            **{key: diagnostic['implementation_gate'].get(key) for key in
-               ('stable_checks', 'stable_failures', 'boundary_checks')},
+            **{key: gate.get(key) for key in ('stable_checks', 'stable_failures', 'boundary_checks',
+                'coverage_complete', 'original_pilot_passed', 'original_pilot_stable_fd_failures')},
             **({'full_H_' + k: v for k, v in endpoint['linearization']['gate'].items()}
                if endpoint else {})))
+        for audit in diagnostic['gradient_checks']:
+            base = dict(**identity, site_id=audit['site_id'], audit_version=audit['audit_version'],
+                        site_status=audit['status'])
+            for direction, coverage in audit['coverage'].items():
+                for column, count in coverage['stable_checks_by_output'].items():
+                    result['fisher_gradient_coverage'].append(dict(**base, direction=direction,
+                        output=column, required=coverage['required'], coverage_status=coverage['status'],
+                        stable_checks=count, missing_output=column in coverage['missing_outputs']))
+            original = audit['original_pilot']
+            result['fisher_original_pilot_audit'].append(dict(**base,
+                **{key: original[key] for key in ('function', 'passed', 'tau_passed',
+                    'derivative_passed', 'stable_fd_checks', 'stable_fd_failures')},
+                maximum_tau_absolute_error_vs_new=max(original['tau_absolute_error_vs_new']),
+                maximum_tau_absolute_error_vs_model=max(original['tau_absolute_error_vs_model']),
+                maximum_derivative_absolute_error_vs_new=max(
+                    value for row in original['derivative_absolute_error_vs_new'] for value in row)))
         path = diagnostic.get('parameter_path')
         if path:
             paths = [('target_weighted', path['target_weighted_points'])]

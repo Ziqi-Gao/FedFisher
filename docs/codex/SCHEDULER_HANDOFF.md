@@ -6,7 +6,67 @@ verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
 
-## Checkpoint replay diagnostic extension — 2026-09-15 UTC
+## Replay gradient-audit correction and P2 supersession — 2026-09-15 UTC
+
+The user independently reviewed clean `9a31cb2f400591080b0664b1363d4718f1812b92`
+and found two reproducible diagnostic false passes: the original pilot gradient
+function could be corrupted while the new function and source replay still
+passed independently; and overall stable counts could pass without any usable
+treated/CATE check. These establish defects in the diagnostic gate, not an
+observed gradient error in the scientific pilot.
+
+The correction binds gradient audit version 2 into the run configuration and
+saved site audit. It directly compares the original summary function's tau and
+directional derivatives with the new implementation and central differences.
+Coverage is required for every output in each nonzero direction; missing coverage
+is `inconclusive`. Zero actual displacement is explicitly inapplicable, whereas
+zero random direction is inconclusive; neither contributes usable checks. Both
+failed and inconclusive audits stop path/full-H/quality evaluation. Saved-result
+validation recomputes original-function comparisons, coverage and all decisions.
+See `diagnostics/README.md` for fixed tolerances and the precise coverage rule.
+No original method, DGP, checkpoint, source binding or .25 gate is changed.
+
+Correction validation passed **320 project tests in 43.952 seconds**, including
+nine new adversarial gradient regressions and eleven reporting fixtures. The
+tests deliberately corrupt the original gradient while generating its reference,
+exercise missing treated/CATE and direction-specific coverage, validate zero
+actual/random cases, and reject forged saved decisions without inference.
+The full log is
+`/scr/del6500/FedFisher/effects-replay-validation/revision2/full-suite.log`.
+Reporting now exposes separate failed/inconclusive states, coverage and original
+pilot consistency tables. Its P2 default-directory string update received a
+subsequent no-cache syntax check. No scientific pilot was run by this validation.
+
+Before correction, read-only central inspection found no active FedFisher job,
+no replay registration, no records for the five P1 job IDs and no replay scientific
+output namespaces. The user's request is to repair, test, freeze a new source
+commit and publish the replacement five-request review bundle, without running
+real local replay or retraining. The original P1 inventory is retained at
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-effects-replay-v1-pilot-cohort-p1.inventory.json`
+(SHA-256 `b5c6eeb4ab2cf29e9244384a681530c4479b259d84c1f72f7b116604a4019157`).
+**P1 is superseded for submission; preserve its files as audit evidence.**
+
+After corrected-source validation and clean freeze, publish generation 2 using
+`scripts/prepare_effects_replay_requests.py --generation 2`. Its exact five new
+job IDs, configuration hashes, original input hashes and source provenance are
+recorded in
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-effects-replay-v1-pilot-cohort-p2.inventory.json`.
+The result names remain `ose_replay_v1_*_pilot` because all five were absent;
+there is no old result to resume or overwrite. The version-2 audit configuration
+and new clean source must match before operator submission/execution. The P2
+inventory and post-freeze handoff supplement establish actual publication;
+this paragraph alone does not. The disabled task proposal and central operator
+boundary remain unchanged. Do not submit both generations.
+
+New test logs/caches are confined to
+`/scr/del6500/FedFisher/effects-replay-validation/revision2/` (plus existing test
+scratch directories). Post-freeze evidence and final counts belong in the new
+scratch handoff supplement, with a durable preparation archive under
+`/data/del6500/FedFisher/effect_modifier_experiment/replay_audit/fedfisher-effects-replay-v1-pilot-cohort-p2/`.
+No real scientific result is claimed by these fixture tests or request files.
+
+
+## Checkpoint replay diagnostic extension — 2026-09-15 UTC (P1, superseded)
 
 The user authorized exactly five seed-zero replay diagnostics, with no retraining,
 compression or large seed cohort. Up to four later training diagnostics remain

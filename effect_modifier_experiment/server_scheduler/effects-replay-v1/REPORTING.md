@@ -13,7 +13,7 @@ After scientific completion, use the unchanged diagnostic checkout:
 PYTHONDONTWRITEBYTECODE=1 \
 /scr/del6500/FedFisher/envs/fedfisher-py39/bin/python -B \
 /home/del6500/projects/FedFisher/scripts/report_effects_replay.py \
---output-dir /data/del6500/FedFisher/effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p1
+--output-dir /data/del6500/FedFisher/effect_modifier_experiment/reports/effects-replay-v1-pilot-cohort-p2
 ```
 
 The output must be a new directory below the FedFisher data or scratch root.
@@ -48,8 +48,18 @@ Prediction averaging and parameter FedAvg keep distinct labels. Original
 V-selected lambda markers remain unchanged; test curves are diagnostic only.
 Nonzero groups are not significant discoveries or FDR-controlled selections.
 
-A failed or inconclusive gradient check produces a status row and omits the
-uncomputed curves. An endpoint mismatch retains its computed path observations
+`status.csv` and the report index distinguish `passed`, `failed`, and
+`inconclusive` implementation gates, including coverage and original-pilot
+consistency. `fisher_gradient_coverage.csv` reports stable checks for every
+site, direction and output, identifies missing coverage, and keeps zero actual
+directions explicitly `not_applicable_zero_direction`.
+`fisher_original_pilot_audit.csv` reports the original function, its tau and
+derivative comparisons with the new implementation, and stable finite-difference
+check/failure counts. These tables also remain available when the gate blocks
+downstream work; full per-sample observations remain in scientific result JSON.
+
+A failed or inconclusive gradient check omits the uncomputed curves. An endpoint
+mismatch retains its computed path observations
 but omits uncomputed model-quality figures; the status table records the
 mismatch and the full-H gates. Legacy data have no CATE truth under this
 protocol, so their CATE RMSE bar figures are omitted. No report authorizes
