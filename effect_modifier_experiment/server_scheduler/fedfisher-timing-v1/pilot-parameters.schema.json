@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher timing-pilot scientific parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "variant",
+    "cell",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "variant": {
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "cell": {
+      "enum": [
+        "fedfisher_diag_shallow",
+        "fedfisher_kfac_shallow",
+        "fedfisher_diag_deep",
+        "fedfisher_kfac_deep"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "const": 0
+    },
+    "shard_count": {
+      "type": "integer",
+      "const": 1
+    }
+  }
+}

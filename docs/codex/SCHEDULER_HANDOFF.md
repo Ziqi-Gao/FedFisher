@@ -5,6 +5,101 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Standalone CPU FedFisher timing reruns — 2026-09-16 UTC
+
+The user requested real timing for historical FedFisher experiments and a new
+run, then explicitly chose single-core CPU to compare with the existing CPU
+methods. The old four `*_factorial_90700c2_300seeds` directories have no timing
+observations. Scope is Diag/KFAC, shallow/deep, four original variants,
+IID/non-IID and seeds 0–299: 9,600 new method units. The existing CPU matched
+one-shot FedAvg already has measured timing and is not added to this rerun.
+
+Before edits, both P3 deep recovery jobs had completed, attempt 1, exit 0, with
+empty stderr. A frozen-source audit proved all 280 tracked files equal clean
+`a63a8a130d830d7fea8fe7eada3ff569f36de2dc`, reconstructed its source hash, and
+validated both new deep records plus the three retained P2 records: 5/5 passed.
+Original 150 input hashes remained intact and no FedFisher job was nonterminal.
+Four pre-existing untracked report/test files were disclosed in that audit;
+their bytes are preserved in the new source freeze. This is frozen-source
+historical acceptance, not a dirty-tree current-provenance acceptance.
+
+Durable P3 acceptance:
+`/data/del6500/FedFisher/effect_modifier_experiment/replay_audit/fedfisher-effects-replay-v1-deep-recovery-cohort-p3-acceptance-20260915/p3-pre-timing-frozen-source-scientific-audit.json`,
+SHA-256 `dd462db9837a8b0cc8571228cc8a378d08c9cbafc0f0a8e6f757065ed5d65b66`.
+All four shallow/deep gradient implementation gates passed, but all full-H
+Taylor gates remain above .25. Nothing in the timing rerun authorizes expansion
+of that diagnostic route, low-rank compression or test-driven model selection.
+
+The additive `effect_modifier_experiment/fedfisher_timing/` package separates
+frozen protocol, original data wrapper, method fitting, timing validation,
+immutable artifacts, runner and pilot acceptance. Original SGD hyperparameters,
+Fisher weighting, compression, 2,000 server steps and validation-accuracy
+selection are reused. The original generator's global row order retains the
+same 500-row training-subset selection. Test labels do not enter fitting.
+
+The standalone recipe computes only its required Fisher and isolates Fisher
+random draws from later local SGD. Diag/KFAC must have identical local-model
+fingerprints. This explicit new CPU random-stream recipe does not claim bitwise
+reproduction of the historical dual-Fisher GPU pipeline. Original LocalUpdate
+defaults retain both Fisher computations in their original order; its optional
+selector is used only by the new recipe. CPU device propagation in FIM and KFAC
+compression retains CUDA for the original arguments/default. Original server
+solvers, quantization and DGP are unchanged.
+
+Actual wall/process stages cover data, full local fitting/selected Fisher,
+compression/server optimization/validation selection and common comparison
+evaluation. Components never double-count their parent stage. Tuning is included
+in aggregation; there is no original final refit. Queueing, imports, artifact
+I/O and actual transport are excluded. New per-seed/summary tables retain their
+new model/run provenance and never fill time values into old GPU artifacts.
+
+New fixed tasks are `effect-modifier-fedfisher-timing-pilot` and
+`effect-modifier-fedfisher-timing-shard`. The disabled additive proposal and
+strict schemas/fixtures are under
+`effect_modifier_experiment/server_scheduler/fedfisher-timing-v1/`. Both enter
+the sole foreground adapter with scientific cell/variant/shard parameters.
+The fixed one-core/8192-MiB profile and runtime fallbacks are provisional;
+tiny fixtures are not a full-size runtime/memory profile. Live central
+registration at bootstrap has neither new task and was not modified.
+
+After clean freeze, the pilot builder publishes exactly 16 requests / 32 units
+to `/scr/del6500/FedFisher/scheduler/outbox/fedfisher-timing-v1-pilot-cohort-p1/`,
+with inventory
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-timing-v1-pilot-cohort-p1.inventory.json`.
+The operator must review and register/admit the new pilot contract before
+submission. Nested outbox files are not central jobs.
+
+The formal workflow is frozen now so acceptance need not be followed by a source
+change. `scripts/validate_fedfisher_timing_pilot.py` requires all 32 scientific
+units, matching successful central executions, unchanged source and paired
+data/local-model/evaluation checks. The formal builder revalidates the exact
+same-source proof before writing default 16-way shards (256 requests / 9,600
+units). No formal request is published before that gate. Operator review of
+actual pilot runtime/memory and formal admission remain separate requirements.
+
+The full no-bytecode, single-thread regression passed **406 tests in 47.976
+seconds**, including real tiny CPU Diag/compressed-KFAC fitting, original server
+iterations, RNG/timing invariance, semantic tampering and both adapter contracts.
+The log is `/scr/del6500/FedFisher/fedfisher-timing-validation/full-suite.log`.
+Final review additionally checks that a later successful scheduler attempt may
+validate/skip an earlier producer's immutable completed cell. Producer evidence
+and final central completion are distinct; saved time is never reassigned to a
+retry that did no fitting. Targeted follow-up evidence is recorded in scratch.
+After that fix and the explicit both-modifier Top-2 reporting field, **34
+targeted tests passed in 1.660 seconds**; log:
+`/scr/del6500/FedFisher/fedfisher-timing-validation/final-targeted-tests.log`.
+The gate binds exact producer audit-line bytes and attempt logs while allowing
+unrelated audit appends. Central does not retain prior running-allocation
+snapshots; earlier producer allocation/runtime is explicitly supported by its
+hash-bound scientific receipt and fixed-profile validation, not relabeled as
+the final attempt's metadata.
+
+Tests/caches: `/scr/del6500/FedFisher/fedfisher-timing-validation/`.
+Preparation audit: `/data/del6500/FedFisher/effect_modifier_experiment/timing_audit/`.
+Final commit/inventory hashes and operator delivery instructions belong in the
+post-freeze scratch supplement. Keep the canonical source unchanged throughout
+pilot and formal execution/acceptance.
+
 
 ## Replay P2 acceptance and deep recovery — 2026-09-15 UTC
 

@@ -29,11 +29,14 @@ COMPARISON_PILOT_TASK = "effect-modifier-comparison-pilot"
 COMPARISON_TASK = "effect-modifier-comparison-shard"
 ONE_SHOT_EFFECTS_PILOT_TASK = "effect-modifier-one-shot-effects-pilot"
 EFFECTS_REPLAY_PILOT_TASK = "effect-modifier-effects-replay-pilot"
+FEDFISHER_TIMING_PILOT_TASK = "effect-modifier-fedfisher-timing-pilot"
+FEDFISHER_TIMING_TASK = "effect-modifier-fedfisher-timing-shard"
 # These new contracts are project-side proposals until centrally registered.
 COMPARISON_TASKS = (COMPARISON_PILOT_TASK, COMPARISON_TASK)
+FEDFISHER_TIMING_TASKS = (FEDFISHER_TIMING_PILOT_TASK, FEDFISHER_TIMING_TASK)
 ALLOWED_TASKS = frozenset(
     (DSLASSO_TASK, ONE_SHOT_TASK, *COMPARISON_TASKS, ONE_SHOT_EFFECTS_PILOT_TASK,
-     EFFECTS_REPLAY_PILOT_TASK)
+     EFFECTS_REPLAY_PILOT_TASK, *FEDFISHER_TIMING_TASKS)
 )
 JOB_FIELDS = frozenset(
     (
@@ -79,6 +82,8 @@ TASK_PROFILES = {
     COMPARISON_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     ONE_SHOT_EFFECTS_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     EFFECTS_REPLAY_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    FEDFISHER_TIMING_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    FEDFISHER_TIMING_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
     "control": "dslassocov_control_server_scheduler_v2r2_300seeds",
@@ -262,6 +267,14 @@ def _resource_hints(payload, field):
 
 
 def _validate_parameters(task, parameters):
+    if task in FEDFISHER_TIMING_TASKS:
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from effect_modifier_experiment.fedfisher_timing.protocol import validate_parameters
+        try:
+            return validate_parameters(task, parameters)
+        except (ValueError, TypeError) as error:
+            raise AdapterError(str(error)) from error
     if task == EFFECTS_REPLAY_PILOT_TASK:
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
@@ -686,6 +699,9 @@ def execute_task(job):
     if job["task"] == EFFECTS_REPLAY_PILOT_TASK:
         from effect_modifier_experiment.one_shot_effects.diagnostics.runner import run_job
         return run_job(job)
+    if job["task"] in FEDFISHER_TIMING_TASKS:
+        from effect_modifier_experiment.fedfisher_timing.runner import run_shard
+        return run_shard(job)
     raise AdapterError("unreachable task dispatch")
 
 

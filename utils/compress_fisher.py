@@ -110,7 +110,7 @@ def compress_fisher_kfac(args,F_kfac_list_org,models,model_vectors,dataset_train
         ind = np.random.choice(len(dataset_train[i]), 1)
         dataset_train_subset = torch.utils.data.Subset(dataset_train[i], ind)
         data_loader = DataLoader(dataset_train_subset, batch_size=args['bs'], shuffle=True)
-        F_kfac = FIM(model=models[i],loader=data_loader, representation=PMatKFAC,device='cuda',
+        F_kfac = FIM(model=models[i],loader=data_loader, representation=PMatKFAC,device=args.get('device', 'cuda'),
                     variant = 'classif_logits', n_output=args['n_c'])
 
         ### Computing the total number of parameters in the KFAC matrices of each layer

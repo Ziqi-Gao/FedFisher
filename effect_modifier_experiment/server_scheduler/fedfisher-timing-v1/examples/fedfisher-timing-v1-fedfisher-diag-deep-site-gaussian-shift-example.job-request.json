@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-timing-v1-fedfisher-diag-deep-site-gaussian-shift-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-fedfisher-timing-pilot",
+  "parameters": {
+    "cell": "fedfisher_diag_deep",
+    "variant": "site_gaussian_shift",
+    "shard_index": 0,
+    "shard_count": 1
+  },
+  "priority": 0
+}

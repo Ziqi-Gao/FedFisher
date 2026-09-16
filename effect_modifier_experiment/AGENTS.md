@@ -36,6 +36,10 @@ experiment.
 - Timing hooks in the original path are observational and optional. They must
   preserve training and Fisher calculations, report actual component scope,
   reject overwriting old artifacts, and provide no new execution bypass.
+- Standalone CPU Diag/KFAC timing reruns live in `fedfisher_timing/`; read its
+  nearest `AGENTS.md`. Its selected-Fisher RNG recipe, new namespaces, complete
+  fit/selection timing and independently admitted pilot/formal tasks do not
+  replace the preserved historical GPU path or retroactively fill old times.
 
 ## Scope
 

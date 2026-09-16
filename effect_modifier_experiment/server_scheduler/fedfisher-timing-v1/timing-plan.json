@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "protocol": "fedfisher-timing-v1",
+  "cells": [
+    "fedfisher_diag_shallow",
+    "fedfisher_kfac_shallow",
+    "fedfisher_diag_deep",
+    "fedfisher_kfac_deep"
+  ],
+  "variants": [
+    "control",
+    "site_gaussian_shift",
+    "local_permutation",
+    "site_gaussian_local_permutation"
+  ],
+  "splits": [
+    "iid",
+    "noniid"
+  ],
+  "pilot": {
+    "task": "effect-modifier-fedfisher-timing-pilot",
+    "seeds": [
+      0
+    ],
+    "shard_count": 1,
+    "request_count": 16,
+    "scientific_cell_count": 32
+  },
+  "formal": {
+    "task": "effect-modifier-fedfisher-timing-shard",
+    "seed_start": 0,
+    "seed_end": 299,
+    "allowed_shard_counts": [
+      8,
+      16
+    ],
+    "request_count_by_shard_count": {
+      "8": 128,
+      "16": 256
+    },
+    "scientific_cell_count": 9600,
+    "publication_authorized": false,
+    "requires": "accepted same-source complete pilot with scientific and paired invariants; operator profile review and registration"
+  },
+  "direct_execution_allowed": false,
+  "hardware_parameters_allowed": false
+}
