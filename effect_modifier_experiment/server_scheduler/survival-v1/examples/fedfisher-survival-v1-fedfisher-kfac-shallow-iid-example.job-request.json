@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-v1-fedfisher-kfac-shallow-iid-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-pilot",
+  "parameters": {
+    "cell": "fedfisher_kfac_shallow",
+    "scenario": "iid"
+  },
+  "priority": 0
+}

@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-v1-fedfisher-kfac-deep-covariate-shift-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-pilot",
+  "parameters": {
+    "cell": "fedfisher_kfac_deep",
+    "scenario": "covariate_shift"
+  },
+  "priority": 0
+}

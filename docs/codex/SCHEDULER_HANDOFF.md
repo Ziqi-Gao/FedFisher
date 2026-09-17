@@ -5,6 +5,193 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Survival pilot delivery and gated formal cohort — 2026-09-17 UTC
+
+The user requested the pilot and formal experiment requests so they can notify
+the scheduler operator. This authorizes preparing both scientific stages, with
+the existing pilot-before-formal admission gate retained. Project sessions do
+not perform central registration, validation/submission CLI calls or service
+actions. Read-only bootstrap inspection again found 2,062 completed and 904
+failed historical FedFisher jobs, no nonterminal job and no survival jobs. The
+installed registration still contains the eight prior CPU tasks only.
+
+The source now includes `effect-modifier-survival-shard` alongside the original
+ten-cell seed-zero pilot. Formal work fixes five methods, two scenarios and
+seeds 0..299: 3,000 scientific cells in 8/16 deterministic shards per method
+and scenario, default 160 requests. Scientific manifests are independent of
+shard assignment and seed cells remain independently immutable. Pilot and
+formal namespaces are separate. No method, DGP, CV, link or scoring rule changed
+in this delivery extension. Shared-manifest atomic publication was adapted and
+tested for concurrent admitted shards without introducing locks or queues.
+
+`scripts/prepare_survival_requests.py` constructs exact scientific-only request
+specifications and writes an immutable nested outbox bundle from clean source.
+It checks provenance/reviewed source hashes before and after writing, rereads
+actual request bytes, and publishes the inventory last. Pilot generation 1 is
+the next delivery, under
+`/scr/del6500/FedFisher/scheduler/outbox/fedfisher-survival-v1-pilot-cohort-p1/`;
+its inventory is
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-survival-v1-pilot-cohort-p1.inventory.json`.
+Actual publication hashes, frozen commit and operator instructions belong in a
+post-freeze scratch handoff and durable preparation audit, not another tracked
+edit during execution. An inventory marked `submitted=false` is not a central
+job receipt. A generation number changes request IDs only; invalid scientific
+output still requires a separate new result epoch rather than overwrite.
+
+The new `survival/acceptance.py` and `scripts/validate_survival_pilot.py` verify
+all ten actual pilot artifacts, current-source provenance, central successful
+jobs, actual producer/retry/log/audit evidence and paired invariants. They bind
+same-scenario data, the common test/truth/permutations, and same-depth Diag/KFAC
+local model vectors. Resource/timing and PV-support/CV-quality observations are
+retained for operator review; no invented performance threshold or superiority
+claim is used. The immutable acceptance path is derived from the clean source
+provenance under
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/`.
+
+Both formal request publication and formal runtime revalidate that evidence.
+Formal started records bind its proof digest and source. Formal requests must
+not be materialized before the ten pilots pass; neither source examples nor the
+disabled two-task registration proposal bypass this gate. The formal code and
+acceptance machinery are frozen before pilot execution so transition requires
+no source edit. An operator must review the provisional resource envelope,
+merge the pilot addition without replacing existing tasks, and admit only the
+pilot initially; formal resource/scientific review follows its measured results.
+
+Delivery validation passed **507 project tests in 53.275 seconds**, including
+immutable request publication, exact 300-seed coverage, formal prerequisite
+checks, concurrent manifest initialization and fabricated central-evidence
+acceptance fixtures. The log is
+`/scr/del6500/FedFisher/survival-validation/delivery-full-suite-20260917.log`.
+All 170 in-memory pilot/formal request specifications passed the installed
+ServerScheduler's pure `JobRequest.from_dict` parser with no resource/profile
+hints. Its pure registration parser accepted the disabled proposal. These are
+read-only parsers, not central CLI validation, registration or submission.
+No-cache compilation covered 23 Python files; 24 JSON documents and the TOML
+proposal parsed; whitespace checks passed. The existing NetworkX duplicate
+backend warning is the only known environment warning.
+
+The previously existing unified CPU-timing plotting changes are preserved
+unchanged in the source freeze. Source is to remain unchanged through pilot and
+formal execution/acceptance. No real pilot or formal fitting was run locally,
+and no formal requests can be published until actual pilot evidence exists.
+
+## Survival pseudo-observation implementation — 2026-09-17 UTC
+
+The user authorized starting the new survival experiment after clarifying the
+paper's two contributions: efficient effect-modifier discovery with separate
+hospital records and one-round FedFisher fitting, plus substantive real-EHR
+findings. Ava recommended preserving the original confounder setup and using
+multiple sites for federated algorithms. This task builds the implementation
+and review package; it does not launch a scientific pilot or formal cohort.
+
+Bootstrap and final read-only durable scheduler inspection found 2,062 completed
+and 904 failed historical FedFisher jobs, with no nonterminal jobs. The installed
+central registration has the eight prior CPU tasks and no survival task. Neither
+the central configuration nor scheduler state was modified. The canonical tree
+already contained changes to this handoff, the unified non-IID plotting script,
+and its untracked CPU-timing test. Those changes are preserved. The earlier
+frozen timing acceptance below is not relabeled as current-source acceptance.
+
+The additive `effect_modifier_experiment/survival/` package contains independent
+data generation, local Kaplan–Meier IJ pseudo-values, stable survival link/loss,
+dsLasso-style nonlinear interaction LASSO, scalar-output neural Diag/KFAC
+working-Fisher fitting/aggregation, common contrast evaluation, fixed protocol,
+foreground composition and immutable scientific artifacts. Its README records
+the paper objective and exact deviations from Ava's small example and the
+original categorical implementations. No root or nested agent protocol changed.
+
+The DGP retains 100 Gaussian covariates, X1/X2-only normalized confounding,
+prognostic and interaction coefficients, ten unequal sites, and no treatment
+main effect. Weibull shape 1.5/lambda .12, independent censor rate .05 and tau=3
+come from Ava's survival example. New site-first `iid`/`covariate_shift` scenarios
+use a shared independent Gaussian test population; they do not reuse binary
+outcome-label partitioning or historical output identities. Each site constructs
+its own untruncated IJ survival pseudo-values. CV reconstructs training and
+validation PVs separately, and nonlinear optimizer budget exhaustion is not
+stationarity. Counterfactual eta differences, raw-X permutation, tie-aware
+both-modifier Top-2 probability/AUROC and contrast RMSE share one effect scale.
+
+The neural adapter uses the squared-error Gaussian working mean-Jacobian Fisher,
+not categorical Fisher or the true likelihood information of dependent PVs.
+Diag/KFAC summaries are uploaded once per site; public-initialization ridge,
+sample weighting, diagonal closed form and KFAC CG are explicit recipe fields.
+The server consumes serialized summaries only. Original binary Fisher,
+compression, model training and dsLasso source paths are unchanged. The shared
+adapter receives only an additive survival task branch. Synthetic test evaluation
+is separate from the training communication claim; a complete private-EHR
+evaluation communication contract is not established by these fixtures.
+
+The disabled additive proposal, strict schema and ten unsubmitted source examples
+are under `effect_modifier_experiment/server_scheduler/survival-v1/`. The sole
+new task is `effect-modifier-survival-pilot`, parameters exactly `{cell,scenario}`,
+fixed seed 0: dsLasso plus Diag/KFAC shallow/deep, each in two scenarios. There is
+no formal task, request builder, outbox publication or local scientific launcher.
+The proposed one-core/8192-MiB envelope and fallback runtime are unmeasured review
+inputs, not an accepted resource profile. Operator review, clean source freeze,
+registration/admission and pilot submission remain required before computation.
+
+Validation used only bounded numerical/unit/contract fixtures. The full project
+regression passed **473 tests in 52.293 seconds**. After the final retry fixtures
+and precise timing-scope wording, the survival suite passed **59 tests in 1.519
+seconds**. It includes true tiny dsLasso/Diag/KFAC fitting, weighted-KM finite
+differences, analytical link/gradient checks, autograd-versus-Fisher/KFAC checks,
+immutable retry behavior, rehashed semantic tampering and complete protocol-v2
+adapter guards. There were no skips or failures. The existing NetworkX duplicate
+`nx-loopback` warning appeared. No-cache syntax, JSON/TOML parsing and whitespace
+checks passed. Rscript was unavailable: executed R/Python parity remains a
+separate check; current IJ validation uses official R source and independent
+analytical/numerical fixtures rather than claiming an R execution.
+
+Logs and temporary fixtures are confined to
+`/scr/del6500/FedFisher/survival-validation/`, including
+`full-suite-20260917.log` and `final-survival-tests-20260917.log`. No scientific
+outputs or models were written to `/data` in this task. Future admitted output
+belongs only in
+`/data/del6500/FedFisher/effect_modifier_experiment/outputs/survival_v1_*_pilot/`.
+The current development tree is not a finalized clean execution source. Before
+expansion, pilot evidence must establish numerical/statistical behavior, data
+support at tau, paired data identity, measured costs and valid completion.
+Software success is not evidence of clinical discovery or method superiority.
+
+## Accepted CPU timing results in the unified figure — 2026-09-16 UTC
+
+Before this reporting-only source change, the frozen `2ffce47` formal timing
+cohort passed full acceptance: 256/256 jobs completed on attempt 1 and all
+9,600 scientific units passed current-source, manifest, model, semantic and
+artifact-hash checks. All 300 seeds passed the required paired checks.
+Read-only central inspection found no active FedFisher job before editing.
+The durable acceptance is
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/fedfisher-timing-v1-formal-cohort-p1/acceptance.json`,
+SHA256 `a38fc5dac26011f3212a003be421b3d75a79f007852d0e14767d603cacacd6e6`.
+These frozen accepted artifacts remain bound to their producer source, not the
+later plotting changes. No scientific output or completion evidence was edited.
+
+The user requested adding these results to the previous unified non-IID figure.
+`scripts/make_unified_noniid_comparison.py --fisher-timing-report` now reads the
+accepted report's hash-bound seed table. All four FedFisher rows use recovery
+and measured fitting/evaluation time from the same new CPU runs. The Top-2
+endpoint remains the probability of selecting both true modifiers, not mean
+Top-k precision. The other 22 configurations (88 method/variant summaries)
+remain unchanged. All 26 configurations now have single-core CPU timings.
+Each variant has 300 non-IID seeds; the mean and SE are computed separately
+per condition. The new renderer removes historical GPU/N/A labels and retains
+separate full-fit and evaluation panels with the original layout/colors.
+
+Updated PNG/SVG, summary/seed CSVs, provenance and explanation:
+`/data/del6500/FedFisher/results/one_shot_lasso_vs_fedfisher/`.
+The figure basename is `noniid_all_methods_top2_and_time`. Its seven previous
+files are preserved with hashes under
+`archive/unified_noniid_before_cpu_timing_20260916/`. Original scientific GPU
+results and missing-time records remain unchanged.
+
+Validation: 24 existing plotting tests and 7 new CPU-merger tests passed;
+the 16 new Fisher groups' recovery, all six timing means and SEs were checked
+against the accepted non-IID seed rows. An actual `--render-only` replay keeps
+the CPU source and exactly reproduces all seven updated figure/report files.
+Evidence: `unified_noniid_cpu_update_checks.json` in the figure directory.
+Reporting ran in the foreground with scratch caches; no training, inference,
+dataset generation, scheduler mutation or new compute request occurred.
+
 ## Standalone CPU FedFisher timing reruns — 2026-09-16 UTC
 
 The user requested real timing for historical FedFisher experiments and a new

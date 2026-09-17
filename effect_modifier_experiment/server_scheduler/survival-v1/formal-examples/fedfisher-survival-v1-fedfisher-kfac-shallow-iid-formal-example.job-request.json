@@ -1,0 +1,13 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-v1-fedfisher-kfac-shallow-iid-formal-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-shard",
+  "parameters": {
+    "cell": "fedfisher_kfac_shallow",
+    "scenario": "iid",
+    "shard_index": 0,
+    "shard_count": 16
+  },
+  "priority": 0
+}

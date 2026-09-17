@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-v1-dslasso-iid-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-pilot",
+  "parameters": {
+    "cell": "dslasso",
+    "scenario": "iid"
+  },
+  "priority": 0
+}

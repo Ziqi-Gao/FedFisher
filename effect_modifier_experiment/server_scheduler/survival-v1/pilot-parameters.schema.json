@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher survival v1 seed-zero pilot parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cell", "scenario"],
+  "properties": {
+    "cell": {"type": "string", "enum": ["dslasso", "fedfisher_diag_shallow", "fedfisher_diag_deep", "fedfisher_kfac_shallow", "fedfisher_kfac_deep"]},
+    "scenario": {"type": "string", "enum": ["iid", "covariate_shift"]}
+  }
+}
