@@ -1,38 +1,36 @@
-# FedFisher Binary Tabular Pipeline
+# FedFisher: Federated Effect-Modifier Research
 
-This repository is adapted from the FedFisher codebase for one-shot federated
-learning. The pipeline in this branch is scoped to binary tabular
-classification, with a synthetic generator for sanity checks and a CSV loader
-for local datasets.
+This repository studies treatment-effect-modifier discovery with binary and
+survival outcomes, building on the original FedFisher one-shot federated-learning
+code. The paper aims to combine evidence for efficient discovery when hospital
+records cannot be pooled and FedFisher fitting uses one communication round,
+with substantive effect-modifier findings in real EHR data. The implemented
+simulation workflows support that research; they do not constitute a completed
+EHR study or an end-to-end one-round EHR analysis.
 
-The original image datasets and image models have been removed. The remaining
-entry points are:
+The original binary classification, supervised signal-recovery experiments and
+numeric CSV loader remain available. The original image datasets and image
+models have been removed.
 
-```text
-data.py                                      # SyntheticBinary, SyntheticEffectModifier, and LocalBinaryCSV data loaders
-models.py                                    # SyntheticMLP and SyntheticMLPDeep
-main.py                                      # one-shot FL runner
-utils/feature_importance.py                  # legacy supervised signal-dimension recovery utilities
-utils/prediction_intervention.py             # model-output prediction intervention utilities
-scripts/run_synthetic_original_fedfisher.slurm
-scripts/run_synthetic_original_fedfisher_1000seeds.slurm
-scripts/run_synthetic_original_fedfisher_alpha_sweep_1000seeds.slurm
-scripts/setup_lab_server_env.sh
-scripts/launch_synthetic_effect_modifier_300seeds_local.sh
-scripts/status_synthetic_effect_modifier_local.sh
-scripts/run_synthetic_effect_modifier_1000seeds.slurm  # legacy Slurm export
-scripts/summarize_synthetic_original.py
-scripts/plot_synthetic_original.py
-scripts/plot_synthetic_alpha_sweep.py
-```
+## Project navigation
 
-FedFisher aggregation remains on the original implementation path:
+| Area | Entry point and scope |
+| --- | --- |
+| Original binary/base pipeline | [SyntheticBinary guide](synthetic_binary_experiment/README.md); [data.py](data.py), [models.py](models.py), [main.py](main.py) and the preserved aggregation in [run_one_shot_algs.py](run_one_shot_algs.py), [algs/fisher_avg.py](algs/fisher_avg.py) and [utils/compress_fisher.py](utils/compress_fisher.py) |
+| Original binary effect modifiers | [effect_modifier_experiment](effect_modifier_experiment/README.md): confounded DGP, factorial variants, dsLassoCov-style and one-shot LASSO baselines |
+| Method comparison | [causal_comparison](effect_modifier_experiment/causal_comparison/README.md): multiround FedAvg, homogeneous R methods, common evaluation and timing |
+| Additional one-shot methods | [one_shot_effects](effect_modifier_experiment/one_shot_effects/README.md): FedFisher-EM, DR-Sieve, SCMV2 and common-protocol baselines |
+| Saved-model diagnostics | [one_shot_effects/diagnostics](effect_modifier_experiment/one_shot_effects/diagnostics/README.md): source-bound gradient and approximation audits |
+| Original FedFisher CPU timing | [fedfisher_timing](effect_modifier_experiment/fedfisher_timing/README.md): separate Diag/KFAC timing recipes and acceptance |
+| Survival extension | [survival](effect_modifier_experiment/survival/README.md): site-local pseudo-observations, survival dsLasso and working-Fisher adapters |
+| Shared infrastructure | [infrastructure](effect_modifier_experiment/infrastructure/README.md): neutral artifact, provenance, request-publication and execution-evidence helpers |
+| Scheduler contracts | [server_scheduler](effect_modifier_experiment/server_scheduler/): task schemas, proposals and source examples; [foreground adapter](scripts/fedfisher_server_scheduler_adapter.py) |
+| Validation | [tests](tests/), including [scheduler fixtures](tests/fixtures/server_scheduler/) |
 
-```text
-run_one_shot_algs.py
-algs/fisher_avg.py
-utils/compress_fisher.py
-```
+Experiment packages own their data, method configurations, evaluation scales
+and scientific acceptance rules. Shared infrastructure does not define a
+universal experiment configuration. The original pipeline still uses the flat
+root modules; the package structure is additive.
 
 ## Execution and submission policy
 
@@ -48,32 +46,17 @@ The stable project entrypoint is:
 /home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py
 ```
 
-The first migration stage registers only these CPU tasks:
+Scientific task parameters and output identities are fixed by each experiment's
+protocol. Schemas and examples live under
+[server_scheduler](effect_modifier_experiment/server_scheduler/); a source
+proposal or outbox file does not establish registration, submission or completion.
+ServerScheduler owns resource allocation and admission. FedFisher owns scientific
+provenance, validation and immutable completion evidence.
 
-- `effect-modifier-dslassocov-shard`: one physical CPU core, fixed 4096 MiB
-  host memory, `shard_count` in `1,2,4`.
-- `effect-modifier-one-shot-lasso-shard`: one physical CPU core, fixed 8192
-  MiB host memory, `shard_count` in `8,16`.
-
-Both accept one of `control`, `site_gaussian_shift`, `local_permutation`, or
-`site_gaussian_local_permutation`, plus a valid zero-based `shard_index` below
-`shard_count`. Run IDs, paths, seed ranges, models, splits, and scientific
-hyperparameters are fixed by project code rather than request parameters.
-Example requests and parameter schemas live under
-`effect_modifier_experiment/server_scheduler/`.
-
-The examples use ServerScheduler protocol v2 and omit hardware fields so the
-scheduler selects the registered `cpu-1core` profile. A project session may
-copy a reviewed request into
-`/scr/del6500/FedFisher/scheduler/outbox/`, but only a ServerScheduler operator
-may validate and submit that exact file. Creating the outbox request is not
-submission or completion evidence.
-
-GPU submission is disabled. Any other program is also blocked until it has a
-reviewed task profile, strict parameter schema, foreground adapter path,
-fixture tests, and an approved pilot. ServerScheduler owns CPU/GPU selection
-and global concurrency. FedFisher owns scientific provenance, output
-validation, completion markers, and at-least-once resume behavior.
+Follow [AGENTS.md](AGENTS.md) and the
+[scheduler runbook](docs/codex/SCHEDULER_RUNBOOK.md) for execution procedure.
+The [handoff](docs/codex/SCHEDULER_HANDOFF.md) records changing evidence; Git,
+scientific manifests and read-only central state establish current status.
 
 All artifacts created before this canonical scheduler cutover are retained for
 audit but are non-authoritative and must not be resumed or combined with new
@@ -98,7 +81,11 @@ For another compatible host, `pip install -r requirements.txt` installs the
 same pinned dependencies. The checked-in code does not include generated data,
 outputs, environments, or logs.
 
-## Main Arguments
+## Original Binary Pipeline Arguments
+
+The following arguments and examples describe the preserved `main.py` binary
+pipeline. Additional experiment packages use their own protocols and scheduler
+contracts linked above.
 
 Required arguments:
 
@@ -298,8 +285,9 @@ bash scripts/status_synthetic_effect_modifier_local.sh
 
 These commands describe the superseded pre-ServerScheduler workflow. They use
 detached GNU Screen workers and project-local GPU admission, so they are not a
-valid current-host submission path. See `effect_modifier_experiment/README.md`
-for the scientific contract and current migration status.
+valid current-host submission path. See the
+[original experiment guide](effect_modifier_experiment/README.md) for science
+and the [handoff](docs/codex/SCHEDULER_HANDOFF.md) for execution evidence.
 
 ## Legacy Supervised Feature Importance
 
@@ -426,8 +414,8 @@ column index. The default label column is `-1`, meaning the last column.
 
 The following runners belong to the original SyntheticBinary Quest workflow.
 They are retained for reproducibility but are not valid submission commands on
-`fsmzhaolabgpu1`, where Slurm is not installed. The current effect-modifier
-experiment uses the local launcher documented above.
+`fsmzhaolabgpu1`, where Slurm is not installed. New effect-modifier computation
+uses the registered ServerScheduler foreground path described above.
 
 Small run:
 

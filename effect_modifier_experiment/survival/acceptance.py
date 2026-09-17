@@ -13,8 +13,10 @@ import re
 
 import numpy as np
 
+from ..infrastructure import evidence
+from ..infrastructure.artifacts import canonical
 from . import protocol
-from .artifacts import ArtifactStore, array_hash, canonical, current_provenance, validate_execution
+from .artifacts import ArtifactStore, array_hash, current_provenance, validate_execution
 
 
 PROJECT_ROOT = Path('/home/del6500/projects/FedFisher')
@@ -35,23 +37,11 @@ def _require(condition, message):
 
 
 def _ordinary_path(path, exists=True):
-    path = Path(path)
-    _require(path.is_absolute() and '..' not in path.parts
-             and not any(item.is_symlink() for item in (path, *path.parents))
-             and path.resolve(strict=exists) == path,
-             'pilot evidence must use an ordinary absolute path without symlinks')
-    if exists:
-        _require(path.is_file(), 'pilot evidence must be an ordinary file')
-    return path
+    return evidence.ordinary_path(path, exists=exists)
 
 
 def _binding(path):
-    path = _ordinary_path(path)
-    checksum = hashlib.sha256()
-    with path.open('rb') as stream:
-        for block in iter(lambda: stream.read(1024 * 1024), b''):
-            checksum.update(block)
-    return dict(path=str(path), sha256=checksum.hexdigest())
+    return evidence.file_binding(path, check_path=_ordinary_path)
 
 
 def _pairs(items):
@@ -104,42 +94,8 @@ def _log_evidence(path, kind):
 
 
 def _attempt_audit(job_id, attempt):
-    """Bind individual central audit lines; unrelated append-only growth is safe.
-
-    Earlier running-allocation snapshots are not retained centrally.  Audit
-    start/running evidence and the immutable validated scientific receipt are
-    distinguished explicitly from the final scheduler snapshot on a retry.
-    """
-    path = _ordinary_path(CENTRAL_AUDIT)
-    found, active_attempt, offset = {}, None, 0
-    with path.open('rb') as stream:
-        for line in stream:
-            start, offset = offset, offset + len(line)
-            if not line.endswith(b'\n') or job_id.encode() not in line:
-                continue
-            record = _json_bytes(line)
-            if record.get('job_id') != job_id:
-                continue
-            _require(record.get('schema_version') == 2, 'invalid producer audit schema')
-            event, name = record.get('event'), None
-            if event == 'job_attempt_started':
-                active_attempt = record.get('attempt')
-                _require(type(active_attempt) is int and active_attempt > 0,
-                         'invalid producer attempt in central audit')
-                if active_attempt == attempt:
-                    name = 'attempt_started'
-            elif (event == 'job_transition' and record.get('destination') == 'running'
-                  and active_attempt == attempt):
-                _require(record.get('project') == 'FedFisher' and record.get('source') == 'pending',
-                         'producer running transition has unexpected ownership/state')
-                name = 'running_transition'
-            if name is not None:
-                _require(name not in found, 'duplicate producer attempt audit evidence')
-                found[name] = dict(path=str(path), offset=start, length=len(line),
-                                  sha256=hashlib.sha256(line).hexdigest(), record=record)
-    _require(set(found) == {'attempt_started', 'running_transition'},
-             'producer attempt lacks exact central start/running audit evidence')
-    return found
+    return evidence.attempt_audit(CENTRAL_AUDIT, job_id, attempt,
+                                  check_path=_ordinary_path, parse_json=_json_bytes)
 
 
 def _completed_job(request):
@@ -155,58 +111,15 @@ def _completed_job(request):
 
 
 def _producer_evidence(request, job, started):
-    validate_execution(started)
-    job_id = request['job_id']
-    _require(started['job_id'] == job_id, 'scientific producer belongs to another scheduler job')
-    final_attempt = None
-    for kind in ('stdout', 'stderr'):
-        path = Path(job[kind + '_log'])
-        match = re.fullmatch(re.escape(job_id) + r'\.attempt-(\d{3,})\.' + kind + r'\.log', path.name)
-        _require(path.parent == CENTRAL_LOGS and match is not None,
-                 'final central log has invalid job/attempt identity')
-        number = int(match.group(1))
-        _require(number > 0 and (final_attempt is None or final_attempt == number),
-                 'final stdout/stderr attempt identities disagree')
-        final_attempt = number
-    validate_execution(dict(job_id=job_id, attempt=final_attempt,
-        **{name: job[name] for name in ('execution_profile', 'allocation', 'estimated_runtime_seconds')}))
-    retry_path = CENTRAL_RETRIES / (job_id + '.json')
-    retry_binding, retry = _binding(retry_path), _read_json(retry_path)
-    _require(set(retry) == {'schema_version', 'job_id', 'attempts_started', 'max_attempts',
-                           'next_attempt_at', 'last_failure_reason', 'updated_at'}
-             and retry['schema_version'] == 2 and retry['job_id'] == job_id
-             and type(retry['attempts_started']) is int and retry['attempts_started'] == final_attempt
-             and type(retry['max_attempts']) is int and retry['max_attempts'] >= final_attempt
-             and retry['next_attempt_at'] is None,
-             'final central attempt differs from durable retry evidence')
-    _require(started['attempt'] <= final_attempt, 'scientific producer is later than completed attempt')
-    resumed = started['attempt'] < final_attempt
-    if not resumed:
-        for name in ('execution_profile', 'allocation', 'estimated_runtime_seconds'):
-            _require(started[name] == job[name], 'producer receipt differs from final central attempt')
-    logs = {kind + '_log': _log_evidence(CENTRAL_LOGS / ('%s.attempt-%03d.%s.log' %
-            (job_id, started['attempt'], kind)), kind) for kind in ('stdout', 'stderr')}
-    return dict(producer_attempt=started['attempt'], final_completed_attempt=final_attempt,
-                resumed_from_earlier_attempt=resumed, execution_receipt=started,
-                retry=retry_binding, logs=logs, audit=_attempt_audit(job_id, started['attempt']),
-                allocation_runtime_evidence=(
-                    'hash_bound_started_receipt_validated_against_fixed_task_profile; central_audit_and_logs_prove_attempt; '
-                    'original_running_snapshot_not_archived' if resumed else
-                    'started_receipt_matches_final_central_job_snapshot'))
+    return evidence.producer_evidence(request, job, started,
+        logs_root=CENTRAL_LOGS, retries_root=CENTRAL_RETRIES,
+        validate_execution=validate_execution, binding=_binding, read_json=_read_json,
+        log_evidence=_log_evidence, audit=_attempt_audit)
 
 
 def _recheck_producer(proof):
-    for binding in [proof['retry'], *proof['logs'].values()]:
-        _require(_binding(binding['path']) == binding, 'producer evidence changed during acceptance')
-    for binding in proof['audit'].values():
-        path = _ordinary_path(binding['path'])
-        _require(path == CENTRAL_AUDIT, 'producer audit moved outside central ownership')
-        with path.open('rb') as stream:
-            stream.seek(binding['offset'])
-            line = stream.read(binding['length'])
-        _require(line.endswith(b'\n') and len(line) == binding['length']
-                 and hashlib.sha256(line).hexdigest() == binding['sha256']
-                 and _json_bytes(line) == binding['record'], 'producer audit line changed during acceptance')
+    evidence.recheck_producer_evidence(proof, audit_path=CENTRAL_AUDIT,
+        binding=_binding, check_path=_ordinary_path, parse_json=_json_bytes)
 
 
 def _local_model_hashes(model_path, site_count):

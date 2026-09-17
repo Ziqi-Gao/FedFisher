@@ -4,69 +4,20 @@ import hashlib
 import io
 import json
 import math
-import os
-from pathlib import Path
 import re
 
 import numpy as np
 
-from ..dslassocov_run_contract import (
+from ..infrastructure.provenance import (
     atomic_create_text, canonical_text, compute_provenance, env_text, parse_env_file, sha256_file)
+# Compatibility exports keep historical import paths available.
+from ..infrastructure.artifacts import (
+    OUTPUT_ROOT, PROVENANCE_KEYS, SCRATCH_ROOT, _pairs, canonical, create_bytes,
+    digest, read_json, safe_path,
+)
 from .evaluation import model_hash, signal_recovery_with_ties
 from .protocol import CELLS, VARIANTS
 from models import SYNTHETIC_MLP_HIDDEN_DIMS
-
-OUTPUT_ROOT = Path("/data/del6500/FedFisher/effect_modifier_experiment/outputs")
-SCRATCH_ROOT = Path("/scr/del6500/FedFisher")
-PROVENANCE_KEYS = ("git_commit", "git_dirty", "git_status_sha256", "source_tree_sha256")
-
-
-def canonical(value):
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
-
-
-def digest(value):
-    return hashlib.sha256(canonical(value).encode()).hexdigest()
-
-
-def _pairs(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("duplicate JSON key")
-        result[key] = value
-    return result
-
-
-def read_json(path):
-    safe_path(path)
-    return json.loads(Path(path).read_text(), object_pairs_hook=_pairs,
-                      parse_constant=lambda v: (_ for _ in ()).throw(ValueError(v)))
-
-
-def safe_path(path):
-    path = Path(path)
-    if not path.is_absolute() or ".." in path.parts or not any(
-            root in path.parents for root in (OUTPUT_ROOT, SCRATCH_ROOT)):
-        raise ValueError("comparison artifacts must remain below FedFisher output/scratch roots")
-    if path.resolve(strict=False) != path or any(p.is_symlink() for p in (path, *path.parents)):
-        raise ValueError("symlink in comparison artifact path")
-    return path
-
-
-def create_bytes(path, data):
-    path = safe_path(path)
-    temporary = path.with_name(".%s.tmp.%d" % (path.name, os.getpid()))
-    safe_path(temporary)
-    with temporary.open("xb") as stream:
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
-    try:
-        os.link(temporary, path)
-    finally:
-        temporary.unlink()
-
 
 def make_manifest(run_id, config, provenance):
     return dict(format_version="2", run_id=run_id, protocol="causal-comparison-v1",

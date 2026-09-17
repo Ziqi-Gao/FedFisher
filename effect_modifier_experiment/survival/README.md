@@ -1,5 +1,9 @@
 # Survival pseudo-observation experiment
 
+[Project navigation](../../README.md#project-navigation) ·
+[Experiment index](../README.md#experiment-navigation) ·
+[Shared infrastructure](../infrastructure/README.md)
+
 The paper aims to demonstrate efficient treatment-effect-modifier discovery
 when hospitals cannot centralize patient records and FedFisher fitting uses one
 communication round, and to report substantive, supported effect-modifier
@@ -216,8 +220,14 @@ does not require a source edit.
 `data.py`, `pseudo.py`, `links.py`, `dslasso.py`, `fisher.py` and `evaluation.py`
 separate scientific components. `protocol.py`, `runner.py` and `artifacts.py`
 bind fixed recipes, the foreground scheduler boundary and immutable completion
-evidence. The active handoff and validation evidence belong in
-`docs/codex/SCHEDULER_HANDOFF.md`.
+evidence; `acceptance.py` owns the survival pilot's scientific checks and paired
+invariants. Generic path/JSON/publication, source-provenance, request-bundle and
+central execution-evidence operations come from
+[`infrastructure/`](../infrastructure/README.md), which has no scientific or
+scheduler-API dependencies. This shared layer does not choose the survival
+estimand, fitting recipe or acceptance criteria. The active handoff and
+validation evidence belong in
+[`docs/codex/SCHEDULER_HANDOFF.md`](../../docs/codex/SCHEDULER_HANDOFF.md).
 
 Durable scientific output is restricted to
 `/data/del6500/FedFisher/effect_modifier_experiment/outputs/survival_v1_*_pilot/`

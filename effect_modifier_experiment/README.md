@@ -5,11 +5,30 @@ effect modifiers in the presence of observed confounding, prognostic main
 effects, unequal site sizes, and 98 noise covariates. It preserves the original
 FedFisher aggregation path.
 
-## Current execution status
+## Experiment navigation
 
-All new computation must be submitted through ServerScheduler. The initial
-FedFisher registration supports only the CPU dsLassoCov and one-shot LASSO
-shard tasks through
+This page defines the original binary DGP and factorial experiments. The
+following additions keep separate scientific configurations and output identities:
+
+| Area | Scope |
+| --- | --- |
+| [Original binary/base pipeline](../synthetic_binary_experiment/README.md) | Binary prediction and supervised signal recovery; root `data.py`, `models.py` and `main.py` |
+| [causal_comparison](causal_comparison/README.md) | Multiround FedAvg, homogeneous R methods, common probability-scale evaluation and timing |
+| [one_shot_effects](one_shot_effects/README.md) | FedFisher-EM, DR-Sieve, SCMV2 and common-protocol baselines |
+| [one_shot_effects/diagnostics](one_shot_effects/diagnostics/README.md) | Saved-model gradient and approximation audits |
+| [fedfisher_timing](fedfisher_timing/README.md) | Original Diag/KFAC fitting on CPU with separately measured timings |
+| [survival](survival/README.md) | Site-local survival pseudo-observations, nonlinear dsLasso and neural working-Fisher adapters |
+| [infrastructure](infrastructure/README.md) | Shared artifact, provenance, immutable request-publication and read-only execution-evidence helpers |
+| [server_scheduler](server_scheduler/) | Scientific task schemas, registration proposals and request examples |
+| [tests](../tests/) | Numerical, scientific-contract and scheduler fixtures |
+
+Shared infrastructure is independent of these scientific recipes. It does not
+replace an experiment's estimator, evaluation scale or acceptance conditions.
+
+## Execution boundary
+
+All new computation must be submitted through a centrally registered
+ServerScheduler task and
 `/home/del6500/projects/FedFisher/scripts/fedfisher_server_scheduler_adapter.py`.
 The adapter remains in the foreground, honors the allocated CPU set and thread
 count, and resumes only through validated scientific completion markers.
@@ -18,11 +37,12 @@ It accepts only protocol-v2 running manifests and validates the selected
 examples under `server_scheduler/examples/` omit hardware fields for automatic
 profile selection.
 
-GPU effect-modifier experiments are not registered. The GNU Screen launchers,
-GPU polling, and local CPU/GPU lock scripts documented below are legacy audit
-material and must not be used to submit new work. Every pre-cutover artifact is
-retained but non-authoritative; see
-`server_scheduler/legacy-results-policy.md`.
+The GNU Screen launchers, GPU polling, and local CPU/GPU lock scripts documented
+below are legacy audit material and must not be used to submit new work.
+Consult the [runbook](../docs/codex/SCHEDULER_RUNBOOK.md) for procedure and the
+[handoff](../docs/codex/SCHEDULER_HANDOFF.md) for changing evidence; live central
+registration determines admission. Every pre-cutover artifact is retained but
+non-authoritative; see [legacy results policy](server_scheduler/legacy-results-policy.md).
 
 ## Data Model
 

@@ -2,9 +2,9 @@
 import hashlib
 import json
 from pathlib import Path
-import re
 
-from ..causal_comparison.artifacts import canonical, read_json, safe_path
+from ..infrastructure.artifacts import canonical, read_json, safe_path
+from ..infrastructure import evidence
 from . import protocol
 from .artifacts import ArtifactStore, current_provenance, validate_execution
 
@@ -20,122 +20,29 @@ def _require(condition, message):
 
 
 def _ordinary_file(path):
-    path = Path(path)
-    _require(path.is_absolute() and '..' not in path.parts
-             and not any(p.is_symlink() for p in (path, *path.parents))
-             and path.resolve(strict=True) == path and path.is_file(),
-             'pilot evidence requires an ordinary absolute file')
-    return path
+    return evidence.ordinary_path(path)
 
 
 def _binding(path):
-    path = _ordinary_file(path)
-    return dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    return evidence.file_binding(path, check_path=_ordinary_file)
 
 
 def _attempt_audit(job_id, attempt):
-    """Bind exact immutable lines, allowing unrelated append-only audit growth.
-
-    ServerScheduler retains only its final job/history snapshot. Its audit
-    proves the attempt was started and entered running; it does not retain the
-    original allocation/runtime snapshot. The independently hash-bound started
-    receipt and its fixed-profile validator provide those scientific fields.
-    """
-    path = _ordinary_file(CENTRAL_AUDIT)
-    found, active_attempt, offset = {}, None, 0
-    with path.open('rb') as stream:
-        for line in stream:
-            start, offset = offset, offset+len(line)
-            if not line.endswith(b'\n'):
-                continue  # A concurrently appended unrelated tail is not evidence.
-            if job_id.encode() not in line:
-                continue
-            record = json.loads(line)
-            if record.get('job_id') != job_id:
-                continue
-            _require(record.get('schema_version') == 2, 'invalid producer audit schema')
-            event = record.get('event')
-            name = None
-            if event == 'job_attempt_started':
-                active_attempt = record.get('attempt')
-                _require(type(active_attempt) is int and active_attempt > 0,
-                         'invalid producer attempt in central audit')
-                if active_attempt == attempt:
-                    name = 'attempt_started'
-            elif (event == 'job_transition' and record.get('destination') == 'running'
-                  and active_attempt == attempt):
-                _require(record.get('project') == 'FedFisher' and record.get('source') == 'pending',
-                         'producer running transition has unexpected ownership/state')
-                name = 'running_transition'
-            if name is not None:
-                _require(name not in found, 'duplicate producer attempt audit evidence')
-                found[name] = dict(path=str(path), offset=start, length=len(line),
-                    sha256=hashlib.sha256(line).hexdigest(), record=record)
-    _require(set(found) == {'attempt_started', 'running_transition'},
-             'producer attempt lacks exact central start/running audit evidence')
-    return found
+    return evidence.attempt_audit(CENTRAL_AUDIT, job_id, attempt,
+                                  check_path=_ordinary_file)
 
 
 def _producer_evidence(request, job, started):
-    """Distinguish the producing attempt from a later successful skip/resume."""
-    validate_execution(started)
-    job_id = request['job_id']
-    _require(started['job_id'] == job_id, 'scientific producer belongs to another scheduler job')
-    final_attempt = None
-    for kind in ('stdout', 'stderr'):
-        path = Path(job[kind+'_log'])
-        match = re.fullmatch(re.escape(job_id)+r'\.attempt-(\d{3,})\.'+kind+r'\.log', path.name)
-        _require(path.parent == CENTRAL_LOGS and match is not None,
-                 'final central log has an invalid job/attempt identity')
-        number = int(match.group(1))
-        _require(number > 0 and (final_attempt is None or final_attempt == number),
-                 'final stdout/stderr attempt identities disagree')
-        final_attempt = number
-    validate_execution(dict(job_id=job_id, attempt=final_attempt,
-        **{name: job[name] for name in ('execution_profile', 'allocation', 'estimated_runtime_seconds')}))
-    retry_path = CENTRAL_RETRIES/(job_id+'.json')
-    retry_binding = _binding(retry_path)
-    retry = json.loads(retry_path.read_bytes())
-    _require(set(retry) == {'schema_version', 'job_id', 'attempts_started', 'max_attempts',
-                           'next_attempt_at', 'last_failure_reason', 'updated_at'}
-             and retry.get('schema_version') == 2 and retry.get('job_id') == job_id
-             and type(retry.get('attempts_started')) is int
-             and retry['attempts_started'] == final_attempt
-             and type(retry.get('max_attempts')) is int and retry['max_attempts'] >= final_attempt
-             and retry.get('next_attempt_at') is None,
-             'final central attempt differs from durable retry evidence')
-    _require(started['attempt'] <= final_attempt,
-             'scientific producer attempt is later than the final completed attempt')
-    # Final attempt metadata can be matched exactly. Earlier attempts can have
-    # different runtime estimates and CPU placement; never rewrite their receipt
-    # or pretend the final central snapshot certifies their old allocation.
-    resumed = started['attempt'] < final_attempt
-    if not resumed:
-        for name in ('execution_profile', 'allocation', 'estimated_runtime_seconds'):
-            _require(started[name] == job[name], 'producer receipt differs from its final central attempt')
-    logs = {kind+'_log': _binding(CENTRAL_LOGS/('%s.attempt-%03d.%s.log' %
-                     (job_id, started['attempt'], kind))) for kind in ('stdout', 'stderr')}
-    return dict(producer_attempt=started['attempt'], final_completed_attempt=final_attempt,
-        resumed_from_earlier_attempt=resumed, execution_receipt=started,
-        retry=retry_binding, logs=logs, audit=_attempt_audit(job_id, started['attempt']),
-        allocation_runtime_evidence=('hash_bound_started_receipt_validated_against_fixed_task_profile; '
-            'central_audit_and_logs_prove_attempt; original_running_snapshot_not_archived'
-            if resumed else 'started_receipt_matches_final_central_job_snapshot'))
+    return evidence.producer_evidence(request, job, started,
+        logs_root=CENTRAL_LOGS, retries_root=CENTRAL_RETRIES,
+        validate_execution=validate_execution, binding=_binding,
+        read_json=lambda path: json.loads(path.read_bytes()),
+        log_evidence=lambda path, kind: _binding(path), audit=_attempt_audit)
 
 
 def _recheck_producer_evidence(proof):
-    for binding in [proof['retry'], *proof['logs'].values()]:
-        _require(_binding(binding['path']) == binding, 'producer attempt evidence changed during acceptance')
-    for binding in proof['audit'].values():
-        path = _ordinary_file(binding['path'])
-        _require(path == CENTRAL_AUDIT, 'producer audit evidence moved outside central ownership')
-        with path.open('rb') as stream:
-            stream.seek(binding['offset'])
-            line = stream.read(binding['length'])
-        _require(len(line) == binding['length'] and line.endswith(b'\n')
-                 and hashlib.sha256(line).hexdigest() == binding['sha256']
-                 and json.loads(line) == binding['record'],
-                 'producer audit line changed during acceptance')
+    evidence.recheck_producer_evidence(proof, audit_path=CENTRAL_AUDIT,
+        binding=_binding, check_path=_ordinary_file)
 
 
 def validate_pairs(records):

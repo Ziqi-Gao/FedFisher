@@ -7,7 +7,7 @@ import re
 import numpy as np
 
 from models import SYNTHETIC_MLP_HIDDEN_DIMS
-from ..causal_comparison.artifacts import canonical
+from ..infrastructure.artifacts import canonical
 from ..causal_comparison.evaluation import model_hash, signal_recovery_with_ties
 from ..causal_comparison.measurement import STAGES
 

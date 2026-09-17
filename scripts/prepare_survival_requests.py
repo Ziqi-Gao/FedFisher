@@ -7,7 +7,6 @@ scientific fitting, resource discovery or background execution occur here.
 """
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,7 +20,12 @@ OUTBOX_ROOT = SCRATCH_ROOT / 'scheduler/outbox'
 REPORT_ROOT = SCRATCH_ROOT / 'scheduler/reports'
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from effect_modifier_experiment.dslassocov_run_contract import compute_provenance
+from effect_modifier_experiment.infrastructure.provenance import compute_provenance
+from effect_modifier_experiment.infrastructure.requests import (
+    canonical, encoded, sha256, safe_path, pending_path as _pending,
+    preflight_new as _preflight_new, atomic_create, clean_provenance,
+    review_sources as source_bindings, publish_bundle,
+)
 from effect_modifier_experiment.survival import protocol
 
 
@@ -41,18 +45,6 @@ REVIEW_SOURCES = {
 EXPECTED_CELLS = frozenset({'dslasso', 'fedfisher_diag_shallow', 'fedfisher_diag_deep',
                             'fedfisher_kfac_shallow', 'fedfisher_kfac_deep'})
 EXPECTED_SCENARIOS = frozenset({'iid', 'covariate_shift'})
-
-
-def canonical(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False)
-
-
-def encoded(value):
-    return (json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + '\n').encode()
-
-
-def sha256(data):
-    return hashlib.sha256(data).hexdigest()
 
 
 def _generation(generation):
@@ -123,61 +115,12 @@ def build_requests(generation=1, cohort='pilot', shard_count=None):
     return tuple(specs)
 
 
-def safe_path(path):
-    path = Path(path)
-    if not path.is_absolute() or '..' in path.parts or SCRATCH_ROOT not in path.parents:
-        raise ValueError('request publication must stay below the FedFisher scratch root')
-    if any(p.is_symlink() for p in (path, *path.parents)) or path.resolve(strict=False) != path:
-        raise ValueError('publication path must not contain symlinks')
-    return path
-
-
-def _pending(path):
-    return path.with_name('.' + path.name + '.pending')
-
-
-def _preflight_new(path):
-    path = safe_path(path)
-    for target in (path, safe_path(_pending(path))):
-        if target.exists():
-            raise FileExistsError('preserving existing or partial publication: %s' % target)
-    return path
-
-
-def atomic_create(path, data):
-    path = _preflight_new(path)
-    pending = _pending(path)
-    fd = os.open(str(pending), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, 'wb') as stream:
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
-    safe_path(path)
-    safe_path(pending)
-    os.link(pending, path)
-    pending.unlink()
-
-
 def current_provenance():
-    value = compute_provenance(PROJECT_ROOT)
-    if value.get('git_dirty') != '0':
-        raise ValueError('request publication requires finalized clean source')
-    if re.fullmatch('[0-9a-f]{40}', value.get('git_commit', '')) is None:
-        raise ValueError('invalid source commit')
-    for key in ('git_status_sha256', 'source_tree_sha256', 'provenance_sha256'):
-        if re.fullmatch('[0-9a-f]{64}', value.get(key, '')) is None:
-            raise ValueError('invalid source provenance: ' + key)
-    return dict(value)
+    return clean_provenance(compute_provenance(PROJECT_ROOT))
 
 
 def review_sources():
-    result = {}
-    for label, path in REVIEW_SOURCES.items():
-        if (PROJECT_ROOT not in path.parents or path.resolve(strict=True) != path
-                or any(p.is_symlink() for p in (path, *path.parents))):
-            raise ValueError('review source must be a regular canonical project file')
-        result[label] = dict(path=str(path), sha256=sha256(path.read_bytes()))
-    return result
+    return source_bindings(REVIEW_SOURCES, PROJECT_ROOT)
 
 
 def acceptance_binding(cohort, path, provenance):
@@ -207,59 +150,28 @@ def write_requests(generation=1, cohort='pilot', pilot_acceptance=None, shard_co
     accepted = acceptance_binding(cohort, pilot_acceptance, before)
     specs = build_requests(generation, cohort, shard_count)
     sources = review_sources()
-    outbox, reports = safe_path(OUTBOX_ROOT), safe_path(REPORT_ROOT)
-    bundle = safe_path(outbox / bundle_name(generation, cohort))
-    if bundle.exists():
-        raise FileExistsError('preserving existing or partial cohort directory: %s' % bundle)
-    inventory_path = reports / inventory_name(generation, cohort)
-    targets = [bundle / item['filename'] for item in specs]
-    for path in (*targets, inventory_path):
-        _preflight_new(path)
-    bundle.mkdir(parents=True, exist_ok=False)
-    reports.mkdir(parents=True, exist_ok=True)
-    safe_path(bundle); safe_path(reports)
-    records = []
-    for item, path in zip(specs, targets):
-        atomic_create(path, encoded(item['request']))
-        records.append(dict(path=str(path), sha256=item['request_sha256'],
-                            job_id=item['request']['job_id'], task=item['request']['task'],
-                            parameters=item['request']['parameters'], run_id=item['run_id'],
-                            configuration=item['configuration'],
-                            configuration_sha256=item['configuration_sha256'], seeds=item['seed_sequence']))
-    for item, path in zip(specs, targets):
-        safe_path(path)
-        actual = path.read_bytes()
-        if actual != encoded(item['request']) or sha256(actual) != item['request_sha256']:
-            raise ValueError('request readback mismatch; partial cohort preserved')
-    if current_provenance() != before or review_sources() != sources:
-        raise ValueError('source changed during publication; partial cohort preserved')
-    if acceptance_binding(cohort, pilot_acceptance, before) != accepted:
-        raise ValueError('pilot proof changed during publication; partial cohort preserved')
     pilot = cohort == 'pilot'
-    inventory = dict(
+    metadata = dict(
         schema_version=1, bundle='fedfisher-survival-v1-' + cohort, generation=generation,
         task=protocol.PILOT_TASK if pilot else protocol.FORMAL_TASK,
-        request_count=len(records), scientific_cell_count=10 if pilot else 3000,
+        scientific_cell_count=10 if pilot else 3000,
         coverage=dict(method_cells=5, scenarios=2, seeds=[0] if pilot else list(range(300))),
         formal_plan=dict(task=protocol.FORMAL_TASK, seed_start=0, seed_end=299,
                          allowed_shard_counts=[8, 16], default_shard_count=16,
                          default_request_count=160, scientific_cell_count=3000,
                          publication_authorized=not pilot,
                          gate='complete same-source pilot scientific and paired acceptance plus operator profile review'),
-        bundle_ready=True, submitted=False, requires_operator_registration=True,
-        publication_mode='nested_operator_review_bundle_not_automatic_intake',
-        registration_state='project proposal only; no central registration or admission implied',
-        provenance=before, project_head=before['git_commit'], worktree_status='clean',
-        review_sources=sources, requests=records, inventory_path=str(inventory_path),
         operator_gate='verify exact source and request hashes, review/register the admitted stage, then validate and submit through ServerScheduler',
         freeze_rule='keep canonical source unchanged through pilot and formal execution and scientific acceptance',
     )
-    if accepted is not None:
-        inventory['pilot_acceptance'] = accepted
-    atomic_create(inventory_path, encoded(inventory))
-    if inventory_path.read_bytes() != encoded(inventory):
-        raise ValueError('inventory readback mismatch')
-    return inventory
+    return publish_bundle(
+        specs, bundle=OUTBOX_ROOT / bundle_name(generation, cohort),
+        inventory_path=REPORT_ROOT / inventory_name(generation, cohort),
+        metadata=metadata, provenance=before, sources=sources, acceptance=accepted,
+        check_provenance=current_provenance, check_sources=review_sources,
+        check_acceptance=lambda: acceptance_binding(cohort, pilot_acceptance, before),
+        create=atomic_create,
+    )
 
 
 def main(argv=None):

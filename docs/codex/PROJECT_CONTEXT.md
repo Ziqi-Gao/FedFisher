@@ -26,22 +26,31 @@ root.
 
 ## Scientific scope
 
-FedFisher is a binary-tabular federated-learning research repository centered
-on one-shot aggregation, with an additional iterative dsLassoCov-style
-benchmark. It contains these separate data paths:
+FedFisher studies federated effect-modifier discovery for binary and survival
+outcomes. The paper objective combines efficient discovery under separate
+hospital records and one-round FedFisher fitting with substantive findings in
+real EHR data. The simulation code supports that objective; it does not establish
+a completed EHR study or an end-to-end one-round EHR workflow. Original binary
+prediction and supervised signal-recovery experiments are also preserved.
+The separate data paths are:
 
 1. `SyntheticBinary`: sparse Gaussian binary classification used for prediction
    and signal-recovery experiments.
 2. `SyntheticEffectModifier`: the primary factorial experiment for recovering
    treatment effect modifiers under observed confounding, prognostic main
    effects, unequal site sizes, and noise covariates.
-3. `LocalBinaryCSV`: a compatibility loader for local CSV data. It has no
-   registered central task.
+3. `LocalBinaryCSV`: a compatibility loader for numeric binary-outcome CSV data.
 4. `SyntheticEffectModifierSCMV2`: an independent observed-data SCM under
    `effect_modifier_experiment/one_shot_effects/data.py`. It generates site,
    covariates, treatment and outcome in that order, with shared probability-scale
    CATE and a separate evaluator truth object. It does not change the original
    generator or its outcome-label partitioning.
+5. `SyntheticEffectModifierSurvivalV1`: the independent survival generator in
+   `effect_modifier_experiment/survival/data.py`. Site-first IID/covariate-shift
+   scenarios retain X1/X2 confounding and effect modification, use Weibull PH
+   event times with independent censoring, and keep evaluator truth separate.
+   Its site-local IJ pseudo-values and log cumulative-hazard contrast do not
+   reuse binary outcome-label allocation or binary result namespaces.
 
 The original Fisher-aggregation path implements FedAvg, diagonal FedFisher, and
 KFAC FedFisher through `main.py`, `train_model.py`, `run_one_shot_algs.py`,
@@ -51,7 +60,7 @@ LASSO benchmarks that reuse the effect-modifier data-generating process and
 evaluation protocol; they do not run `fedfisher_diag` or `fedfisher_kfac`.
 Current admission must be verified against the live central registration.
 
-## Data-generating processes
+## Original binary data-generating processes
 
 ### SyntheticBinary
 
@@ -77,7 +86,7 @@ IID partitioning preserves sampled site capacities. Non-IID partitioning is a
 capacity-constrained, outcome-label Dirichlet allocation that also preserves
 those capacities. The independent common test set defaults to 10,000 rows.
 
-## Factorial variants
+## Original binary factorial variants
 
 The four variants form one 2-by-2 scientific contract:
 
@@ -113,8 +122,14 @@ test, fit, payload, and aggregate-model fingerprints.
   interaction inputs, upload one model vector, and use the original FedAvg
   aggregation. This is explicit interaction-input regularization, not a claim
   of identifiable effect-modifier selection through all nonlinear paths.
+- Survival adapters: nonlinear dsLasso-style interaction LASSO and scalar-output
+  Diag/KFAC FedFisher use site-local survival pseudo-values, squared-error loss
+  and `exp(-exp(eta))` as the survival mean. Their Gaussian working Fisher is
+  separate from categorical likelihood information and from the sampling
+  covariance of dependent pseudo-values. The survival README defines the
+  fitting communication boundary and independent simulation evaluation.
 
-## Evaluation contract
+## Original binary evaluation contract
 
 Primary recovery is based on raw-covariate treatment-contrast intervention,
 not absolute interaction coefficients. Counterfactual model inputs must remain
@@ -151,38 +166,24 @@ invariants.
 
 ## Current source routing
 
-- Data generation and partitioning: `data.py`.
-- Models: `models.py`.
-- Original FedFisher/FedAvg: `train_model.py`, `run_one_shot_algs.py`, `algs/`.
-- Common effect-modifier evaluation: `utils/prediction_intervention.py`.
-- dsLassoCov implementation: `effect_modifier_experiment/dslassocov_*.py` and
-  `manage_dslassocov_cpu_run.py`.
-- One-shot LASSO implementation:
-  `effect_modifier_experiment/one_shot_*.py` and
-  `manage_one_shot_lasso_cpu_run.py`.
-- Scientific contracts: `effect_modifier_experiment/*_run_contract.py`.
-- Central foreground adapter:
-  `scripts/fedfisher_server_scheduler_adapter.py`.
-- Parameter schemas and request examples:
-  `effect_modifier_experiment/server_scheduler/`.
-- Tests and scheduler fixtures: `tests/` and
-  `tests/fixtures/server_scheduler/`.
-- Additive multiround FedAvg, homogeneous R methods, common probability-scale
-  comparison, timing, and immutable comparison cells:
-  `effect_modifier_experiment/causal_comparison/`. Read its `AGENTS.md` and
-  `README.md` for scientific recipes and scope; task registration remains a
-  separate operator-controlled gate. Its probability-scale recovery handles
-  cutoff ties explicitly and does not replace historical logit endpoints.
-- FedFisher-EM, DR-Sieve and their independent common-protocol baselines:
-  `effect_modifier_experiment/one_shot_effects/`. Its `AGENTS.md`, `README.md`
-  and `SPECIFICATION.md` describe the observed-data interfaces, T/V/H split,
-  original-site target weights, serialized one-upload boundary, SCMV2 and legacy
-  compatibility, and separately defined absolute and squared scores. Modules
-  separate data, basis/nuisance fitting, Fisher aggregation/compression,
-  evaluation, reporting, immutable artifacts and scheduler composition.
-  Its `ose_v1_*_pilot` namespaces never reuse historical completion evidence.
-  Stage expansion requires source-matched full-gradient diagnostic evidence;
-  task admission and live status remain operator-owned, recorded in the handoff.
+| Area | Source and scientific guide |
+| --- | --- |
+| Original binary/base | Root `data.py`, `models.py`, `main.py`, `train_model.py`, `run_one_shot_algs.py`, `algs/` and `utils/`; [guide](../../synthetic_binary_experiment/README.md) |
+| Original binary effect modifiers | `effect_modifier_experiment/dslassocov_*.py`, `one_shot_*.py`, their managers and `*_run_contract.py`; [guide](../../effect_modifier_experiment/README.md) |
+| Additional method comparison | [causal_comparison](../../effect_modifier_experiment/causal_comparison/README.md): multiround FedAvg, homogeneous R methods, common probability-scale evaluation and timing |
+| Additional one-shot methods | [one_shot_effects](../../effect_modifier_experiment/one_shot_effects/README.md): FedFisher-EM, DR-Sieve, T/V/H interfaces, SCMV2 and legacy compatibility |
+| Saved-model diagnostics | [one_shot_effects/diagnostics](../../effect_modifier_experiment/one_shot_effects/diagnostics/README.md): gradient audits, approximation gates and source-bound replay |
+| Original Fisher CPU timing | [fedfisher_timing](../../effect_modifier_experiment/fedfisher_timing/README.md): isolated Diag/KFAC timing, immutable artifacts and pilot acceptance |
+| Survival | [survival](../../effect_modifier_experiment/survival/README.md): generator, IJ responses, links, methods, evaluation, protocol, artifacts and acceptance |
+| Shared infrastructure | [infrastructure](../../effect_modifier_experiment/infrastructure/README.md): standard-library artifact, provenance, request-publication and read-only execution-evidence helpers |
+| Scheduler boundary | [adapter](../../scripts/fedfisher_server_scheduler_adapter.py) and [schemas/proposals/examples](../../effect_modifier_experiment/server_scheduler/) |
+| Validation | [tests](../../tests/) and [scheduler fixtures](../../tests/fixtures/server_scheduler/) |
+
+Read the nearest `AGENTS.md` and scientific guide before changing an experiment.
+Each package owns its estimand, method configuration, semantic validator and
+result namespace. Shared helpers do not make probability, logit and survival
+contrasts interchangeable, or authorize reuse of another package's completion
+evidence. Scientific and central admission gates remain separate.
 
 Launchers, local workers, Screen sessions, CPU/GPU locks, direct Python compute
 commands, and Slurm files are preserved legacy or export surfaces. They are not
@@ -190,18 +191,28 @@ authorized paths for new computation. Preserve scientific workers, manifests,
 results, completion markers, and legacy audit material unless the user gives a
 separate, exact deletion instruction.
 
-## Target architecture, not current layout
+## Shared infrastructure and remaining legacy layout
 
-Future refactoring should separate deterministic data generation, models,
-method implementations, evaluation, experiment protocols, artifact lifecycle,
-and scheduler orchestration. The intended dependency direction is:
+`effect_modifier_experiment/infrastructure/` extracts neutral operations:
+`artifacts.py` handles paths, strict JSON and immutable byte publication;
+`provenance.py` handles source/configuration hashes and environment manifests;
+`requests.py` publishes immutable outbox bundles with the inventory last;
+`evidence.py` reads central producer/retry/audit evidence without scheduler
+API calls. This layer uses the Python standard library and imports no scientific
+experiment packages. Survival and timing reuse these helpers; compatibility
+exports preserve existing helper import paths.
+
+The extracted dependency direction is:
 
 ```text
-orchestration -> experiments -> data + methods + evaluation -> artifacts
+scripts / scheduler adapter -> experiment protocol + runner + acceptance
+experiment runner           -> experiment data + methods + evaluation
+experiment lifecycle code   -> shared infrastructure -> Python standard library
 ```
 
 Methods must not generate data, choose scheduler resources, or own filesystem
 namespaces. Data generators must not call methods. Experiment protocols compose
-data, methods, and evaluation. This is a target design; the canonical repository
-is still the current mostly flat module layout until a separately verified
-migration is committed.
+data, methods and evaluation. Scientific result validation remains with each
+experiment; infrastructure does not define a universal configuration or method
+API. The original root modules and historical scientific cross-imports remain;
+this extraction does not claim a complete reorganization of the flat pipeline.

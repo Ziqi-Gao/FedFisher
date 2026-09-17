@@ -5,6 +5,50 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Shared infrastructure maintenance and replacement pilot — 2026-09-17 UTC
+
+The user requested fixing duplicated request/evidence infrastructure,
+cross-experiment helper dependencies and missing project navigation. Before
+edits, read-only central state contained 2,062 completed and 904 failed historical
+FedFisher jobs, no nonterminal jobs and no survival jobs. Survival tasks were
+absent from the installed eight-task registration and no survival output existed.
+The unsubmitted P1 inventory remains immutable; a separate scratch sidecar
+`fedfisher-survival-v1-pilot-cohort-p1.superseded-for-maintenance.json` records
+that it must not be submitted after this source transition.
+
+`effect_modifier_experiment/infrastructure/` now owns standard-library artifact,
+source/env provenance, immutable request publication and read-only producer/retry/
+audit evidence helpers. Survival and timing use the shared implementations;
+comparison and dsLasso retain compatible helper exports. Scientific validators,
+method recipes, namespaces, payloads and fitting/evaluation remain local and
+unchanged. Root and experiment READMEs, the stable project context and the new
+infrastructure README describe the actual navigation and dependency boundaries.
+No AGENTS policy was changed.
+
+Validation includes the existing request tests, golden source fingerprints,
+strict JSON/path/non-overwrite checks and fresh-process dependency checks.
+Before/after hashes match for all 442 in-memory survival/timing pilot/formal
+request specifications and configurations; 14 core scientific source files are
+byte-identical. Fabricated evidence gives identical full ten-cell survival
+acceptance bytes and identical resumed-producer proofs for both experiments.
+Production Python has 574 added and 636 removed lines (net -62); two new test
+files provide dependency and compatibility coverage. The full project suite
+passed 521 tests in 53.006 seconds, without failures or skips. Validation logs
+and parity records are under
+`/scr/del6500/FedFisher/infrastructure-validation/`.
+
+After the tested source is committed cleanly, the replacement delivery is
+generation 2: ten pilot requests in
+`/scr/del6500/FedFisher/scheduler/outbox/fedfisher-survival-v1-pilot-cohort-p2/`
+with the matching inventory and operator handoff under the scheduler reports
+directory. Actual commit, inventory hashes and publication checks belong in
+that post-freeze handoff and a durable preparation audit. P2 changes source
+binding and job IDs only; no existing scientific namespace contains output.
+Formal requests remain gated by completed same-source pilot acceptance. Keep
+the replacement source frozen throughout pilot/formal execution and acceptance.
+No central state/registration/service change, submission or real scientific run
+was performed by this maintenance task.
+
 ## Survival pilot delivery and gated formal cohort — 2026-09-17 UTC
 
 The user requested the pilot and formal experiment requests so they can notify

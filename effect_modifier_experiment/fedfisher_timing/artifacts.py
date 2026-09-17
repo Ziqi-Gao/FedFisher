@@ -9,10 +9,10 @@ import re
 
 import numpy as np
 
-from ..causal_comparison.artifacts import (
+from ..infrastructure.artifacts import (
     OUTPUT_ROOT, PROVENANCE_KEYS, canonical, create_bytes, digest, read_json, safe_path,
 )
-from ..dslassocov_run_contract import canonical_text, compute_provenance, env_text, parse_env_file
+from ..infrastructure.provenance import canonical_text, compute_provenance, env_text, parse_env_file
 from . import protocol
 from .validation import validate_result
 
