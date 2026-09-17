@@ -32,6 +32,7 @@ LEDGER = 'unified_noniid_fedfisher_input_ledger.json'
 PROVENANCE = 'unified_noniid_plot_provenance.json'
 README = 'UNIFIED_NONIID_README.md'
 FIGURE = 'noniid_all_methods_top2_and_time'
+FISHER_ACCEPTANCE_SHA = 'a38fc5dac26011f3212a003be421b3d75a79f007852d0e14767d603cacacd6e6'
 require = base.require
 
 
@@ -81,12 +82,17 @@ def parse_scores(data, variant, run_id, scope):
     return rows
 
 
-def summarize_fisher(rows):
+def fisher_run_id(cell, variant):
+    return f'fedfisher_timing_{cell}_{variant}_v1_300seeds'
+
+
+def summarize_fisher(rows, cpu=False):
     grouped = defaultdict(list)
     for row in rows:
         require(row['split'] == 'noniid' and row['metric'] == METRIC and
                 row['cell'] in FISHER_CELLS and row['variant'] in base.VARIANTS and
-                row['run_id'] == legacy.OLD_RUNS[row['variant']], 'unexpected Fisher report row')
+                row['run_id'] == (fisher_run_id(row['cell'], row['variant']) if cpu
+                                  else legacy.OLD_RUNS[row['variant']]), 'unexpected Fisher report row')
         require(0 <= row['top2_probability'] <= 1 and 0 <= row['auroc'] <= 1,
                 'invalid Fisher recovery value')
         grouped[row['cell'], row['variant']].append(row)
@@ -101,6 +107,79 @@ def summarize_fisher(rows):
         summaries.append(dict(cell=cell, variant=variant, split='noniid', n=300, metric=METRIC,
                               top2_pct=mean, top2_se_pct=se, auroc=auc, auroc_se=auc_se))
     return summaries
+
+
+def summarize_fisher_times(rows):
+    summarize_fisher(rows, cpu=True)  # Also checks unique seed coverage and source identities.
+    groups = defaultdict(list)
+    for row in rows:
+        require(row['timing_status'] == 'measured', 'missing CPU Fisher timing')
+        groups[row['cell'], row['variant']].append(row)
+    summaries = []
+    for (cell, variant), samples in groups.items():
+        summary = dict(cell=cell, variant=variant, split='noniid', n=300)
+        for metric in timing.METRICS:
+            values = [timing.finite_time(r[metric]) for r in samples]
+            require(min(values) > 0, 'missing positive CPU Fisher timing')
+            mean, se = base.mean_se(values)
+            summary.update({f'{metric}_mean': mean, f'{metric}_se': se})
+        summaries.append(summary)
+    return summaries
+
+
+def read_fisher_timing_report(directory):
+    """Read the frozen accepted CPU presentation tables, never rerun a model.
+
+    The source tree can evolve after acceptance. This verifies the archived
+    acceptance -> report -> table chain, without claiming current-source resume.
+    """
+    directory = base.safe_path(directory, must_exist=True)
+    artifacts = []
+
+    def read_bound(name, checksum=None):
+        path = base.safe_path(directory / name, must_exist=True)
+        data = path.read_bytes()
+        if checksum is not None:
+            require(base.sha(data) == checksum, f'accepted CPU Fisher input changed: {name}')
+        artifacts.append(dict(path=str(path), sha256=base.sha(data)))
+        return data
+
+    acceptance = json.loads(read_bound('acceptance.json', FISHER_ACCEPTANCE_SHA))
+    require(acceptance['passed'] is True and
+            acceptance['scope'] == 'formal_scientific_and_execution_acceptance' and
+            acceptance['validated_units'] == 9600 and acceptance['validated_requests'] == 256 and
+            acceptance['paired_checks']['passed'] is True, 'CPU Fisher cohort was not accepted')
+    report = json.loads(read_bound('report.json', acceptance['report']['sha256']))
+    require(report['cohort'] == 'formal' and report['scientific_units'] == 9600 and
+            report['provenance'] == acceptance['provenance'], 'CPU Fisher report provenance differs')
+    data = read_bound('timing_seed_rows.csv', report['files']['timing_seed_rows.csv'])
+    raw = list(csv.DictReader(io.StringIO(data.decode())))
+    expected = {(c, v, s, t) for c in FISHER_CELLS for v in base.VARIANTS
+                for s in range(300) for t in ('iid', 'noniid')}
+    seen, rows = set(), []
+    for saved in raw:
+        key = saved['cell'], saved['variant'], int(saved['seed']), saved['split']
+        require(key in expected and key not in seen, 'unexpected or duplicate CPU Fisher unit')
+        seen.add(key)
+        require(saved['run_id'] == fisher_run_id(key[0], key[1]) and
+                saved['execution_profile'] == 'cpu-1core' and
+                saved['timing_status'] == 'measured_new_cpu_rerun' and
+                saved['standalone_selected_fisher_only'] == 'True', 'unexpected CPU Fisher recipe')
+        if key[3] != 'noniid':
+            continue
+        row = {name: saved[name] for name in ('cell', 'variant', 'split', 'run_id')}
+        row.update(seed=key[2], metric=METRIC, timing_status='measured',
+                   top2_probability=float(saved['probability_all_signals_selected']),
+                   auroc=float(saved['auroc']))
+        row.update({metric: timing.finite_time(float(saved[metric])) for metric in timing.METRICS})
+        rows.append(row)
+    require(seen == expected, 'incomplete CPU Fisher formal coverage')
+    summarize_fisher_times(rows)
+    return rows, dict(source='accepted_cpu_timing_rerun', report_directory=str(directory),
+                      acceptance_sha256=FISHER_ACCEPTANCE_SHA,
+                      scientific_provenance=acceptance['provenance'], artifacts=artifacts,
+                      validation='frozen formal acceptance and its hash-bound presentation tables; '
+                      'recovery and time belong to the same new CPU fits')
 
 
 def collect_fisher():
@@ -171,25 +250,29 @@ def read_cpu(dest):
         name: base.sha(data), **time_provenance['table_sha256']}
 
 
-def merge_rows(cpu, times, fisher):
+def merge_rows(cpu, times, fisher, fisher_times=None):
     top2 = {(r['cell'], r['variant']): r for r in cpu + fisher}
-    costs = {(r['cell'], r['variant']): r for r in times}
+    all_times = times + (fisher_times or [])
+    costs = {(r['cell'], r['variant']): r for r in all_times}
     require(len(top2) == len(cpu) + len(fisher) == 104 and
             set(top2) == {(c, v) for c in CELLS for v in base.VARIANTS}, 'invalid unified method coverage')
-    require(len(times) == len(costs) == 88 and
-            set(costs) == {(c, v) for c in base.CELLS for v in base.VARIANTS}, 'invalid timing coverage')
+    timed_cells = CELLS if fisher_times is not None else base.CELLS
+    require(len(all_times) == len(costs) == len(timed_cells) * 4 and
+            set(costs) == {(c, v) for c in timed_cells for v in base.VARIANTS}, 'invalid timing coverage')
     rows = []
     for cell in CELLS:
         for variant in base.VARIANTS:
             score = top2[cell, variant]
             require(score['metric'] == METRIC and score['split'] == 'noniid' and score['n'] == 300,
                     'unified plot requires a common probability-scale endpoint and full formal seeds')
-            gpu = cell in FISHER_CELLS
+            gpu = cell in FISHER_CELLS and fisher_times is None
             row = {k: score[k] for k in ('cell', 'variant', 'split', 'n', 'metric', 'top2_pct',
                                         'top2_se_pct', 'auroc', 'auroc_se')}
             row.update(hardware='GPU (archived recipe)' if gpu else 'CPU 1 core',
                        timing_status='not_recorded' if gpu else 'measured',
-                       run_id=legacy.OLD_RUNS[variant] if gpu else f'comparison_{cell}_{variant}_v1_300seeds')
+                       run_id=(legacy.OLD_RUNS[variant] if gpu else
+                               fisher_run_id(cell, variant) if cell in FISHER_CELLS else
+                               f'comparison_{cell}_{variant}_v1_300seeds'))
             for metric in timing.METRICS:
                 for statistic in ('mean', 'se'):
                     key = f'{metric}_{statistic}'
@@ -201,7 +284,10 @@ def merge_rows(cpu, times, fisher):
 def plot_unified(rows, dest):
     canvas = base.SVG(1940, 1390)
     canvas.text(30, 45, 'Non-IID | All methods: Top-2 recovery and time cost', size=29, bold=True)
-    canvas.text(30, 78, '26 method settings | 300 formal seeds per condition | No pilot or Group LASSO', size=18)
+    all_cpu = all(r['hardware'] == 'CPU 1 core' for r in rows)
+    subtitle = ('26 method settings | CPU, 1 core | 300 formal seeds per condition | No pilot or Group LASSO'
+                if all_cpu else '26 method settings | 300 formal seeds per condition | No pilot or Group LASSO')
+    canvas.text(30, 78, subtitle, size=18)
     base.variant_legend(canvas, 112)
     lookup = {(r['cell'], r['variant']): r for r in rows}
     top, step, bottom = 214, 39, 214 + 26 * 39
@@ -213,14 +299,15 @@ def plot_unified(rows, dest):
         y = top + i * step
         if i % 2 == 0:
             canvas.rect(20, y, 1890, step, '#e2e8f0', .35)
-        label = base.label(cell) + (' [GPU]*' if cell in FISHER_CELLS else '')
+        gpu = lookup[cell, base.VARIANTS[0]]['hardware'].startswith('GPU')
+        label = base.label(cell) + (' [GPU]*' if gpu else '')
         canvas.text(450, y + 25, label, size=15, anchor='end', bold=cell in FISHER_CELLS)
         for j, variant in enumerate(base.VARIANTS):
             value = lookup[cell, variant]['top2_pct']
             canvas.rect(471 + 108*j, y + 3, 106, step - 6, base.heat_color(value))
             canvas.text(524 + 108*j, y + 25, f'{value:.1f}', size=17, anchor='middle',
                         color='#ffffff' if value >= 60 else '#172033', bold=True)
-    for panel, (metric, title) in enumerate((('fit_wall_seconds', 'B  Full fit: selection + refit'),
+    for panel, (metric, title) in enumerate((('fit_wall_seconds', 'B  Full fit (incl. selection)'),
                                             ('evaluation_wall_seconds', 'C  Recorded evaluation'))):
         left, width = 960 + 500*panel, 435
         observed = [r for r in rows if r['timing_status'] == 'measured']
@@ -239,7 +326,7 @@ def plot_unified(rows, dest):
         canvas.text(left + width/2, bottom + 52, 'Seconds per seed (log scale)', size=16, anchor='middle')
         for i, cell in enumerate(CELLS):
             y = top + i * step + step/2
-            if cell in FISHER_CELLS:
+            if lookup[cell, base.VARIANTS[0]]['timing_status'] != 'measured':
                 canvas.rect(left + 62, y - 12, width - 124, 25, '#ffffff')
                 canvas.text(left + width/2, y + 5, 'N/A: not recorded', size=15, anchor='middle', color='#64748b')
                 continue
@@ -251,16 +338,24 @@ def plot_unified(rows, dest):
                 canvas.marker(sx(mean), yy, base.COLORS[j], j, 3.2)
     canvas.text(30, bottom + 25, 'Top-2 = both true modifiers selected; uniform cutoff ties.', size=15)
     canvas.text(30, bottom + 51, 'Top-2 SE and all unrounded values are retained in the CSV.', size=15)
-    canvas.text(30, 1322, '* FedFisher uses saved GPU results; other rows use CPU comparison recipes. Common metric, but different fit/permutation implementations.', size=16)
-    canvas.text(30, 1350, 'FedFisher method-level times were not recorded: N/A is not zero. Full fit excludes data generation/evaluation; no real-network latency is measured.', size=16)
-    canvas.text(30, 1378, 'Evaluation workloads differ: outcome models also calculate logit diagnostics; R methods do not. No CPU-vs-GPU speed claim is supported.', size=16)
+    if all_cpu:
+        canvas.text(30, 1322, 'FedFisher recovery and time both use the accepted CPU reruns; all rows use one core. Mean +/- 1 SE over 300 seeds per condition.', size=16)
+        canvas.text(30, 1350, 'Full fit includes training, Fisher/compression, aggregation and selection/refit where applicable; data generation and evaluation are separate.', size=16)
+        canvas.text(30, 1378, 'Evaluation workloads differ (outcome models also include logit diagnostics). Serial simulation times exclude real-network and parallel latency.', size=16)
+    else:
+        canvas.text(30, 1322, '* FedFisher uses saved GPU results; other rows use CPU comparison recipes. Common metric, but different fit/permutation implementations.', size=16)
+        canvas.text(30, 1350, 'FedFisher method-level times were not recorded: N/A is not zero. Full fit excludes data generation/evaluation; no real-network latency is measured.', size=16)
+        canvas.text(30, 1378, 'Evaluation workloads differ: outcome models also calculate logit diagnostics; R methods do not. No CPU-vs-GPU speed claim is supported.', size=16)
     base.save_svg(canvas, dest, FIGURE)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output-dir', type=Path, default=base.DEST)
-    parser.add_argument('--render-only', action='store_true', help='reuse hash-bound saved Fisher report rows')
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument('--render-only', action='store_true', help='reuse the figure\'s hash-bound data source')
+    source.add_argument('--fisher-timing-report', type=Path,
+                        help='accepted formal CPU report directory; replace both Fisher recovery and time')
     args = parser.parse_args()
     dest = base.safe_path(args.output_dir, must_exist=True)
     require(dest not in (base.DATA, base.SCRATCH, base.OUTPUTS) and base.OUTPUTS not in dest.parents,
@@ -268,11 +363,21 @@ def main():
     for name in (FISHER_ROWS, SUMMARY, LEDGER, PROVENANCE, README, FIGURE+'.svg', FIGURE+'.png'):
         base.safe_path(dest / name)
     cpu, times, input_hashes = read_cpu(dest)
+    saved_report = None
     if args.render_only:
-        report = json.loads(base.safe_path(dest / PROVENANCE, must_exist=True).read_text())
-        require(report['formal_evidence_sha256'] == base.EVIDENCE_SHA, 'wrong accepted source')
+        saved_report = json.loads(base.safe_path(dest / PROVENANCE, must_exist=True).read_text())
+        require(saved_report['formal_evidence_sha256'] == base.EVIDENCE_SHA, 'wrong accepted source')
         for name in (FISHER_ROWS, LEDGER):
-            require(base.sha((dest / name).read_bytes()) == report['table_sha256'][name], 'Fisher report input changed')
+            require(base.sha((dest / name).read_bytes()) == saved_report['table_sha256'][name], 'Fisher report input changed')
+    fisher_report = args.fisher_timing_report
+    if saved_report and saved_report.get('fisher_source') == 'accepted_cpu_timing_rerun':
+        fisher_report = Path(saved_report['fisher_report_directory'])
+    cpu_fisher = fisher_report is not None
+    if cpu_fisher:
+        fisher, ledger = read_fisher_timing_report(fisher_report)
+        base.write_csv(dest / FISHER_ROWS, fisher)
+        (dest / LEDGER).write_text(json.dumps(ledger, indent=2) + '\n')
+    elif args.render_only:
         with (dest / FISHER_ROWS).open(newline='') as handle:
             fisher = list(csv.DictReader(handle))
         for row in fisher:
@@ -284,7 +389,8 @@ def main():
         fisher, ledger = collect_fisher()
         base.write_csv(dest / FISHER_ROWS, fisher)
         (dest / LEDGER).write_text(json.dumps(ledger, indent=2) + '\n')
-    rows = merge_rows(cpu, times, summarize_fisher(fisher))
+    rows = merge_rows(cpu, times, summarize_fisher(fisher, cpu=cpu_fisher),
+                      summarize_fisher_times(fisher) if cpu_fisher else None)
     base.write_csv(dest / SUMMARY, rows)
     base.plot_setup()
     plot_unified(rows, dest)
@@ -292,16 +398,22 @@ def main():
                   formal_evidence_sha256=base.EVIDENCE_SHA, cpu_input_table_sha256=input_hashes,
                   metric=METRIC, split='noniid', method_settings=len(CELLS), seeds_per_condition=300,
                   pilot_included=False, group_lasso_included=False,
-                  fisher_score_rows=len(fisher), fisher_boundary_tie_rows=sum(r['boundary_tie_size'] > 1 for r in fisher),
-                  missing_fisher_timing='not recorded; null/empty, never zero or inferred from batch duration',
-                  comparison_limit='same scientific metric; different source/fit/permutation implementations and hardware, not a controlled timing benchmark',
-                  historical_validation='manifest/marker identity and coverage; original markers lack score hashes; report-time hashes in input ledger',
+                  fisher_score_rows=len(fisher),
+                  fisher_source='accepted_cpu_timing_rerun' if cpu_fisher else 'historical_gpu',
+                  fisher_report_directory=str(fisher_report.resolve()) if cpu_fisher else None,
+                  fisher_boundary_tie_rows=None if cpu_fisher else sum(r['boundary_tie_size'] > 1 for r in fisher),
+                  fisher_acceptance_sha256=FISHER_ACCEPTANCE_SHA if cpu_fisher else None,
+                  missing_fisher_timing=None if cpu_fisher else 'not recorded; null/empty, never zero or inferred from batch duration',
+                  comparison_limit=('common endpoint and single-core CPU; method recipes and evaluation workloads differ'
+                                    if cpu_fisher else 'same scientific metric; different source/fit/permutation implementations and hardware, not a controlled timing benchmark'),
+                  historical_validation=('frozen formal acceptance -> report -> tables; both scores and timings from new CPU fits'
+                                         if cpu_fisher else 'manifest/marker identity and coverage; original markers lack score hashes; report-time hashes in input ledger'),
                   table_sha256={n: base.sha((dest/n).read_bytes()) for n in (FISHER_ROWS, SUMMARY, LEDGER)},
                   script_sha256={p.name: base.sha(p.read_bytes()) for p in
                                  (Path(__file__), Path(base.__file__), Path(timing.__file__), Path(legacy.__file__))},
                   figure_sha256={FIGURE+'.'+ext: base.sha((dest/(FIGURE+'.'+ext)).read_bytes()) for ext in ('svg', 'png')})
     (dest / PROVENANCE).write_text(json.dumps(report, indent=2, allow_nan=False)+'\n')
-    (dest / README).write_text('''# non-IID 统一方法总览
+    readme = '''# non-IID 统一方法总览
 
 `noniid_all_methods_top2_and_time.png/.svg` 按方法/网络深度排列，旧、新实验不再分区。
 22 个 CPU 比较配置与 FedFisher diag/KFAC × shallow/deep 四个配置，共 26 个设置。
@@ -326,7 +438,37 @@ CPU 方法使用已验收、哈希绑定的报告表。旧 FedFisher 的 manifes
 绘图脚本：`scripts/make_unified_noniid_comparison.py`；加 `--render-only` 可使用哈希绑定
 的展示表快速重绘，无需注册调度器。数据/图片在本目录，缓存位于
 `/scr/del6500/FedFisher/completed-noniid-plot-cache/`；科学结果和完成证据完全不改动。
-''', encoding='utf-8')
+'''
+    if cpu_fisher:
+        readme = f'''# non-IID 统一方法总览（FedFisher CPU 正式重跑已加入）
+
+`{FIGURE}.png/.svg` 保持原图的 26 个方法配置、四变体列顺序及三栏布局。
+四行 FedFisher Diag/KFAC × 浅层/深层的恢复率和耗时，均来自新验收的单核 CPU
+正式重跑；每个条件 300 个种子，只纳入 non-IID。其他 22 个配置的数据不变。
+这不是把新时间回填到旧 GPU 模型上：对应恢复率也同步换为新 CPU 模型的结果。
+
+Top-2 为概率尺度 raw-X 扰动评分下两个真 modifier 同时入选的概率
+`probability_all_signals_selected × 100`，不是 `expected_topk_precision`。
+该已保存指标包含精确并列处理；本次不重算预测或生成数据。四个变体各自汇总
+300 个独立种子，时间误差线为均值 ± 1 SE；所有未舍入值与恢复率 SE 保留在 CSV。
+
+所有方法使用单核 CPU 计时。完整拟合包含方法实际发生的训练、Fisher、压缩、
+聚合及选参/重拟合成本，评估单列；FedFisher 的验证选点计入聚合，没有额外最终 refit。
+不包含排队、导入、数据生成、文件 I/O 或实际网络传输。方法训练配方不同；
+结局模型的评估还含 logit 辅助诊断，R 方法不含，所以评估时间不是统一的纯推理测速。
+单进程模拟耗时不能解释为真实联邦并行部署延迟。
+
+FedFisher 来源：`{fisher_report.resolve()}`。
+验收 SHA256：`{FISHER_ACCEPTANCE_SHA}`。
+绘图读取冻结的验收 → 报告 → 展示表哈希链，不以新的绘图源码重新认证旧训练产物。
+旧 GPU 科学输出与原来缺失的时间保持不变；更新前的图、展示表和说明已单独归档。
+
+绘图脚本：`scripts/make_unified_noniid_comparison.py`。
+更新时指定 `--fisher-timing-report`；此后 `--render-only` 自动使用已记录的 CPU 来源。
+图和展示表在本目录，缓存仍在 `/scr/del6500/FedFisher/completed-noniid-plot-cache/`。
+没有训练、推理、调度提交或科学完成证据修改。
+'''
+    (dest / README).write_text(readme, encoding='utf-8')
     print(json.dumps(report, indent=2), flush=True)
 
 
