@@ -5,6 +5,90 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Survival formal closeout and dsLasso recovery — 2026-09-21 UTC
+
+The user authorized the recovery plan and retained responsibility for asking
+the operator to submit the missing original KFAC requests. Before any source
+edit, all 160 P2 formal requests reached terminal central states: 141 completed
+and 19 failed. All 128 FedFisher shards completed. Fresh source-bound scientific
+validation accepted all 2,400 FedFisher cells, 1,800 within-scenario method-data
+pairs, 1,200 same-depth Diag/KFAC local-fit pairs and 300 common-test pairs.
+The original dsLasso cohort remains honestly incomplete: 420 valid cells,
+19 iteration-limit failures and 161 unattempted cells. Its 420 available
+data pairs against FedFisher passed. No FedFisher project job was nonterminal
+at the source-release check. This is an observed closeout, not a live-status
+claim for later sessions.
+
+The immutable original-source proof is
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/formal-closeout-20260921T043146Z/closeout.json`,
+SHA-256 `5a452ab58f02409336eaa366e88dc75f3f7fdf3a133aee530bff0528bec86a08`.
+It binds all valid artifact sets, failed/missing cells, run manifests, original
+requests, producer attempts/logs/retries/audit records, scientific source bytes
+and original clean commit `98d84d8bfc6ade81cbd74a1892fb8b6c72afce28`.
+All original outputs, failures and requests are preserved. The proof explicitly
+sets whole-cohort acceptance false while passing the source-release gate.
+
+Development proceeded on `codex/survival-dslasso-recovery-v1`. Recovery adds
+optional instrumentation to the shared proximal/CV implementation and small
+subclass hooks to the existing survival artifact store. Its modules are
+`recovery_protocol.py` (lightweight fixed recipes), `recovery_method.py`
+(numerical policies/evidence), `recovery.py` (runner/store), and
+`recovery_acceptance.py` (diagnostic and mixed-version gates). The adapter's
+parameter validation imports no numerical library before setting the allocated
+thread environment.
+Original data, pseudo-value, link and evaluator implementation bytes remain
+protected by the closeout. Existing task parameters and scientific namespaces
+are unchanged. The repository does not contain 108 duplicated request examples;
+the builder materializes exact requests under scratch only after source freeze.
+
+The fixed diagnostic has 27 historical cases by four recipes: baseline
+4,000 iterations/step cap 1, budget-only 16,000/1, step-only 4,000/64 and combined
+16,000/64. Cases are bound to the preparation inventory at
+`dslasso-recovery-preparation-20260920T002124Z/diagnostic-cases.json` under the
+same durable survival report root, SHA-256
+`7c63a9a871bb4f1a30ad51d38cb2403cf74ab2afe1c9f99a80dad89f087afee0`.
+Only finite, validated iteration-limit observations may complete diagnostically.
+Baseline reproduction and all 27 stationary candidate cases are prerequisites
+for formal eligibility. Select the eligible candidate with the smallest total
+loss/gradient call count; fixed tie order is budget-only, step-only, combined.
+No true modifier, recovery metric or RMSE enters selection. Actual timing,
+memory, communication and saturation remain necessary operator review evidence.
+
+The two new task names are `effect-modifier-survival-dslasso-diagnostic` and
+`effect-modifier-survival-dslasso-recovery-shard`. Their proposal under
+`effect_modifier_experiment/server_scheduler/survival-recovery-v1/` is disabled.
+Project code does not register, enable or submit them. The new builder is
+`scripts/prepare_survival_recovery_requests.py`; the saved-evidence validator is
+`scripts/validate_survival_recovery.py`. The formal task and builder require
+actual same-source diagnostic acceptance, derive a single recipe from that
+proof and bind it into the manifest/start prerequisite. Default formal coverage
+is 32 requests for 600 new dsLasso cells; the old 420 successes cannot replace
+any of these cells. Final acceptance explicitly rechecks retained FedFisher
+artifacts and cross-version data/PV/evaluation pairing.
+
+Validation artifacts belong below
+`/scr/del6500/FedFisher/survival-recovery-validation/`. After the tested code is
+committed cleanly, materialize only the 108 diagnostic requests and record
+the exact new commit, inventory hash and operator instructions in a scratch
+handoff and durable preparation report. Keep that canonical source frozen
+through diagnostic, formal execution and final scientific acceptance. Actual
+pilot convergence remains unmeasured until operator admission and execution;
+fixture success does not establish that any candidate repairs the failures.
+
+Pre-freeze validation passed all 575 project tests with zero failures, errors
+or skips (57.017 seconds in the test runner). The focused fixtures cover exact
+baseline numerical/communication parity, bounded step/budget behavior, finite
+failure endpoints, rehashed tampering, original data checks before fitting,
+producer/skip retries, complete 108-observation acceptance and a complete
+600-unit formal acceptance fixture. Both new tasks pass fresh-process checks
+that numerical libraries are absent before adapter thread setup. All 170
+original survival request/configuration specifications match the before-edit
+golden capture. Protocol extraction preserved all 204 new configurations
+(108 diagnostic and 32 formal shards for each of three candidates). Changed
+Python/JSON parsed successfully, the disabled proposal/examples passed the
+installed scheduler's pure read-only parsers, and whitespace checks passed.
+Full log: `/scr/del6500/FedFisher/survival-recovery-validation/full-suite.log`.
+
 ## Shared infrastructure maintenance and replacement pilot — 2026-09-17 UTC
 
 The user requested fixing duplicated request/evidence infrastructure,

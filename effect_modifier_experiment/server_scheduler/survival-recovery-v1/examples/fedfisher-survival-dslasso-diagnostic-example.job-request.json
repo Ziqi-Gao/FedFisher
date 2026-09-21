@@ -1,0 +1,11 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-dslasso-diagnostic-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-dslasso-diagnostic",
+  "parameters": {
+    "case": "covariate_shift_042",
+    "recipe": "baseline"
+  },
+  "priority": 0
+}

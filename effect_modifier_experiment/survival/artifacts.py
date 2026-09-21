@@ -113,7 +113,7 @@ def validate_pseudo_diagnostics(diagnostics, sizes, tau):
                  'survival risk count disagrees with observed support')
 
 
-def validate_result(result, arrays, identity, config):
+def validate_result(result, arrays, identity, config, *, dslasso_validator=None):
     """Validate saved arithmetic/recipe claims; no data generation or prediction."""
     from .evaluation import validate_evaluation
     try:
@@ -141,7 +141,8 @@ def validate_result(result, arrays, identity, config):
                      and arrays['coefficients'].shape == (1 + 2 * dgp['covariate_dim'],)
                      and all(value.dtype == np.float64 for value in arrays.values()),
                      'invalid survival linear model representation')
-            validate_fit_diagnostics(result['fit'], method['optimizer'], arrays, sizes)
+            validator = validate_fit_diagnostics if dslasso_validator is None else dslasso_validator
+            validator(result['fit'], method['optimizer'], arrays, sizes)
         else:
             from .fisher import FisherConfig, validate_fit_report
             expected_uploads = ['upload_%03d' % index for index in range(len(sizes))]
@@ -193,13 +194,44 @@ def validate_result(result, arrays, identity, config):
 class ArtifactStore:
     """One scenario/method manifest and immutable seed cells per scientific run."""
 
-    def __init__(self, config, provenance, directory=None, prerequisite=None):
-        self.config = json.loads(canonical(config))
+    protocol_name = protocol.PROTOCOL
+    result_name = 'result.json'
+    model_name = 'model.npz'
+    done_name = 'done.json'
+
+    def _validate_config(self):
         parameters = dict(cell=self.config['cell'], scenario=self.config['scenario'])
         if self.config['task'] == protocol.FORMAL_TASK:
             parameters.update(shard_index=0, shard_count=16)
         _require(self.config == protocol.run_config(self.config['task'], parameters),
                  'survival configuration is not a reviewed fixed recipe')
+
+    def _validate_prerequisite(self, prerequisite):
+        if self.config['task'] == protocol.FORMAL_TASK:
+            _require(isinstance(prerequisite, dict) and set(prerequisite) == {
+                'pilot_acceptance_sha256', 'provenance_sha256'}
+                and _hash(prerequisite['pilot_acceptance_sha256'])
+                and prerequisite['provenance_sha256'] == self.provenance['provenance_sha256'],
+                'formal survival store requires source-bound pilot acceptance evidence')
+        else:
+            _require(prerequisite is None, 'pilot stores cannot bind formal prerequisites')
+
+    def _validate_seed(self, seed):
+        return protocol.validate_seed(self.config, seed)
+
+    def _validate_result(self, result, arrays, identity):
+        validate_result(result, arrays, identity, self.config)
+
+    def _failure_record(self, error, seed):
+        return dict(identity=self.identity(seed), error_type=type(error).__name__, message=str(error))
+
+    @property
+    def artifact_names(self):
+        return ('started.json', self.model_name, self.result_name)
+
+    def __init__(self, config, provenance, directory=None, prerequisite=None):
+        self.config = json.loads(canonical(config))
+        self._validate_config()
         self.provenance = dict(provenance)
         _require(set(self.provenance) == {*PROVENANCE_KEYS, 'provenance_sha256'},
                  'survival provenance field inventory mismatch')
@@ -211,26 +243,19 @@ class ArtifactStore:
                  'invalid survival provenance digest')
         _require(hashlib.sha256(canonical_text(self.provenance, PROVENANCE_KEYS).encode()).hexdigest()
                  == self.provenance['provenance_sha256'], 'inconsistent survival provenance digest')
-        if self.config['task'] == protocol.FORMAL_TASK:
-            _require(isinstance(prerequisite, dict) and set(prerequisite) == {
-                'pilot_acceptance_sha256', 'provenance_sha256'}
-                and _hash(prerequisite['pilot_acceptance_sha256'])
-                and prerequisite['provenance_sha256'] == self.provenance['provenance_sha256'],
-                'formal survival store requires source-bound pilot acceptance evidence')
-        else:
-            _require(prerequisite is None, 'pilot stores cannot bind formal prerequisites')
+        self._validate_prerequisite(prerequisite)
         self.prerequisite = None if prerequisite is None else json.loads(canonical(prerequisite))
         self._prerequisite_json = canonical(self.prerequisite)
         self.config_sha256 = digest(self.config)
         self.run_id = self.config['run_id']
         self.directory = safe_path(OUTPUT_ROOT/self.run_id if directory is None else directory)
         _require(self.directory.name == self.run_id, 'survival directory/run identity mismatch')
-        self.manifest = dict(format_version='2', protocol=protocol.PROTOCOL, run_id=self.run_id,
+        self.manifest = dict(format_version='2', protocol=self.protocol_name, run_id=self.run_id,
             config_json=canonical(self.config), config_sha256=self.config_sha256, **self.provenance)
         self._current()
 
     def identity(self, seed=0):
-        protocol.validate_seed(self.config, seed)
+        self._validate_seed(seed)
         return dict(run_id=self.run_id, config_sha256=self.config_sha256,
                     provenance_sha256=self.provenance['provenance_sha256'],
                     seed=seed, cell=self.config['cell'], scenario=self.config['scenario'])
@@ -298,11 +323,11 @@ class ArtifactStore:
 
     def _read(self, seed=0):
         path = self.cell_dir(seed)
-        result = read_json(path/'result.json')
-        with np.load(safe_path(path/'model.npz'), allow_pickle=False) as archive:
+        result = read_json(path/self.result_name)
+        with np.load(safe_path(path/self.model_name), allow_pickle=False) as archive:
             _require(len(archive.files) == len(set(archive.files)), 'duplicate survival model arrays')
             arrays = {name: archive[name] for name in archive.files}
-        validate_result(result, arrays, self.identity(seed), self.config)
+        self._validate_result(result, arrays, self.identity(seed))
         return result, arrays
 
     def status(self, seed=0):
@@ -312,11 +337,11 @@ class ArtifactStore:
             self._current()
             return 'missing'
         _require(path.is_dir() and {entry.name for entry in path.iterdir()} == {
-            'started.json', 'model.npz', 'result.json', 'done.json'},
+            *self.artifact_names, self.done_name},
             'partial or invalid survival output; preserve without overwrite')
-        marker = read_json(path/'done.json')
+        marker = read_json(path/self.done_name)
         _require(set(marker) == {'identity', 'artifacts'} and marker['identity'] == self.identity(seed)
-                 and set(marker['artifacts']) == {'started.json', 'model.npz', 'result.json'},
+                 and set(marker['artifacts']) == set(self.artifact_names),
                  'survival completion identity/inventory mismatch')
         for name, checksum in marker['artifacts'].items():
             artifact = safe_path(path/name)
@@ -349,24 +374,23 @@ class ArtifactStore:
         _require(path.is_dir() and {entry.name for entry in path.iterdir()} == {'started.json'},
                  'partial or completed survival cell cannot be overwritten')
         self._started(seed)
-        validate_result(result, arrays, self.identity(seed), self.config)
+        self._validate_result(result, arrays, self.identity(seed))
         buffer = io.BytesIO()
         np.savez(buffer, **arrays)
         self._current()
-        create_bytes(path/'model.npz', buffer.getvalue())
-        create_bytes(path/'result.json', canonical(result).encode())
+        create_bytes(path/self.model_name, buffer.getvalue())
+        create_bytes(path/self.result_name, canonical(result).encode())
         self._read(seed)
         self._current()
         marker = dict(identity=self.identity(seed), artifacts={name: hashlib.sha256(
-            safe_path(path/name).read_bytes()).hexdigest() for name in ('started.json', 'model.npz', 'result.json')})
-        create_bytes(path/'done.json', canonical(marker).encode())
+            safe_path(path/name).read_bytes()).hexdigest() for name in self.artifact_names})
+        create_bytes(path/self.done_name, canonical(marker).encode())
         _require(self.status(seed) == 'validated', 'new survival completion did not validate')
 
     def fail(self, error, seed=0):
         self._manifest()
         path = self.cell_dir(seed)
         self._started(seed)
-        _require(not (path/'done.json').exists(), 'completed survival output cannot be marked failed')
-        create_bytes(path/'failure.json', canonical(dict(identity=self.identity(seed),
-            error_type=type(error).__name__, message=str(error))).encode())
+        _require(not (path/self.done_name).exists(), 'completed survival output cannot be marked failed')
+        create_bytes(path/'failure.json', canonical(self._failure_record(error, seed)).encode())
         self._current()

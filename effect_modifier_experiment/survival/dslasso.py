@@ -118,7 +118,8 @@ def _residuals(beta, gradient, penalty, penalty_start, step):
     return float(np.max(residual)), float(np.max(np.abs((beta - proximal) / step)))
 
 
-def proximal_fit(sites, initial, penalty_start, penalty, config, communication=None):
+def proximal_fit(sites, initial, penalty_start, penalty, config, communication=None,
+                 recovery=None):
     """Monotone proximal gradient with checked KKT and gradient mapping."""
     config.validate()
     beta = np.asarray(initial, dtype=np.float64).copy()
@@ -127,31 +128,47 @@ def proximal_fit(sites, initial, penalty_start, penalty, config, communication=N
             or not np.isfinite(penalty) or penalty < 0):
         raise ValueError("invalid proximal fit inputs")
     step = config.initial_step
-    smooth, gradient = aggregate_loss_gradient(sites, beta, communication)
+    evaluate = aggregate_loss_gradient if recovery is None else recovery.evaluate
+    if recovery is not None:
+        recovery.start_fit(beta, penalty_start, penalty, config)
+    smooth, gradient = evaluate(sites, beta, communication)
     initial_objective = smooth + penalty * np.abs(beta[penalty_start:]).sum()
+    if recovery is not None:
+        recovery.accept_initial(beta, smooth, gradient, initial_objective)
     backtracks = 0
     converged = False
     for iteration in range(config.max_iter + 1):
         kkt, mapping = _residuals(beta, gradient, penalty, penalty_start, step)
         threshold = config.tolerance * (1 + np.max(np.abs(beta)))
+        if recovery is not None:
+            recovery.observe(iteration, beta, smooth, gradient, step, kkt, mapping,
+                             threshold, backtracks)
         if kkt <= threshold and mapping <= threshold:
             converged = True
             break
         if iteration == config.max_iter:
             break
-        trial = min(config.initial_step, step * 2)
+        trial = min(config.initial_step, step * 2) if recovery is None else (
+            config.initial_step if iteration == 0 else min(recovery.policy.max_step, step * 2))
         while True:
             candidate = beta - trial * gradient
             tail = candidate[penalty_start:]
             candidate[penalty_start:] = np.sign(tail) * np.maximum(np.abs(tail) - trial * penalty, 0)
-            candidate_smooth, candidate_gradient = aggregate_loss_gradient(sites, candidate, communication)
-            delta = candidate - beta
-            bound = smooth + gradient @ delta + (delta @ delta) / (2 * trial)
-            if candidate_smooth <= bound + 1e-14:
+            if recovery is None:
+                candidate_smooth, candidate_gradient = evaluate(sites, candidate, communication)
+                delta = candidate - beta
+                bound = smooth + gradient @ delta + (delta @ delta) / (2 * trial)
+                accepted = candidate_smooth <= bound + 1e-14
+            else:
+                accepted, candidate_smooth, candidate_gradient = recovery.trial(
+                    sites, candidate, beta, smooth, gradient, trial, communication)
+            if accepted:
                 break
             trial *= .5
             backtracks += 1
             if trial < config.min_step:
+                if recovery is not None:
+                    recovery.fail("line_search_exhausted", backtracks=backtracks)
                 raise RuntimeError("survival LASSO line search exhausted min_step")
         step = trial
         beta, smooth, gradient = candidate, candidate_smooth, candidate_gradient
@@ -162,6 +179,8 @@ def proximal_fit(sites, initial, penalty_start, penalty, config, communication=N
                   kkt_residual_inf=kkt, proximal_gradient_mapping_inf=mapping,
                   stationarity_threshold=float(threshold), final_step_size=float(step),
                   backtracks=backtracks)
+    if recovery is not None:
+        report = recovery.finish_fit(report)
     return beta, report
 
 
@@ -191,27 +210,36 @@ def _prepare(rows, tau, config, communication):
     return prepared, means, scales, initial
 
 
-def _path(prepared, initial, p, fractions, config, communication):
+def _path(prepared, initial, p, fractions, config, communication, recovery=None):
     penalty_start = p + 2  # [intercept, A, X..., AX...]
     reduced = [(x[:, :penalty_start], y) for x, y in prepared]
+    if recovery is not None:
+        recovery.set_fit_context("unpenalized_start", penalty_start=penalty_start)
     start, start_report = proximal_fit(reduced, initial[:penalty_start],
-                                       penalty_start, 0., config, communication)
+                                       penalty_start, 0., config, communication, recovery)
     _require_stationary(start_report)
     beta = np.zeros_like(initial)
     beta[:penalty_start] = start
-    _, gradient = aggregate_loss_gradient(prepared, beta, communication)
+    evaluate = aggregate_loss_gradient if recovery is None else recovery.evaluate
+    _, gradient = evaluate(prepared, beta, communication)
     lambda_max = float(np.max(np.abs(gradient[penalty_start:])))
+    if recovery is not None:
+        recovery.set_lambda_max(lambda_max)
     solutions, reports = [], []
-    for fraction in fractions:
+    for index, fraction in enumerate(fractions):
+        if recovery is not None:
+            recovery.set_fit_context("penalized_path", lambda_index=index,
+                lambda_fraction=float(fraction), lambda_value=float(lambda_max * fraction),
+                penalty_start=penalty_start)
         beta, report = proximal_fit(prepared, beta, penalty_start,
-                                    lambda_max * fraction, config, communication)
+                                    lambda_max * fraction, config, communication, recovery)
         _require_stationary(report)
         solutions.append(beta.copy())
         reports.append(report)
     return solutions, dict(lambda_max=lambda_max, unpenalized_start=start_report, fits=reports)
 
 
-def fit_dslasso(sites, tau, seed=0, config=DslassoConfig()):
+def fit_dslasso(sites, tau, seed=0, config=DslassoConfig(), recovery=None):
     """Training-only site CV; each validation partition computes its own PVs.
 
     CV selects a common lambda *fraction*: each training fold obtains its own
@@ -236,7 +264,10 @@ def fit_dslasso(sites, tau, seed=0, config=DslassoConfig()):
         labels = np.empty(len(site.rows.x), dtype=int)
         labels[rng.permutation(len(labels))] = np.arange(len(labels)) % config.num_folds
         assignments.append(labels)
-    communication = _Communication()
+    communication = _Communication() if recovery is None else recovery.communication
+    if recovery is not None:
+        recovery.initialize(config, [len(r.x) for r in rows], fractions, assignments, sites)
+        recovery.begin_stage("cross_validation")
     squared_error = np.zeros(config.num_lambdas)
     validation_n = 0
     cv_paths = []
@@ -244,26 +275,39 @@ def fit_dslasso(sites, tau, seed=0, config=DslassoConfig()):
         training = [r.subset(np.flatnonzero(a != fold)) for r, a in zip(rows, assignments)]
         validation = [r.subset(np.flatnonzero(a == fold)) for r, a in zip(rows, assignments)]
         prepared, means, scales, initial = _prepare(training, tau, config, communication)
-        solutions, report = _path(prepared, initial, p, fractions, config, communication)
+        if recovery is not None:
+            recovery.begin_path("cv", fold, prepared, means, scales, training)
+        solutions, report = _path(prepared, initial, p, fractions, config, communication, recovery)
         report["fold"] = fold
         cv_paths.append(report)
-        for r in validation:
+        for site_index, r in enumerate(validation):
             design = np.column_stack((np.ones(len(r.x)), (r.design - means) / scales))
             target = site_pseudo_response(r, tau)
+            if recovery is not None:
+                recovery.validation_partition(site_index, r, design, target)
             for index, beta in enumerate(solutions):
-                residual = survival_mean(design @ beta) - target
+                eta = design @ beta
+                if recovery is not None:
+                    recovery.check_validation_predictor(eta)
+                residual = survival_mean(eta) - target
                 squared_error[index] += float(residual @ residual)
             validation_n += len(r.x)
         communication.record("validation_path_loss", len(sites),
                              len(sites) * 8 * (1 + config.num_lambdas),
                              len(sites) * 8 * (2 + 2 * p) * config.num_lambdas)
+        if recovery is not None:
+            recovery.completed_validation(fold, squared_error, validation_n)
     cv_loss = squared_error / validation_n
     # Fractions descend: np.argmin chooses the stronger penalty in exact ties.
     selected = int(np.argmin(cv_loss))
     cv_seconds = time.perf_counter() - started
     refit_started = time.perf_counter()
+    if recovery is not None:
+        recovery.begin_stage("refit")
     prepared, means, scales, initial = _prepare(rows, tau, config, communication)
-    solutions, refit = _path(prepared, initial, p, fractions[:selected + 1], config, communication)
+    if recovery is not None:
+        recovery.begin_path("refit", None, prepared, means, scales, rows)
+    solutions, refit = _path(prepared, initial, p, fractions[:selected + 1], config, communication, recovery)
     beta = solutions[-1]
     coefficients = beta[1:] / scales
     model = SurvivalLinearModel(float(beta[0] - means @ coefficients), coefficients)

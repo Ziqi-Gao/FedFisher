@@ -246,6 +246,88 @@ parameter alignment and KFAC quality under site heterogeneity are empirical
 questions. Low training loss or solver stationarity alone cannot establish
 accurate treatment contrasts.
 
+## dsLasso convergence recovery
+
+The additive recovery path preserves original results and requires an immutable
+old-source closeout before a source transition. `recovery_protocol.py` fixes
+the cases, recipes and namespaces without importing numerical libraries during
+scheduler parameter validation. `recovery.py` implements the foreground runner
+and extends the existing artifact store through small validation hooks.
+`recovery_method.py` supplies optional
+observers and terminal arithmetic checks around the shared dsLasso solver;
+the original optimizer defaults and request/configuration bytes stay unchanged.
+`recovery_acceptance.py` owns the numerical expansion gate and the explicit
+comparison to archived FedFisher results. These modules share the original
+data, pseudo-value, link and evaluation implementations.
+
+| Fixed recipe | Iteration limit per fit | Maximum accepted step |
+| --- | ---: | ---: |
+| baseline | 4,000 | 1 |
+| budget_only | 16,000 | 1 |
+| step_only | 4,000 | 64 |
+| budget_and_step | 16,000 | 64 |
+
+Every recipe starts at step 1 and retains the original tolerance, penalty
+scope, five-fold CV, 30 lambda fractions, selection rule and refitting. Larger
+steps may reach a different stationary solution and change lambda maxima or
+the CV winner; this is an explicit optimization recipe change. Stationarity
+still does not imply a global optimum.
+
+The diagnostic task `effect-modifier-survival-dslasso-diagnostic` accepts only
+`{case,recipe}`. Its 27 cases are fixed from a hash-bound historical inventory:
+19 observed failures, two slow successful controls, two original seed-zero
+controls and four previously unattempted cases. All four recipes run the full
+CV/refit procedure until its first nonstationary fit. Traces record initial,
+fixed-stride and terminal states, with terminal coefficients/gradients,
+objective decomposition, KKT/mapping thresholds, partition/PV/standardization
+hashes, saturation, communication and measured costs.
+Total fit time includes all diagnostic bookkeeping and numerical guards.
+`diagnostic_fingerprint_seconds` isolates fingerprint construction only; it
+does not claim to measure the entire instrumentation overhead.
+
+Only a validated finite `iteration_limit` is a completed diagnostic observation.
+It is stored using `diagnostic_result.json`, `fit_arrays.npz` and
+`diagnostic_done.json` below `survival_v1_dslasso_diagnostic_r1_<recipe>_<scenario>`.
+Unexpected, nonfinite, line-search and I/O errors remain failed jobs. A failed
+fit stops its mathematical path; its coefficients are never passed to the next
+lambda. Failed-stage elapsed time remains recorded.
+
+Acceptance requires all 108 immutable observations, actual central successful
+jobs and producing-attempt evidence. Baseline must reproduce the 19 known
+iteration-limit outcomes and the four successful controls' original numeric
+results; no historical failed fold/lambda is invented. A candidate qualifies
+only if all 27 cases converge under unchanged stationarity checks. Among
+qualifying candidates, select the smallest summed loss/gradient call count;
+ties prefer `budget_only`, then `step_only`, then `budget_and_step`. This fixed
+rule uses no modifier truth or recovery metrics. Calls have different costs
+across designs and selected paths, so actual wall/CPU time and communication
+are reported separately. Complete diagnostic evidence may be formally
+ineligible; its saved completion flag alone cannot open the expansion gate.
+
+The formal task `effect-modifier-survival-dslasso-recovery-shard` accepts only
+`{scenario,shard_index,shard_count}` and derives one global recipe from freshly
+verified same-source diagnostic acceptance. It covers both scenarios and all
+300 seeds uniformly (32 requests by default), in new
+`survival_v1_dslasso_recovery_r1_<scenario>_300seeds` directories. Original
+successful dsLasso cells remain historical; they are not substituted into this
+cohort. Formal completion still requires every fitted path to be stationary.
+
+Use `scripts/prepare_survival_recovery_requests.py` for the diagnostic outbox;
+`--cohort formal --diagnostic-acceptance PATH` requires actual accepted evidence.
+`scripts/validate_survival_recovery.py --inventory PATH` saves a source-specific
+diagnostic proof; `--cohort formal` instead validates the full new cohort and
+rehashes archived FedFisher artifacts and producer evidence. New/old pairs must
+match scientific source bytes, configurations, datasets, PV summaries and
+evaluator inputs/permutations while retaining their actual distinct model
+provenance. No data or predictions are regenerated during acceptance.
+
+The separate disabled proposal and two schemas are under
+`server_scheduler/survival-recovery-v1/`. Diagnostic and formal code are frozen
+together; registration, pilot admission and measured-resource review remain
+operator actions. Outbox publication is never submission. Recovery proofs stay
+under the survival report root, and development fixtures/caches stay under
+`/scr/del6500/FedFisher/survival-recovery-validation/`.
+
 Before expansion, pilot review must examine PV ranges, censoring and support
 at tau, modifier recovery and contrast RMSE,
 solver stationarity, same-scenario paired data fingerprints, complete timing,
