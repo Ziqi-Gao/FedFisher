@@ -10,7 +10,14 @@ FORMAL_TASK = 'effect-modifier-survival-dslasso-recovery-shard'
 REPAIR_PROTOCOL = 'survival-dslasso-repair-v2'
 REPAIR_DIAGNOSTIC_TASK = 'effect-modifier-survival-dslasso-repair-pilot'
 REPAIR_FORMAL_TASK = 'effect-modifier-survival-dslasso-repair-shard'
-TASKS = (DIAGNOSTIC_TASK, FORMAL_TASK, REPAIR_DIAGNOSTIC_TASK, REPAIR_FORMAL_TASK)
+INTEGRATED_PROTOCOL = 'survival-dslasso-integrated-v3'
+INTEGRATED_DIAGNOSTIC_TASK = 'effect-modifier-survival-dslasso-integrated-pilot'
+INTEGRATED_FORMAL_TASK = 'effect-modifier-survival-dslasso-integrated-shard'
+EPOCH_TASKS = {1: (DIAGNOSTIC_TASK, FORMAL_TASK),
+               2: (REPAIR_DIAGNOSTIC_TASK, REPAIR_FORMAL_TASK),
+               3: (INTEGRATED_DIAGNOSTIC_TASK, INTEGRATED_FORMAL_TASK)}
+EPOCH_PROTOCOLS = {1: PROTOCOL, 2: REPAIR_PROTOCOL, 3: INTEGRATED_PROTOCOL}
+TASKS = tuple(task for pair in EPOCH_TASKS.values() for task in pair)
 REPAIR_RECIPE = 'budget_and_step'
 REPAIR_EVIDENCE_SCHEMA = 'survival_dslasso_numerical_recovery_v2'
 SCENARIOS = protocol.SCENARIOS
@@ -32,6 +39,11 @@ R1_DIAGNOSTIC_ACCEPTANCE = dict(
          'dslasso-recovery-v1/diagnostic-'
          '4d062bc5018d28696584889e1a1365860bcbc77a06936fac590e6ab4c08f7d1c.acceptance.json',
     sha256='82dc808bbe3f2b634a3705156193a379d0bf175f0821f786b47573f29b582bff')
+R2_DIAGNOSTIC_ACCEPTANCE = dict(
+    path='/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/'
+         'dslasso-repair-v2/diagnostic-'
+         'd4ad3f7c5f9cd137f834a311dd56481ef12a5e9af26c5d2df45ce5f6e4512422.acceptance.json',
+    sha256='f9d85b93e3233ff832fe441422aa704a2419969f4c0b75866ced43fd38e92f68')
 
 _CASE_GROUPS = (
     ('covariate_shift', 'observed_failure',
@@ -53,15 +65,15 @@ REPAIR_CASES = dict(CASES, **{
 
 
 def tasks_for_epoch(epoch):
-    if type(epoch) is not int or epoch not in (1, 2):
+    if type(epoch) is not int or epoch not in EPOCH_TASKS:
         raise ValueError('unknown survival recovery epoch')
-    return TASKS[:2] if epoch == 1 else TASKS[2:]
+    return EPOCH_TASKS[epoch]
 
 
 def task_epoch(task):
     if not isinstance(task, str) or task not in TASKS:
         raise ValueError('unknown survival recovery task')
-    return 1 if task in TASKS[:2] else 2
+    return next(epoch for epoch, pair in EPOCH_TASKS.items() if task in pair)
 
 
 def is_diagnostic(task):
@@ -148,24 +160,27 @@ def run_config(task, parameters, recipe=None):
         if recipe not in RECIPES or recipe == 'baseline':
             raise ValueError('formal recovery requires a gate-selected candidate recipe')
         scenario = p['scenario']
-    if epoch == 2 and recipe != REPAIR_RECIPE:
+    if epoch >= 2 and recipe != REPAIR_RECIPE:
         raise ValueError('repair epoch retains the previously selected budget_and_step recipe')
     result = protocol.run_config(protocol.FORMAL_TASK,
         dict(cell='dslasso', scenario=scenario, shard_index=0, shard_count=16))
-    result.update(protocol=PROTOCOL if epoch == 1 else REPAIR_PROTOCOL, task=task, run_id=run_id(task, p),
+    result.update(protocol=EPOCH_PROTOCOLS[epoch], task=task, run_id=run_id(task, p),
         method=method_config(recipe), recovery_recipe=recipe,
         original_closeout=deepcopy(ORIGINAL_CLOSEOUT), case_inventory=deepcopy(CASE_INVENTORY))
-    if epoch == 2:
+    if epoch >= 2:
         result.update(required_evidence_schema=REPAIR_EVIDENCE_SCHEMA,
             repair_closeout=deepcopy(REPAIR_CLOSEOUT),
             r1_diagnostic_acceptance=deepcopy(R1_DIAGNOSTIC_ACCEPTANCE))
+    if epoch == 3:
+        result['r2_diagnostic_acceptance'] = deepcopy(R2_DIAGNOSTIC_ACCEPTANCE)
     if diagnostic:
         result['seeds'] = sorted(case['seed'] for case in cases_for_task(task).values()
                                  if case['scenario'] == scenario)
         result['timing']['stages'] = ['data_preparation', 'fit']
         result['diagnostic_evaluation_performed'] = False
         result['recipe_selection_scope'] = ('numerical_convergence_and_cost_only' if epoch == 1
-                                            else 'fixed_r1_recipe_and_numeric_parity')
+            else 'fixed_r1_recipe_and_numeric_parity' if epoch == 2
+            else 'fixed_r2_recipe_and_numeric_parity')
     return result
 
 

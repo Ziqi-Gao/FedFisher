@@ -102,7 +102,7 @@ def validate_result(result, arrays, identity, config):
                      and arrays['terminal_beta'].ndim == 1
                      and arrays['terminal_beta'].shape == arrays['terminal_gradient'].shape,
                      'invalid nonstationary diagnostic endpoint representation')
-        _validate_fit(result, arrays, identity, config, True if task_epoch(config['task']) == 2 else None)
+        _validate_fit(result, arrays, identity, config, True if task_epoch(config['task']) >= 2 else None)
         fp = result['fingerprints']
         archive_key = 'model' if result['outcome'] == 'stationary' else 'arrays'
         _require(isinstance(fp, dict) and set(fp) == {
@@ -213,7 +213,7 @@ def compute_cell(config, seed, reference=None):
                                   fit_recovery_dslasso, validate_recovery_diagnostics)
     validate_seed(config, seed)
     diagnostic = is_diagnostic(config['task'])
-    repair = task_epoch(config['task']) == 2
+    repair = task_epoch(config['task']) >= 2
     stages = {}
 
     @contextmanager
@@ -284,9 +284,14 @@ def run_job(job):
     epoch = task_epoch(job['task'])
     provenance = artifacts.current_provenance()
     check_original_closeout()
-    if epoch == 2:
+    if epoch >= 2:
         from .recovery_acceptance import check_repair_closeout
         check_repair_closeout()
+    if epoch == 3:
+        from .recovery_acceptance import check_integration_reference, _integration_reference
+        historical = check_integration_reference()
+        if is_diagnostic(job['task']):
+            _integration_reference(historical, job['parameters']['case'])
     prerequisite, selected = None, None
     if not is_diagnostic(job['task']):
         proof = check_current_diagnostic_gate() if epoch == 1 else check_current_diagnostic_gate(epoch=epoch)

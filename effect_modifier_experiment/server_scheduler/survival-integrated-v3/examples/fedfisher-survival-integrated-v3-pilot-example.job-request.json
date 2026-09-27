@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-integrated-v3-pilot-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-dslasso-integrated-pilot",
+  "parameters": {
+    "case": "covariate_shift_049"
+  },
+  "priority": 0
+}

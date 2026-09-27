@@ -54,7 +54,7 @@ class RepairProtocolTests(unittest.TestCase):
                            {'case': 'iid_000', 'seed': 0}):
             with self.assertRaises(ValueError):
                 protocol.validate_parameters(protocol.REPAIR_DIAGNOSTIC_TASK, parameters)
-        for epoch in (True, 0, 3, '2'):
+        for epoch in (True, 0, 4, '2'):
             with self.assertRaises(ValueError):
                 builder.build_requests(epoch=epoch)
         old = protocol.run_config(protocol.DIAGNOSTIC_TASK, dict(case='iid_000', recipe='budget_and_step'))

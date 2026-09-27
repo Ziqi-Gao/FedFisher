@@ -12,6 +12,7 @@ from .artifacts import current_provenance
 
 PROOF_ROOT = old.PROOF_ROOT / 'dslasso-recovery-v1'
 REPAIR_PROOF_ROOT = old.PROOF_ROOT / 'dslasso-repair-v2'
+INTEGRATED_PROOF_ROOT = old.PROOF_ROOT / 'dslasso-integrated-v3'
 SELECTION_ORDER = ('budget_only', 'step_only', 'budget_and_step')
 SELECTION_RULE = ('all_27_cases_stationary; minimize_sum_loss_gradient_calls; '
                   'ties=budget_only,step_only,budget_and_step; no_truth_or_recovery_metrics')
@@ -72,6 +73,48 @@ def check_repair_closeout():
              and diagnostic.get('selected_recipe') == protocol.REPAIR_RECIPE,
              'repair requires the reviewed r1 source-release closeout and selected recipe')
     _checked(proof['review'])
+    return proof
+
+
+def check_integration_reference():
+    """Bind the accepted r2 pilot as historical evidence, never current admission."""
+    proof = _checked(protocol.R2_DIAGNOSTIC_ACCEPTANCE)
+    _require(proof.get('schema_version') == 1 and proof.get('epoch') == 2
+             and proof.get('scope') == 'survival_dslasso_repair_diagnostic_acceptance'
+             and proof.get('diagnostic_evidence_complete') is True
+             and proof.get('formal_eligible') is True
+             and proof.get('validated_request_count') == proof.get('validated_unit_count') == 30
+             and proof.get('paired_original_cases') == 30
+             and proof.get('selected_recipe') == protocol.REPAIR_RECIPE
+             and proof.get('original_closeout') == protocol.ORIGINAL_CLOSEOUT
+             and proof.get('repair_closeout') == protocol.REPAIR_CLOSEOUT
+             and proof.get('r1_diagnostic_acceptance') == protocol.R1_DIAGNOSTIC_ACCEPTANCE
+             and proof.get('stationary_checks') == dict.fromkeys(protocol.REPAIR_CASES, True)
+             and proof.get('r1_numeric_parity_checks') == dict.fromkeys(protocol.CASES, True),
+             'integration requires the complete accepted historical r2 pilot')
+    inventory = _checked(proof['inventory'])
+    _require(inventory.get('provenance') == proof['provenance']
+             and inventory.get('task') == protocol.REPAIR_DIAGNOSTIC_TASK
+             and inventory.get('bundle_ready') is True
+             and inventory.get('epoch') == 2 and inventory.get('request_count') == 30
+             and inventory.get('scientific_cell_count') == 30,
+             'historical r2 inventory differs from its acceptance')
+    requests = inventory['requests']
+    _require(len(requests) == 30 and len(proof['units']) == 30
+             and {row['parameters']['case'] for row in requests} == set(protocol.REPAIR_CASES)
+             and {row['parameters']['case'] for row in proof['units']} == set(protocol.REPAIR_CASES),
+             'historical r2 reference coverage is incomplete')
+    for row in requests:
+        config = protocol.run_config(protocol.REPAIR_DIAGNOSTIC_TASK, row['parameters'])
+        _require(row['configuration'] == config and row['configuration_sha256'] == digest(config)
+                 and row['run_id'] == config['run_id']
+                 and row['seeds'] == list(protocol.seed_sequence(protocol.REPAIR_DIAGNOSTIC_TASK, row['parameters']))
+                 and old._binding(row['path']) == {key: row[key] for key in ('path', 'sha256')},
+                 'historical r2 request or scientific configuration changed')
+    for key, filename in (('dslasso', 'dslasso.py'), ('method', 'recovery_method.py')):
+        path = old.PROJECT_ROOT / 'effect_modifier_experiment/survival' / filename
+        _require(old._binding(path) == inventory['review_sources'][key],
+                 'integration changed the accepted r2 optimizer implementation')
     return proof
 
 
@@ -141,6 +184,22 @@ def repair_numeric_parity(result, reference):
             and project(result['fit'], reference['fit']) == project(reference['fit'], reference['fit']))
 
 
+def integrated_numeric_parity(result, reference):
+    """Integration changes no numeric evidence, including v2 guard witnesses."""
+    ignored = {'timing_seconds', 'timing_cpu_seconds', 'diagnostic_fingerprint_seconds',
+               'elapsed_wall_seconds', 'elapsed_cpu_seconds'}
+
+    def project(value):
+        if isinstance(value, dict):
+            return {key: project(part) for key, part in value.items() if key not in ignored}
+        if isinstance(value, list):
+            return [project(part) for part in value]
+        return value
+
+    return (result['fingerprints']['model'] == reference['fingerprints']['model']
+            and project(result['fit']) == project(reference['fit']))
+
+
 def select_repair(observations):
     """A validation repair retains its already selected recipe; it does not retune."""
     _require(set(observations) == set(protocol.REPAIR_CASES), 'repair gate needs all 30 unique cases')
@@ -150,6 +209,18 @@ def select_repair(observations):
     return dict(selection_rule='fixed_r1_budget_and_step; all_30_stationary; '
                                'all_27_r1_models_and_numeric_paths_unchanged; no_retuning',
         stationary_checks=stationary, r1_numeric_parity_checks=parity,
+        formal_eligible=passed, selected_recipe=protocol.REPAIR_RECIPE if passed else None)
+
+
+def select_integration(observations):
+    """Require all 30 current-source paths to reproduce the accepted r2 pilot."""
+    _require(set(observations) == set(protocol.REPAIR_CASES), 'integration gate needs all 30 unique cases')
+    stationary = {case: row['outcome'] == 'stationary' for case, row in observations.items()}
+    parity = {case: row.get('r2_numeric_parity') is True for case, row in observations.items()}
+    passed = all(stationary.values()) and all(parity.values())
+    return dict(selection_rule='fixed_r2_budget_and_step; all_30_stationary; '
+                               'all_30_r2_models_and_numeric_evidence_unchanged; no_retuning',
+        stationary_checks=stationary, r2_numeric_parity_checks=parity,
         formal_eligible=passed, selected_recipe=protocol.REPAIR_RECIPE if passed else None)
 
 
@@ -164,6 +235,59 @@ def _repair_reference(proof, case):
     results = [binding for binding in unit['artifacts'] if Path(binding['path']).name == 'diagnostic_result.json']
     _require(len(results) == 1, 'repair reference lacks its diagnostic result')
     return _checked(results[0]), unit
+
+
+def _integration_reference(proof, case):
+    """Revalidate saved r2 artifacts under their original identity without a store."""
+    import numpy as np
+    from ..infrastructure.provenance import parse_env_file
+    from .artifacts import canonical, validate_execution
+
+    parameters = dict(case=case)
+    units = [row for row in proof['units'] if row['parameters'] == parameters]
+    inventory = _checked(proof['inventory'])
+    requests = [row for row in inventory['requests'] if row['parameters'] == parameters]
+    _require(len(units) == len(requests) == 1 and units[0]['outcome'] == 'stationary',
+             'integration lacks a unique stationary r2 reference')
+    unit, request = units[0], requests[0]
+    config = protocol.run_config(protocol.REPAIR_DIAGNOSTIC_TASK, parameters)
+    seed = protocol.REPAIR_CASES[case]['seed']
+    provenance = proof['provenance']
+    identity = dict(run_id=config['run_id'], config_sha256=digest(config),
+        provenance_sha256=provenance['provenance_sha256'], seed=seed,
+        cell=config['cell'], scenario=config['scenario'], recipe=config['recovery_recipe'], case=case)
+    manifest = dict(format_version='2', protocol=config['protocol'], run_id=config['run_id'],
+        config_json=canonical(config), config_sha256=digest(config), **provenance)
+    _require(request['configuration'] == config and unit['seed'] == seed and unit['run_id'] == config['run_id'],
+             'historical r2 reference configuration differs')
+    expected_root = recovery.artifacts.OUTPUT_ROOT / config['run_id']
+    directory = expected_root / ('seed_%03d' % seed)
+    names = {'started.json', 'fit_arrays.npz', 'diagnostic_result.json', 'diagnostic_done.json'}
+    bindings = {Path(row['path']).name: row for row in unit['artifacts']}
+    _require(len(unit['artifacts']) == len(bindings) == 4 and set(bindings) == names
+             and unit['manifest']['path'] == str(expected_root / 'run_manifest.env')
+             and all(row['path'] == str(directory / name) for name, row in bindings.items()),
+             'historical r2 artifact inventory differs')
+    for binding in [unit['manifest'], *bindings.values()]:
+        _require(old._binding(binding['path']) == binding, 'archived r2 diagnostic artifact changed')
+    _require(parse_env_file(unit['manifest']['path']) == manifest,
+             'historical r2 manifest differs from its original configuration and provenance')
+    result = _checked(bindings['diagnostic_result.json'])
+    marker, started = _checked(bindings['diagnostic_done.json']), _checked(bindings['started.json'])
+    _require(marker == dict(identity=identity, artifacts={name: bindings[name]['sha256']
+                for name in names - {'diagnostic_done.json'}})
+             and set(started) == {'identity', 'execution'} and started['identity'] == identity,
+             'historical r2 completion or started identity differs')
+    validate_execution(started['execution'])
+    with np.load(old._ordinary_path(bindings['fit_arrays.npz']['path']), allow_pickle=False) as archive:
+        _require(len(archive.files) == len(set(archive.files)), 'duplicate historical r2 model arrays')
+        arrays = {name: archive[name] for name in archive.files}
+    recovery.validate_result(result, arrays, identity, config)
+    job, _ = _completed_job(request)
+    _require(old._producer_evidence(request, job, started['execution']) == unit['producer_evidence'],
+             'historical r2 producer evidence differs')
+    old._recheck_producer(unit['producer_evidence'])
+    return result, unit
 
 
 def select_recipe(observations):
@@ -202,7 +326,7 @@ def default_acceptance_path(provenance=None, cohort='diagnostic', epoch=1):
     # Reuse the original strict clean-provenance filename validation.
     checked = old.default_acceptance_path(provenance)
     protocol.tasks_for_epoch(epoch)
-    root = PROOF_ROOT if epoch == 1 else REPAIR_PROOF_ROOT
+    root = {1: PROOF_ROOT, 2: REPAIR_PROOF_ROOT, 3: INTEGRATED_PROOF_ROOT}[epoch]
     return old._ordinary_path(root / (cohort + '-' + checked.name[6:]), exists=False)
 
 
@@ -236,10 +360,13 @@ def _inventory(path, provenance, cohort, recipe=None, epoch=1):
              and inventory.get('case_inventory') == recovery.CASE_INVENTORY
              and inventory.get('selected_recipe') == recipe,
              'recovery inventory must bind exact reviewed clean source')
-    if epoch == 2:
-        _require(inventory.get('epoch') == 2 and inventory.get('repair_closeout') == protocol.REPAIR_CLOSEOUT
+    if epoch >= 2:
+        _require(inventory.get('epoch') == epoch and inventory.get('repair_closeout') == protocol.REPAIR_CLOSEOUT
                  and inventory.get('r1_diagnostic_acceptance') == protocol.R1_DIAGNOSTIC_ACCEPTANCE,
                  'repair inventory must bind the reviewed historical closeout')
+    if epoch == 3:
+        _require(inventory.get('r2_diagnostic_acceptance') == protocol.R2_DIAGNOSTIC_ACCEPTANCE,
+                 'integration inventory must bind the accepted historical r2 pilot')
     requests = inventory['requests']
     count = None if cohort == 'diagnostic' else inventory['shard_count']
     specs = build_requests(inventory['generation'], cohort, count, recipe=recipe, epoch=epoch)
@@ -271,8 +398,9 @@ def _collect(inventory_path, cohort, epoch=1):
     diagnostic_task, _ = protocol.tasks_for_epoch(epoch)
     cases = protocol.cases_for_task(diagnostic_task)
     provenance, original = current_provenance(), check_original_closeout()
-    repair_closeout = check_repair_closeout() if epoch == 2 else None
+    repair_closeout = check_repair_closeout() if epoch >= 2 else None
     r1_diagnostic = _checked(protocol.R1_DIAGNOSTIC_ACCEPTANCE) if epoch == 2 else None
+    r2_diagnostic = check_integration_reference() if epoch == 3 else None
     diagnostic = check_current_diagnostic_gate(epoch=epoch) if cohort == 'formal' else None
     recipe = None if diagnostic is None else diagnostic['selected_recipe']
     inventory, inventory_binding, request_bindings = _inventory(inventory_path, provenance, cohort, recipe, epoch)
@@ -284,7 +412,7 @@ def _collect(inventory_path, cohort, epoch=1):
                         sha256=old._binding(default_acceptance_path(provenance, epoch=epoch))['sha256'], evidence=diagnostic)
         _require(inventory.get('pilot_acceptance') == expected, 'formal inventory diagnostic prerequisite changed')
     records, units, central_jobs, observed, paired, old_bindings = {}, [], [], {}, set(), {}
-    r1_references = []
+    r1_references, r2_references = [], []
     original_configs = {(row['config']['cell'], row['config']['scenario']): row['config'] for row in original['runs']}
     for request in inventory['requests']:
         job, central = _completed_job(request)
@@ -326,6 +454,11 @@ def _collect(inventory_path, cohort, epoch=1):
                     observation['r1_numeric_parity'] = (result['outcome'] == 'stationary'
                                                        and repair_numeric_parity(result, r1_result))
                     r1_references.append(r1_unit)
+                elif epoch == 3:
+                    r2_result, r2_unit = _integration_reference(r2_diagnostic, case)
+                    observation['r2_numeric_parity'] = (result['outcome'] == 'stationary'
+                        and integrated_numeric_parity(result, r2_result))
+                    r2_references.append(r2_unit)
                 observed[record_key] = observation
             else:
                 record_key = key
@@ -354,10 +487,18 @@ def _collect(inventory_path, cohort, epoch=1):
         for binding in [unit['manifest'], *unit['artifacts']]:
             _require(old._binding(binding['path']) == binding, 'r1 diagnostic changed during repair acceptance')
         old._recheck_producer(unit['producer_evidence'])
+    for unit in r2_references:
+        for binding in [unit['manifest'], *unit['artifacts']]:
+            _require(old._binding(binding['path']) == binding, 'r2 diagnostic changed during integration acceptance')
+        old._recheck_producer(unit['producer_evidence'])
     if epoch == 2:
         _require(check_repair_closeout() == repair_closeout
                  and _checked(protocol.R1_DIAGNOSTIC_ACCEPTANCE) == r1_diagnostic,
                  'repair historical evidence changed during acceptance')
+    if epoch == 3:
+        _require(check_repair_closeout() == repair_closeout
+                 and check_integration_reference() == r2_diagnostic,
+                 'integration historical evidence changed during acceptance')
     _require(current_provenance() == provenance and check_original_closeout() == original,
              'source or historical closeout changed during recovery acceptance')
     proof = dict(schema_version=1, scope='survival_dslasso_recovery_' + cohort + '_acceptance',
@@ -370,7 +511,7 @@ def _collect(inventory_path, cohort, epoch=1):
                        'communication and saturation before admission; no superiority or clinical claim')
     if cohort == 'diagnostic':
         proof.update(diagnostic_evidence_complete=True,
-                     **(select_recipe(observed) if epoch == 1 else select_repair(observed)))
+                     **{1: select_recipe, 2: select_repair, 3: select_integration}[epoch](observed))
     else:
         proof.update(passed=True, selected_recipe=recipe, diagnostic_prerequisite=prerequisite,
                      archived_fedfisher_units=2400, original_dslasso_successes_used_as_formal_results=False)
@@ -379,6 +520,12 @@ def _collect(inventory_path, cohort, epoch=1):
             repair_closeout=protocol.REPAIR_CLOSEOUT,
             r1_diagnostic_acceptance=protocol.R1_DIAGNOSTIC_ACCEPTANCE,
             r1_diagnostic_reference_units=r1_references)
+    if epoch == 3:
+        proof.update(epoch=3, scope='survival_dslasso_integrated_' + cohort + '_acceptance',
+            repair_closeout=protocol.REPAIR_CLOSEOUT,
+            r1_diagnostic_acceptance=protocol.R1_DIAGNOSTIC_ACCEPTANCE,
+            r2_diagnostic_acceptance=protocol.R2_DIAGNOSTIC_ACCEPTANCE,
+            r2_diagnostic_reference_units=r2_references)
     return proof
 
 
@@ -418,8 +565,9 @@ def verify_diagnostic_acceptance(path, epoch=1):
     binding, proof = old._binding(path), old._read_json(path)
     _require(proof.get('provenance') == provenance and proof.get('diagnostic_evidence_complete') is True,
              'diagnostic proof is incomplete or belongs to another source')
-    if epoch == 2:
-        _require(proof.get('epoch') == 2 and proof.get('scope') == 'survival_dslasso_repair_diagnostic_acceptance',
+    if epoch >= 2:
+        scope = 'repair' if epoch == 2 else 'integrated'
+        _require(proof.get('epoch') == epoch and proof.get('scope') == 'survival_dslasso_' + scope + '_diagnostic_acceptance',
                  'repair proof cannot inherit an earlier diagnostic epoch')
     fresh = collect_diagnostic_acceptance(proof['inventory']['path'], epoch=epoch)
     _require(fresh == proof and old._binding(path) == binding, 'diagnostic proof differs from current evidence')
@@ -430,7 +578,7 @@ def check_current_diagnostic_gate(epoch=1):
     proof = verify_diagnostic_acceptance(default_acceptance_path(epoch=epoch), epoch=epoch)
     _require(proof.get('formal_eligible') is True and proof.get('selected_recipe') in SELECTION_ORDER,
              'diagnostic evidence does not qualify a global recipe for formal expansion')
-    if epoch == 2:
+    if epoch >= 2:
         _require(proof.get('selected_recipe') == protocol.REPAIR_RECIPE,
                  'repair proof may not retune the previously selected recipe')
     return proof

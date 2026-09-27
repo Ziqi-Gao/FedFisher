@@ -120,9 +120,10 @@ class PostFitRetentionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             recovery.validate_result(result, arrays, result['identity'], config)
 
-    def repair_config(self, formal=False):
+    def repair_config(self, formal=False, epoch=2):
+        tasks = recovery.tasks_for_epoch(epoch)
         config = recovery.run_config(
-            recovery.REPAIR_FORMAL_TASK if formal else recovery.REPAIR_DIAGNOSTIC_TASK,
+            tasks[1 if formal else 0],
             dict(scenario='iid', shard_index=0, shard_count=16) if formal else dict(case='iid_000'),
             recipe=recovery.REPAIR_RECIPE)
         small = fixture.tiny_config(formal=formal)
@@ -132,9 +133,14 @@ class PostFitRetentionTests(unittest.TestCase):
         return config
 
     def test_real_tiny_repair_pilot_and_formal_outputs_validate_and_skip(self):
+        for epoch in (2, 3):
+            with self.subTest(epoch=epoch):
+                self.check_real_tiny_epoch(epoch)
+
+    def check_real_tiny_epoch(self, epoch):
         for formal in (False, True):
             with self.subTest(formal=formal):
-                config = self.repair_config(formal)
+                config = self.repair_config(formal, epoch=epoch)
                 result, arrays = recovery.compute_cell(config, 0)
                 store = self.store(config)
                 result['identity'] = store.identity(0)
@@ -148,7 +154,12 @@ class PostFitRetentionTests(unittest.TestCase):
                 self.assertEqual(before, {p.name: p.read_bytes() for p in store.cell_dir(0).iterdir()})
 
     def test_repair_pilot_iteration_limit_is_failed_not_a_completed_observation(self):
-        config = self.repair_config()
+        for epoch in (2, 3):
+            with self.subTest(epoch=epoch):
+                self.check_iteration_limit(epoch)
+
+    def check_iteration_limit(self, epoch):
+        config = self.repair_config(epoch=epoch)
         config['method']['optimizer'].update(max_iter=1, tolerance=1e-12)
         with self.assertRaises(recovery_method.OptimizationFailure) as caught:
             recovery.compute_cell(config, 0)

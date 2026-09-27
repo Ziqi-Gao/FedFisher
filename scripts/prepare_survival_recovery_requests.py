@@ -36,7 +36,8 @@ REVIEW_SOURCES = {name: PROJECT_ROOT / path for name, path in {
 
 def bundle_prefix(epoch=1):
     recovery.tasks_for_epoch(epoch)
-    return 'fedfisher-survival-dslasso-' + ('recovery-v1' if epoch == 1 else 'repair-v2')
+    return 'fedfisher-survival-dslasso-' + {
+        1: 'recovery-v1', 2: 'repair-v2', 3: 'integrated-v3'}[epoch]
 
 
 def bundle_name(generation=1, cohort='diagnostic', epoch=1):
@@ -62,7 +63,7 @@ def build_requests(generation=1, cohort='diagnostic', shard_count=None, *, recip
         count = 16 if shard_count is None else shard_count
         if type(count) is not int or count not in (8, 16) or recipe not in recovery.RECIPES[1:]:
             raise ValueError('formal specs require a candidate recipe and 8/16 deterministic shards')
-        if epoch == 2 and recipe != recovery.REPAIR_RECIPE:
+        if epoch >= 2 and recipe != recovery.REPAIR_RECIPE:
             raise ValueError('repair formal specs require the fixed previously selected recipe')
         task = formal_task
         parameters = [dict(scenario=scenario, shard_index=index, shard_count=count)
@@ -100,17 +101,20 @@ def current_provenance():
 def review_sources(epoch=1):
     recovery.tasks_for_epoch(epoch)
     sources = dict(REVIEW_SOURCES)
-    if epoch == 2:
+    if epoch >= 2:
         for key in ('proposal', 'diagnostic_schema', 'formal_schema'):
-            sources[key] = sources[key].parent.parent / 'survival-repair-v2' / sources[key].name
+            directory = 'survival-repair-v2' if epoch == 2 else 'survival-integrated-v3'
+            sources[key] = sources[key].parent.parent / directory / sources[key].name
     return source_bindings(sources, PROJECT_ROOT)
 
 
 def acceptance_binding(cohort, path, provenance, epoch=1):
     from effect_modifier_experiment.survival import recovery_acceptance as gate
     gate.check_original_closeout()
-    if epoch == 2:
+    if epoch >= 2:
         gate.check_repair_closeout()
+    if epoch == 3:
+        gate.check_integration_reference()
     if cohort == 'diagnostic':
         if path is not None:
             raise ValueError('diagnostic publication must not take a prerequisite override')
@@ -137,9 +141,11 @@ def write_requests(generation=1, cohort='diagnostic', diagnostic_acceptance=None
         operator_gate='review disabled proposal, fixtures and profile; centrally admit diagnostic first; '
                       'formal requires actual same-source diagnostic acceptance and operator cost review',
         freeze_rule='keep canonical source unchanged through diagnostic, formal and full scientific acceptance')
-    if epoch == 2:
+    if epoch >= 2:
         metadata.update(epoch=epoch, repair_closeout=recovery.REPAIR_CLOSEOUT,
                         r1_diagnostic_acceptance=recovery.R1_DIAGNOSTIC_ACCEPTANCE)
+    if epoch == 3:
+        metadata['r2_diagnostic_acceptance'] = recovery.R2_DIAGNOSTIC_ACCEPTANCE
     return publish_bundle(specs, bundle=OUTBOX_ROOT / name,
         inventory_path=REPORT_ROOT / (name + '.inventory.json'), metadata=metadata,
         provenance=before, sources=review_sources(epoch), acceptance=accepted,
@@ -150,7 +156,7 @@ def write_requests(generation=1, cohort='diagnostic', diagnostic_acceptance=None
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--generation', type=int, default=1)
-    parser.add_argument('--epoch', type=int, choices=(1, 2), default=1)
+    parser.add_argument('--epoch', type=int, choices=(1, 2, 3), default=1)
     parser.add_argument('--cohort', choices=('diagnostic', 'formal'), default='diagnostic')
     parser.add_argument('--diagnostic-acceptance', type=Path)
     parser.add_argument('--shard-count', type=int, choices=(8, 16))

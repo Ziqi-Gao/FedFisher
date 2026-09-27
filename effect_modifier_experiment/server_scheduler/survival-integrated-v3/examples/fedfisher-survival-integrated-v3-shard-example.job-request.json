@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-integrated-v3-shard-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-dslasso-integrated-shard",
+  "parameters": {
+    "scenario": "covariate_shift",
+    "shard_index": 0,
+    "shard_count": 16
+  },
+  "priority": 0
+}

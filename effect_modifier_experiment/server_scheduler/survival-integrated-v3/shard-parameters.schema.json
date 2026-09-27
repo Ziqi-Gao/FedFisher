@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Survival dsLasso integrated-source formal shard parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "iid",
+        "covariate_shift"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "shard_count": {
+      "type": "integer",
+      "enum": [
+        8,
+        16
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "shard_count": {
+            "const": 8
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard_index": {
+            "maximum": 7
+          }
+        }
+      }
+    }
+  ]
+}

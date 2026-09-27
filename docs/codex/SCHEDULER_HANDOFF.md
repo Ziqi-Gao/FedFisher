@@ -5,6 +5,58 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Survival resumption on integrated source — 2026-09-27 UTC
+
+The user requested resuming the postponed 600 survival cells while retaining
+the integrated model/signal code. Fresh read-only inspection found all 30 r2
+pilot jobs completed on attempt 1, no r2 formal jobs/output, no model/signal
+jobs/output, and no nonterminal FedFisher jobs. Pure saved-evidence validation
+accepted all 30 old pilot results, their original manifests and producer
+evidence, all 27 r1 numerical controls and 30 original-data pairs. This is
+historical-source validation, not current-source pilot admission.
+
+Durable transition audit:
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/integrated-v3-preparation-20260927T043651Z/source-transition-audit.json`,
+SHA-256 `bdc7d1e551874c0fc9b366a97e5180c9505b07a4f2e74c81084bd31c40d8ab53`.
+The accepted r2 proof below remains unchanged. No algorithm defect or failed
+pilot caused this postponement: the whole-repository source binding changed
+when the separate model/signal experiments were integrated.
+
+Epoch 3 extends the existing protocol, runner, builder and acceptance modules;
+it does not copy the lifecycle or change fitting, data, responses, links or
+evaluation. Its new task pair is
+`effect-modifier-survival-dslasso-integrated-pilot` / `-shard`, with a disabled
+proposal under `server_scheduler/survival-integrated-v3/`. New-source pilot
+acceptance requires all 30 cases stationary and exact agreement with all 30
+archived r2 models and numerical paths, excluding measured times only. The
+old proof cannot open the new formal gate. Default formal work remains 600
+cells in 32 deterministic shards, with independent r3 namespaces.
+
+The already published model/signal P1 bundle contains 288 unsubmitted requests
+bound to `6af05c6`. Preserve it and its immutable supersession sidecar at
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-ms-v1-pilot-cohort-p1.superseded-for-survival-integration.json`.
+After this compatibility work is tested and committed cleanly, publish the
+30 epoch-3 survival pilots and model/signal generation 2 from the same frozen
+source. The latter changes request IDs and provenance only; all 288 scientific
+configurations remain identical. Neither formal cohort may be published before
+its own actual same-source pilot acceptance. Operator registration and submission
+remain separate actions; do not admit either superseded P1 or old r2 formal work.
+
+Validation logs and fixtures belong under
+`/scr/del6500/FedFisher/survival-current-compat-validation/`. The full project
+suite passed all 647 tests in 83.648 seconds, without failures or skips.
+Golden checks preserved all 330 historical r1/r2 request specifications,
+288 model/signal configurations and ten survival scientific source files.
+The installed scheduler's pure parsers accepted the disabled proposal and
+350 pilot/formal in-memory request specifications. Fourteen new tests cover
+the integrated epoch, including rejected old-source proofs, complete all-case
+parity and failure before fitting when an archived reference changes. Existing
+tiny numerical/store tests also exercise both r2 and r3. No actual new pilot
+or formal scientific computation was run. Final
+commit/provenance, inventories and operator instructions will be recorded in a
+post-freeze scratch handoff and durable delivery report. Do not edit tracked
+documentation after that freeze. No central state or scientific result is changed.
+
 ## Model/signal integration and pilot preparation — 2026-09-27 UTC
 
 The user explicitly requested merging the model/signal experiments first and

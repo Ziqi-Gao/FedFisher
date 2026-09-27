@@ -14,7 +14,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', required=True, type=Path)
     parser.add_argument('--cohort', choices=('diagnostic', 'formal'), default='diagnostic')
-    parser.add_argument('--epoch', type=int, choices=(1, 2), default=1)
+    parser.add_argument('--epoch', type=int, choices=(1, 2, 3), default=1)
     args = parser.parse_args(argv)
     provenance = gate.current_provenance()
     output = gate.default_acceptance_path(provenance, args.cohort, args.epoch)

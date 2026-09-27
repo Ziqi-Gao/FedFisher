@@ -379,3 +379,26 @@ formal requests. The disabled proposal and schemas are in
 `server_scheduler/survival-repair-v2/`; central registration, submission and
 profile review remain operator actions. Proofs use the separate
 `dslasso-repair-v2` subdirectory under the durable survival report root.
+
+## Integrated-source epoch
+
+Epoch 3 uses the same scientific recipe and shared lifecycle after other
+experiments have been integrated into the repository. Whole-repository source
+provenance remains strict: accepted r2 results retain their original provenance
+and cannot authorize formal computation from a later checkout.
+
+The `effect-modifier-survival-dslasso-integrated-pilot` task repeats the same
+30 fixed cases. Acceptance requires stationarity and exact model and numerical
+path agreement with all 30 hash-bound r2 controls, including v2 line-search
+witnesses; only measured timing fields are excluded. Historical results are
+validated directly against their original configuration, manifest, artifact
+hashes and producer evidence, without impersonating current-source results.
+No recipe selection or scientific parameter changes are added.
+
+Use the existing builder and validator with `--epoch 3`. The paired formal
+task, `effect-modifier-survival-dslasso-integrated-shard`, retains 32 default
+shards covering 600 cells and requires actual same-source epoch-3 acceptance
+at publication and execution. Namespaces use `diagnostic_r3` and `recovery_r3`;
+proofs use `dslasso-integrated-v3`. The disabled additive proposal lives in
+`server_scheduler/survival-integrated-v3/`. Keep the finalized source unchanged
+through both stages, including any other experiments sharing that source.

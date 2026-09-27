@@ -16,7 +16,9 @@ PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_schedu
 FIXTURES = ('survival-dslasso-diagnostic-running-job.json',
             'survival-dslasso-recovery-shard-running-job.json',
             'survival-dslasso-repair-pilot-running-job.json',
-            'survival-dslasso-repair-shard-running-job.json')
+            'survival-dslasso-repair-shard-running-job.json',
+            'survival-dslasso-integrated-pilot-running-job.json',
+            'survival-dslasso-integrated-shard-running-job.json')
 
 
 class SurvivalRecoveryAdapterTests(unittest.TestCase):
