@@ -80,3 +80,73 @@ logs/caches and request review bundles belong below
 `/scr/del6500/FedFisher/`. Keep canonical source unchanged while any admitted
 cohort relies on it. Record changing validation/integration facts only in
 `docs/codex/SCHEDULER_HANDOFF.md` or post-freeze scratch evidence.
+
+## Recovery epoch: explicit budget exhaustion
+
+`recovery_protocol.py`, `recovery.py`, and `recovery_acceptance.py` add a
+separate execution contract for the same scientific recipes. The two task
+names are `effect-modifier-model-signal-recovery-pilot` and
+`effect-modifier-model-signal-recovery-shard`. V2 result namespaces never
+overwrite or resume a partial V1 directory. The original V1 tasks continue to
+reject scientific noncompletion.
+
+FedAvg validation-patience training retains its **200-round** safety bound,
+patience 10, `min_delta=1e-4`, original SGD, local epochs, selection and refit
+rules. A 200-round fit that has not satisfied patience returns its selected
+training-subset checkpoint without a full-data refit. This is an explicit
+`validation_patience_limit_200` outcome, not convergence or a performance
+estimate. The recovery task validates the complete finite round history,
+patience replay, selected checkpoint, model arrays, site counts, communication,
+timing and identities before saving this outcome. No other fitting exception
+is eligible for continuation; unknown errors, nonfinite values and invalid
+evidence stop the shard.
+
+Successful units keep `started.json`, `model.npz`, `result.json`, and
+`done.json`. Budget-exhausted units instead keep `started.json`,
+`diagnostic_model.npz`, `noncompletion.json`, and `noncompletion_marker.json`.
+They contain no evaluation metrics and never obtain a `done.json` marker.
+Each started record binds its closeout and applicable new pilot prerequisite.
+A retry may skip either fully validated terminal state while preserving its
+actual producing attempt. Partial or corrupted directories remain immutable
+and fail closed.
+
+A shard writes its exact seed/split outcome inventory under
+`shard_summaries/<job_id>.json`. `execution_complete` means every assigned unit
+has a validated terminal outcome; `whole_shard_scientific_success` is false
+whenever any unit exhausted its budget. A central zero exit status therefore
+does not assert that all models met their scientific stopping rule.
+
+The recovery pilot has 290 requests / 588 units: all 288 original seed-zero
+configurations (576 units), plus two Gaussian-arm diagnostics covering seeds
+9, 25 and 41 under both splits. All 576 seed-zero successes and the six known
+nonzero-seed successes must remain successful and numerically identical to
+their archived counterparts, except measured timings and peak memory. Both
+seed-25/non-IID failures must reproduce the verified cap. Only the four
+previously unattempted seed-41 units may newly finish successfully or exhaust
+their unchanged budget. Diagnostics must proceed beyond the capped unit.
+
+An immutable frozen-source closeout explicitly binds retained V1 successes to
+their original manifests, source and producers. The recovery protocol fixes
+this closeout's path and digest. Known successful units in failed or
+unknown-exit shards remain audit/parity material and are not retained as
+centrally successful formal shards. New formal coverage is the exact
+complement of the retained complete shards, under new IDs and 16-way
+deterministic sequences. The final composite contract covers all 172,800
+planned units exactly once.
+
+Reporting retains the **300-seed denominator**, counts successful and
+budget-exhausted units separately, and exposes all missing/error states.
+Performance estimates from successful units are conditional on successful
+completion. Paired comparisons require actual matching successful results
+and report their coverage. Diagnostic checkpoints never fill missing
+performance values. A cohort may be operationally complete while its
+`whole_cohort_scientific_success` remains false.
+
+After a clean source freeze, `scripts/prepare_model_signal_recovery_requests.py`
+publishes only the new pilot bundle. The saved-evidence validator
+`scripts/validate_model_signal_recovery.py` must accept the actual centrally
+executed pilot before the builder or runtime admits formal recovery. The
+disabled proposal is under `../server_scheduler/model-signal-recovery-v2/`.
+Same-source evidence checks include startup I/O beyond fitting time; the
+operator must account for that cost. Outbox files remain delivery artifacts,
+and only ServerScheduler admits and executes them.

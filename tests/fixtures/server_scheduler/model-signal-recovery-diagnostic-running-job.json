@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v2-diagnostic-fixture",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-recovery-pilot",
+  "resources": null,
+  "allocation": {
+    "cpu_cores": 1,
+    "memory_mib": 8192,
+    "gpu_count": 0,
+    "gpu_memory_mib": 0,
+    "gpu_utilization_pct": 0,
+    "exclusive_gpu": true
+  },
+  "parameters": {
+    "setting": "small_mlp",
+    "cell": "fedavg_small_e1_patience",
+    "variant": "site_gaussian_shift",
+    "shard_index": 0,
+    "shard_count": 1,
+    "case": "cap_diagnostic"
+  },
+  "priority": 0,
+  "submitted_at": "2026-08-31T12:00:00Z",
+  "state": "running",
+  "updated_at": "2026-08-31T12:00:01Z",
+  "requested_profile": null,
+  "execution_profile": "cpu-1core",
+  "estimated_runtime_seconds": 86400,
+  "gpu_indices": [],
+  "gpu_uuids": [],
+  "gpu_pci_bus_ids": [],
+  "cpu_ids": [
+    64
+  ],
+  "numa_node": 1,
+  "stdout_log": "/scr/del6500/ServerScheduler/logs/fedfisher-ms-v2-diagnostic-fixture.stdout.log",
+  "stderr_log": "/scr/del6500/ServerScheduler/logs/fedfisher-ms-v2-diagnostic-fixture.stderr.log",
+  "exit_code": null,
+  "failure_reason": null
+}

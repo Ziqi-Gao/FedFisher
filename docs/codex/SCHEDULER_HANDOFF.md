@@ -5,6 +5,88 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Model/signal recovery implementation — 2026-09-27 UTC
+
+The user explicitly authorized implementing the repair, continuing through the
+new pilot gate, and submitting the remaining formal work without another
+confirmation. The ServerScheduler operator separately has the user's matching
+authorization and is monitoring the owner thread and delivery directory. The
+project still only publishes disabled proposals and immutable outbox bundles;
+central review, registration and submission remain operator actions.
+
+Before any source edit, canonical was clean `ee1faf8` and all FedFisher jobs
+were terminal. Formal model/signal P1 had 129 successful shards, two scientific
+failures at small-MLP/E1/patience seed 25/non-IID in the two Gaussian arms, one
+control-plane exit-unknown shard, and 4,476 unadmitted requests. Full scientific
+acceptance validated all 4,882 saved result units: 4,838 from the 129 successful
+shards and 44 audit-only successes from the three anomalous shards. The latter
+are excluded from retained formal coverage. The whole old cohort is incomplete.
+
+Immutable source-release closeout:
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/model-signal-ablation-v1/recovery-v2-source-closeout-20260927T174642Z/closeout.json`,
+SHA-256 `bafded5e626fc350c2cf69031e257c00073e12ec32437d9834d70f4ae39a7e42`.
+It binds the original source, all retained/excluded units, requests, producer
+evidence, failed controls and exact replacement coverage. Prior accepted
+same-source evidence was preserved by rechecking 24,555 formal evidence files,
+4,041 pilot file bindings/288 producers, and 12,816 survival file bindings/220
+producers, with unchanged source. The survival check covers its 600 completed
+integrated dsLasso cells, 30 pilot cells and 2,400 retained Fisher cells. No old
+proof, manifest, result or central job was rewritten. A redundant full survival
+semantic replay was stopped normally before writes; the completed hash/producer
+recheck preserves its already validated scientific proof instead. Source
+release passes while old whole-cohort acceptance remains explicitly false.
+
+Development is on `codex/model-signal-recovery-v2`. The original numerical
+recipes remain unchanged, including the 200-round bound, patience 10 and
+`min_delta=1e-4`. The comparison runner transports a specifically validated
+FedAvg noncompletion with its complete audit and diagnostic model. Only the
+new recovery task persists that noncompletion and continues to the next owned
+seed/split; unknown errors, nonfinite values and invalid evidence still fail.
+No diagnostic checkpoint obtains evaluation values, full-data-refit status or
+a successful `done.json`. Per-shard summaries distinguish operational closure
+from complete scientific success. Original tasks preserve their failure rule.
+
+`model_signal_ablation/recovery_protocol.py`, `recovery.py`, and
+`recovery_acceptance.py` define independent V2 namespaces and the two new tasks
+`effect-modifier-model-signal-recovery-pilot` / `-shard`. Requests express only
+fixed scientific settings. The disabled proposal, strict schemas, adapter and
+fixture tests require central review before actual execution.
+
+The 290-request/588-unit pilot repeats all 576 seed-zero units and adds both
+Gaussian arms at seeds 9, 25 and 41 under both splits. The original 576 plus
+six already successful nonzero-seed units must remain successful with exact
+numerical parity, excluding observational timings/memory. Both seed-25/non-IID
+units must reproduce verified budget exhaustion. Only the four previously
+unattempted seed-41 units may yield either success or verified exhaustion.
+The new same-source proof must validate all terminal artifacts, producing
+attempts, shard summaries, parity and pairing before formal publication.
+
+Formal recovery retains 129 old successful shards/4,838 units through explicit
+historical provenance and reexecutes 4,479 shards/167,962 units in new namespaces:
+4,476 unadmitted plus three anomalous old shards. This is exact disjoint coverage
+of 172,800 units; the old 44 successes in replaced shards cannot be double
+counted. The historical source inventory fixes unchanged numerical files while
+allowing the reviewed runner observation, scheduler adapter, tests and handoff
+changes. Old canonical source bindings are checked against their actual Git
+blobs, never relabeled as current-source V1 validation. Final acceptance keeps
+300-seed denominators, noncompletion rates and actual paired coverage explicit.
+
+Validation evidence belongs under
+`/scr/del6500/FedFisher/model-signal-recovery-validation/`. Freeze one clean
+commit after tests and publish only the new pilot bundle first. The formal
+builder and runtime remain gated by actual new-source pilot acceptance.
+The complete project suite passed all 698 tests in 138.840 seconds, without
+failures or skips, using one-thread bounded fixtures. Its log is
+`/scr/del6500/FedFisher/model-signal-recovery-validation/full-suite.log`.
+The central pure parsers also accepted all 4,769 in-memory pilot/formal request
+specifications and the disabled proposal. A real read-only closeout replay
+passed the 129-retained/4,838-unit and 44-excluded-unit partition in about
+12.4 seconds; this startup validation cost is separate from fitting time.
+After freezing, use scratch handoff and durable delivery reports for source
+bindings, inventories and central receipts. Do not reset the old
+finished-with-review controller, reuse
+old failed IDs or submit the old P1 requests after source migration.
+
 ## Survival resumption on integrated source — 2026-09-27 UTC
 
 The user requested resuming the postponed 600 survival cells while retaining

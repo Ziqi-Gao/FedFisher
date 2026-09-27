@@ -1,0 +1,15 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v2-pilot-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-recovery-pilot",
+  "parameters": {
+    "setting": "small_mlp",
+    "cell": "fedavg_small_e1_patience",
+    "variant": "control",
+    "shard_index": 0,
+    "shard_count": 1,
+    "case": "baseline"
+  },
+  "priority": 0
+}

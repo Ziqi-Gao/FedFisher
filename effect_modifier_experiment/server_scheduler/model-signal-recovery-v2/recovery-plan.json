@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "protocol": "model-signal-recovery-v2",
+  "source_closeout": {
+    "path": "/data/del6500/FedFisher/effect_modifier_experiment/reports/model-signal-ablation-v1/recovery-v2-source-closeout-20260927T174642Z/closeout.json",
+    "sha256": "bafded5e626fc350c2cf69031e257c00073e12ec32437d9834d70f4ae39a7e42"
+  },
+  "pilot": {
+    "task": "effect-modifier-model-signal-recovery-pilot",
+    "baseline_requests": 288,
+    "baseline_seeds": [
+      0
+    ],
+    "diagnostic_requests": 2,
+    "diagnostic_seeds": [
+      9,
+      25,
+      41
+    ],
+    "request_count": 290,
+    "scientific_cell_count": 588,
+    "old_success_nonzero_parity_controls": 6
+  },
+  "formal": {
+    "task": "effect-modifier-model-signal-recovery-shard",
+    "shard_count": 16,
+    "request_count": 4479,
+    "scientific_cell_count": 167962,
+    "retained_requests": 129,
+    "retained_units": 4838,
+    "whole_cohort_units": 172800,
+    "publication_authorized": false
+  },
+  "direct_execution_allowed": false,
+  "hardware_parameters_allowed": false,
+  "cap_is_scientific_success": false,
+  "old_failed_shards_reused": false
+}

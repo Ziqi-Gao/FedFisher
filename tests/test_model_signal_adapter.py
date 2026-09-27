@@ -154,7 +154,8 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.model_signal_ablati
     def test_new_parameters_cannot_enter_old_task_names(self):
         for name in FIXTURES:
             path, job = self.helper.fixture(name)
-            for task in fixture.ADAPTER.ALLOWED_TASKS - set(protocol.TASKS):
+            for task in fixture.ADAPTER.ALLOWED_TASKS - set(protocol.TASKS) - set(
+                    fixture.ADAPTER.MODEL_SIGNAL_RECOVERY_TASKS):
                 with self.subTest(name=name, task=task), self.assertRaises(fixture.ADAPTER.AdapterError):
                     self.validate(path, dict(job, task=task))
 

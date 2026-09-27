@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v2-shard-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-recovery-shard",
+  "parameters": {
+    "setting": "small_mlp",
+    "cell": "fedavg_small_e1_patience",
+    "variant": "control",
+    "shard_index": 9,
+    "shard_count": 16
+  },
+  "priority": 0
+}

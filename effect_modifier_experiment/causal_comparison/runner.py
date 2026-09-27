@@ -8,6 +8,7 @@ from . import protocol
 from .artifacts import ArtifactStore, OUTPUT_ROOT, make_manifest, current_provenance
 from .evaluation import evaluate, model_arrays, model_hash
 from .measurement import MethodTimer
+from .noncompletion import OUTCOME, ScientificNoncompletion, validate_capped_fit
 
 
 def fit_method(raw_sites, site_datasets, method, seed, timer):
@@ -28,6 +29,12 @@ def fit_method(raw_sites, site_datasets, method, seed, timer):
         from .legacy import fit_legacy
         model, audit = fit_legacy(raw_sites, site_datasets, method, seed, timer)
     if audit.get("completion_eligible") is not True:
+        if (family == "fedavg" and method["optimizer"].get("stopping_mode") == "validation_patience"
+                and method["optimizer"].get("max_rounds") == 200
+                and audit.get("termination_reason") == "maximum_rounds_reached"):
+            arrays = model_arrays(model)
+            validate_capped_fit(audit, method["optimizer"], method["model"], seed, arrays)
+            raise ScientificNoncompletion(audit, arrays)
         raise RuntimeError("method stopped without meeting the declared scientific completion rule: " + str(audit.get("termination_reason", audit.get("stop_reason"))))
     return model, audit
 
@@ -39,7 +46,15 @@ def compute_cell(config, seed, split):
         sites, test, label_counts = generate_datasets(SimpleNamespace(
             **config["dgp"], seed=seed, split=split, variant=config["variant"]))
         raw_sites = tensor_datasets_to_raw_sites(sites, config["dgp"]["covariate_dim"])
-    model, fit = fit_method(raw_sites, sites, config["method"], seed, timer)
+    try:
+        model, fit = fit_method(raw_sites, sites, config["method"], seed, timer)
+    except ScientificNoncompletion as error:
+        error.result = json_safe(dict(status="scientific_noncompletion", outcome=OUTCOME,
+            fit=error.fit, timing=timer.to_dict(), site_sizes=[len(site.labels) for site in raw_sites],
+            label_counts=label_counts,
+            fingerprints=dict(training=training_fingerprint(raw_sites),
+                              test=dataset_fingerprint(test), model=model_hash(error.arrays))))
+        raise
     arrays = model_arrays(model)
     with timer.measure("evaluation"):
         evaluation = evaluate(model, sites, test, variant=config["variant"], split=split,
