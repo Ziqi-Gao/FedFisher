@@ -5,6 +5,55 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Model/signal integration and pilot preparation — 2026-09-27 UTC
+
+The user explicitly requested merging the model/signal experiments first and
+will arrange the remaining 600 survival experiments separately. Before any
+source change, fresh central read-only state showed all 30 survival repair
+pilot jobs completed and no nonterminal FedFisher jobs. The saved-evidence
+validator accepted all 30 units, including stationarity and unchanged numerical
+paths for the 27 earlier controls. Its immutable proof was replayed once more
+on clean `2c626fe` immediately before integration:
+
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/dslasso-repair-v2/diagnostic-d4ad3f7c5f9cd137f834a311dd56481ef12a5e9af26c5d2df45ce5f6e4512422.acceptance.json`
+
+SHA-256: `f9d85b93e3233ff832fe441422aa704a2419969f4c0b75866ced43fd38e92f68`.
+This proof remains valid historical evidence for its exact old source; it is
+not a new-source survival admission proof.
+
+The canonical checkout is now on `codex/model-signal-run-v1`, fast-forwarded to
+implementation commit `e9bd617` from `codex/model-signal-ablation`. The old
+`codex/survival-validation-repair-v2` branch still pins
+`2c626fe580d8374041e5effbcf3894a5eb09d1e9`. All survival code, request builders,
+results, manifests and original requests are preserved. The older development
+note below is historical; the user has now authorized integration and pilot
+request preparation.
+
+Do not submit the old survival formal requests under the integrated source:
+both their builder and runtime require the exact same-source diagnostic proof.
+New job IDs or a new request generation do not resolve that mismatch, and the
+existing r2 pilot namespaces cannot be overwritten. Future survival work must
+either use the exact clean old source after the new cohort releases its source,
+or use a separately reviewed new survival epoch, namespaces and new-source
+pilot. This integration does not weaken or bypass any survival gate, publish
+survival formal requests, or claim that the 600 cells have run.
+
+After integration validation, the project will freeze one clean source commit
+and publish only the model/signal seed-zero pilot: 288 requests / 576 units.
+New formal work remains gated on full same-source pilot acceptance and operator
+resource review. At pre-publication inspection, neither model/signal task was
+centrally registered. Only an operator may register and submit the pilot;
+project-side request publication is not central admission.
+
+Integration tests and preparation evidence are under
+`/scr/del6500/FedFisher/model-signal-integration/`. The unmodified canonical
+test runner passed all 633 tests in 83.168 seconds, without failures or skips;
+no isolated-worktree fixture redirection was needed. `git diff --check` passed.
+Final commit/provenance,
+inventory/request hashes, registration observations and operator instructions
+will be recorded in the post-freeze scratch handoff and durable delivery report.
+Keep that final canonical source unchanged through admitted work and acceptance.
+
 ## Small MLP and weak-signal development — 2026-09-27 UTC
 
 The user authorized implementation of two binary sensitivity experiments.
