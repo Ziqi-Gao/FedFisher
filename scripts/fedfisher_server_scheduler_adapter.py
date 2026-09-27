@@ -31,6 +31,8 @@ ONE_SHOT_EFFECTS_PILOT_TASK = "effect-modifier-one-shot-effects-pilot"
 EFFECTS_REPLAY_PILOT_TASK = "effect-modifier-effects-replay-pilot"
 FEDFISHER_TIMING_PILOT_TASK = "effect-modifier-fedfisher-timing-pilot"
 FEDFISHER_TIMING_TASK = "effect-modifier-fedfisher-timing-shard"
+MODEL_SIGNAL_PILOT_TASK = "effect-modifier-model-signal-pilot"
+MODEL_SIGNAL_TASK = "effect-modifier-model-signal-shard"
 SURVIVAL_PILOT_TASK = "effect-modifier-survival-pilot"
 SURVIVAL_TASK = "effect-modifier-survival-shard"
 SURVIVAL_TASKS = (SURVIVAL_PILOT_TASK, SURVIVAL_TASK)
@@ -43,10 +45,11 @@ SURVIVAL_RECOVERY_TASKS = (SURVIVAL_DIAGNOSTIC_TASK, SURVIVAL_RECOVERY_TASK,
 # These new contracts are project-side proposals until centrally registered.
 COMPARISON_TASKS = (COMPARISON_PILOT_TASK, COMPARISON_TASK)
 FEDFISHER_TIMING_TASKS = (FEDFISHER_TIMING_PILOT_TASK, FEDFISHER_TIMING_TASK)
+MODEL_SIGNAL_TASKS = (MODEL_SIGNAL_PILOT_TASK, MODEL_SIGNAL_TASK)
 ALLOWED_TASKS = frozenset(
     (DSLASSO_TASK, ONE_SHOT_TASK, *COMPARISON_TASKS, ONE_SHOT_EFFECTS_PILOT_TASK,
      EFFECTS_REPLAY_PILOT_TASK, *FEDFISHER_TIMING_TASKS, *SURVIVAL_TASKS,
-     *SURVIVAL_RECOVERY_TASKS)
+     *SURVIVAL_RECOVERY_TASKS, *MODEL_SIGNAL_TASKS)
 )
 JOB_FIELDS = frozenset(
     (
@@ -94,6 +97,8 @@ TASK_PROFILES = {
     EFFECTS_REPLAY_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     FEDFISHER_TIMING_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     FEDFISHER_TIMING_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    MODEL_SIGNAL_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    MODEL_SIGNAL_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     SURVIVAL_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     SURVIVAL_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     SURVIVAL_DIAGNOSTIC_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
@@ -283,6 +288,14 @@ def _resource_hints(payload, field):
 
 
 def _validate_parameters(task, parameters):
+    if task in MODEL_SIGNAL_TASKS:
+        if str(PROJECT_ROOT) not in sys.path:
+            sys.path.insert(0, str(PROJECT_ROOT))
+        from effect_modifier_experiment.model_signal_ablation.protocol import validate_parameters
+        try:
+            return validate_parameters(task, parameters)
+        except (ValueError, TypeError) as error:
+            raise AdapterError(str(error)) from error
     if task in SURVIVAL_RECOVERY_TASKS:
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
@@ -733,6 +746,9 @@ def execute_task(job):
         return run_job(job)
     if job["task"] in FEDFISHER_TIMING_TASKS:
         from effect_modifier_experiment.fedfisher_timing.runner import run_shard
+        return run_shard(job)
+    if job["task"] in MODEL_SIGNAL_TASKS:
+        from effect_modifier_experiment.model_signal_ablation.runner import run_shard
         return run_shard(job)
     if job["task"] in SURVIVAL_TASKS:
         from effect_modifier_experiment.survival.runner import run_job

@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "protocol": "model-signal-ablation-v1",
+  "settings": {
+    "small_mlp": {
+      "signal_strength": 2.0,
+      "cells": [
+        "fedavg_small_e1_patience",
+        "fedavg_small_e1_budget30",
+        "fedavg_small_e5_patience",
+        "fedavg_small_e5_budget30",
+        "fedavg_small_e10_patience",
+        "fedavg_small_e10_budget30",
+        "fedavg_small_e30_patience",
+        "fedavg_small_e30_budget30",
+        "fedfisher_diag_small",
+        "fedfisher_kfac_small"
+      ]
+    },
+    "weak_signal_1": {
+      "signal_strength": 1.0,
+      "cells": [
+        "fedavg_small_e1_patience",
+        "fedavg_small_e1_budget30",
+        "fedavg_small_e5_patience",
+        "fedavg_small_e5_budget30",
+        "fedavg_small_e10_patience",
+        "fedavg_small_e10_budget30",
+        "fedavg_small_e30_patience",
+        "fedavg_small_e30_budget30",
+        "fedfisher_diag_small",
+        "fedfisher_kfac_small",
+        "fedavg_shallow_e1_patience",
+        "fedavg_shallow_e1_budget30",
+        "fedavg_shallow_e5_patience",
+        "fedavg_shallow_e5_budget30",
+        "fedavg_shallow_e10_patience",
+        "fedavg_shallow_e10_budget30",
+        "fedavg_shallow_e30_patience",
+        "fedavg_shallow_e30_budget30",
+        "fedfisher_diag_shallow",
+        "fedfisher_kfac_shallow",
+        "fedavg_deep_e1_patience",
+        "fedavg_deep_e1_budget30",
+        "fedavg_deep_e5_patience",
+        "fedavg_deep_e5_budget30",
+        "fedavg_deep_e10_patience",
+        "fedavg_deep_e10_budget30",
+        "fedavg_deep_e30_patience",
+        "fedavg_deep_e30_budget30",
+        "fedfisher_diag_deep",
+        "fedfisher_kfac_deep",
+        "dslassocov"
+      ]
+    },
+    "weak_signal_05": {
+      "signal_strength": 0.5,
+      "cells": [
+        "fedavg_small_e1_patience",
+        "fedavg_small_e1_budget30",
+        "fedavg_small_e5_patience",
+        "fedavg_small_e5_budget30",
+        "fedavg_small_e10_patience",
+        "fedavg_small_e10_budget30",
+        "fedavg_small_e30_patience",
+        "fedavg_small_e30_budget30",
+        "fedfisher_diag_small",
+        "fedfisher_kfac_small",
+        "fedavg_shallow_e1_patience",
+        "fedavg_shallow_e1_budget30",
+        "fedavg_shallow_e5_patience",
+        "fedavg_shallow_e5_budget30",
+        "fedavg_shallow_e10_patience",
+        "fedavg_shallow_e10_budget30",
+        "fedavg_shallow_e30_patience",
+        "fedavg_shallow_e30_budget30",
+        "fedfisher_diag_shallow",
+        "fedfisher_kfac_shallow",
+        "fedavg_deep_e1_patience",
+        "fedavg_deep_e1_budget30",
+        "fedavg_deep_e5_patience",
+        "fedavg_deep_e5_budget30",
+        "fedavg_deep_e10_patience",
+        "fedavg_deep_e10_budget30",
+        "fedavg_deep_e30_patience",
+        "fedavg_deep_e30_budget30",
+        "fedfisher_diag_deep",
+        "fedfisher_kfac_deep",
+        "dslassocov"
+      ]
+    }
+  },
+  "variants": [
+    "control",
+    "site_gaussian_shift",
+    "local_permutation",
+    "site_gaussian_local_permutation"
+  ],
+  "splits": [
+    "iid",
+    "noniid"
+  ],
+  "pilot": {
+    "task": "effect-modifier-model-signal-pilot",
+    "seeds": [
+      0
+    ],
+    "shard_count": 1,
+    "request_count": 288,
+    "scientific_cell_count": 576
+  },
+  "formal": {
+    "task": "effect-modifier-model-signal-shard",
+    "seed_start": 0,
+    "seed_end": 299,
+    "allowed_shard_counts": [
+      8,
+      16
+    ],
+    "request_count_by_shard_count": {
+      "8": 2304,
+      "16": 4608
+    },
+    "scientific_cell_count": 172800,
+    "publication_authorized": false,
+    "requires": "accepted same-source complete pilot with scientific and paired invariants; operator runtime/memory review and registration"
+  },
+  "direct_execution_allowed": false,
+  "hardware_parameters_allowed": false
+}

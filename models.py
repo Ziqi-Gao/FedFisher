@@ -18,6 +18,7 @@ class SyntheticMLP(nn.Module):
 
 
 SYNTHETIC_MLP_HIDDEN_DIMS = {
+    "SyntheticMLPSmall": (8,),
     "SyntheticMLP": (64, 32),
     "SyntheticMLPDeep": (256, 128, 64, 32),
 }
@@ -25,7 +26,7 @@ SYNTHETIC_MLP_HIDDEN_DIMS = {
 
 def get_model(model, n_c, bias=False, dataset="SyntheticBinary", synthetic_dim=100):
     if model not in SYNTHETIC_MLP_HIDDEN_DIMS:
-        raise ValueError("Only SyntheticMLP and SyntheticMLPDeep are supported in this pipeline")
+        raise ValueError("Unsupported synthetic MLP: %s" % model)
     return SyntheticMLP(
         input_dim=synthetic_dim,
         hidden_dims=SYNTHETIC_MLP_HIDDEN_DIMS[model],

@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v1-pilot-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-pilot",
+  "parameters": {
+    "setting": "small_mlp",
+    "cell": "fedfisher_diag_small",
+    "variant": "control",
+    "shard_index": 0,
+    "shard_count": 1
+  },
+  "priority": 0
+}

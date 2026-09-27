@@ -5,6 +5,64 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Small MLP and weak-signal development — 2026-09-27 UTC
+
+The user authorized implementation of two binary sensitivity experiments.
+`small_mlp` repeats the eight original FedAvg recipes and original Diag/KFAC
+with `SyntheticMLPSmall` (one eight-neuron hidden layer; 1,634 parameters at
+201 inputs) and signal strength 2.0. `weak_signal_1` and `weak_signal_05`
+repeat all ten methods for small/shallow/deep models and add one iterative
+dsLassoCov configuration per signal. All four variants, both splits and the
+original seed range remain fixed: 72 setting/method combinations, 576 pilot
+units, and 172,800 planned formal units. No scientific pilot or formal run was
+authorized or launched in this implementation task.
+
+Development is on `codex/model-signal-ablation`, based on `2c626fe`, in the
+reused clean, previously merged worktree
+`/home/del6500/projects/FedFisher/.git/codex-review/em-dr-sieve-v1`.
+Its historical directory name is retained. The canonical checkout remains
+untouched: its full provenance was rechecked against the already published
+survival repair pilot inventory and still matches. Do not merge this branch
+while that cohort relies on frozen canonical source. This development worktree
+is not a registered execution path.
+
+The new package is `effect_modifier_experiment/model_signal_ablation/`.
+Scientific composition delegates to existing comparison/timing functions;
+the generator, original Fisher aggregation/training/compression files and old
+comparison/timing protocol files remain byte-identical. Shared changes are the
+small model factory entry, model allowlists, three timing-store extension hooks
+with unchanged historical defaults, and additive scheduler dispatch. Requests
+and immutable completion evidence use independent model/signal namespaces.
+
+The two new tasks are `effect-modifier-model-signal-pilot` and
+`effect-modifier-model-signal-shard`. Their proposal under
+`effect_modifier_experiment/server_scheduler/model-signal-ablation-v1/`
+is disabled and was accepted by the installed scheduler's read-only registration
+parser. The 288-request pilot must pass complete scientific, factorial,
+cross-method, Diag/KFAC local-fit and producer-attempt validation. Both formal
+publication and runtime require that same-source proof. Runtime admission must
+account for full pilot evidence verification at shard startup as well as fitting.
+No real outbox bundle, central registration or central state was changed.
+
+Validation: 25 initial focused tests passed; the complete isolated-checkout
+regression passed all 633 tests in 82.562 seconds, without failures or skips.
+The final type-exact acceptance configuration check then passed its five-test
+regression in 18.380 seconds. New tests include real tiny h8 FedAvg/Diag/KFAC
+fits, exact recipe differences, strict schemas, deterministic shards, immutable
+result publication, rehashed semantic tampering, source drift and complete
+fabricated 288-request/576-unit acceptance evidence. These are development
+fixtures, not scientific pilot measurements. Changed Python and JSON files
+passed syntax/parsing checks; `git diff --check` passed.
+
+Logs, the regression driver and temporary fixture/cache files are below
+`/scr/del6500/FedFisher/model-signal-validation/`. The driver pins modified
+modules to the isolated checkout. One unchanged legacy launcher refusal fixture
+requires the canonical path; after checking byte equality of its launcher and
+lock helper, only that oversubscription-rejection test uses canonical files.
+No production root guard was weakened and no test was skipped. Integration,
+clean canonical source freeze and operator profile/registration/pilot review
+remain prerequisites for eventual execution.
+
 ## Survival validation repair and replacement pilot — 2026-09-27 UTC
 
 The user requested correction and resubmission after the recovery formal cohort

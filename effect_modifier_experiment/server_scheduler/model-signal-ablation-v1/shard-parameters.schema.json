@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher model/signal shard scientific parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "setting",
+    "cell",
+    "variant",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "setting": {
+      "enum": [
+        "small_mlp",
+        "weak_signal_1",
+        "weak_signal_05"
+      ]
+    },
+    "cell": {
+      "enum": [
+        "fedavg_small_e1_patience",
+        "fedavg_small_e1_budget30",
+        "fedavg_small_e5_patience",
+        "fedavg_small_e5_budget30",
+        "fedavg_small_e10_patience",
+        "fedavg_small_e10_budget30",
+        "fedavg_small_e30_patience",
+        "fedavg_small_e30_budget30",
+        "fedfisher_diag_small",
+        "fedfisher_kfac_small",
+        "fedavg_shallow_e1_patience",
+        "fedavg_shallow_e1_budget30",
+        "fedavg_shallow_e5_patience",
+        "fedavg_shallow_e5_budget30",
+        "fedavg_shallow_e10_patience",
+        "fedavg_shallow_e10_budget30",
+        "fedavg_shallow_e30_patience",
+        "fedavg_shallow_e30_budget30",
+        "fedfisher_diag_shallow",
+        "fedfisher_kfac_shallow",
+        "fedavg_deep_e1_patience",
+        "fedavg_deep_e1_budget30",
+        "fedavg_deep_e5_patience",
+        "fedavg_deep_e5_budget30",
+        "fedavg_deep_e10_patience",
+        "fedavg_deep_e10_budget30",
+        "fedavg_deep_e30_patience",
+        "fedavg_deep_e30_budget30",
+        "fedfisher_diag_deep",
+        "fedfisher_kfac_deep",
+        "dslassocov"
+      ]
+    },
+    "variant": {
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "shard_count": {
+      "type": "integer",
+      "enum": [
+        8,
+        16
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "setting": {
+            "const": "small_mlp"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "cell": {
+            "enum": [
+              "fedavg_small_e1_patience",
+              "fedavg_small_e1_budget30",
+              "fedavg_small_e5_patience",
+              "fedavg_small_e5_budget30",
+              "fedavg_small_e10_patience",
+              "fedavg_small_e10_budget30",
+              "fedavg_small_e30_patience",
+              "fedavg_small_e30_budget30",
+              "fedfisher_diag_small",
+              "fedfisher_kfac_small"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "shard_count": {
+            "const": 8
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "shard_index": {
+            "maximum": 7
+          }
+        }
+      }
+    }
+  ]
+}

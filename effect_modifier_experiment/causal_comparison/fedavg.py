@@ -30,7 +30,7 @@ from run_one_shot_algs import get_fedavg_model
 
 
 ALLOWED_LOCAL_EPOCHS = (1, 5, 10, 30)
-SUPPORTED_MODELS = ("SyntheticMLP", "SyntheticMLPDeep")
+SUPPORTED_MODELS = ("SyntheticMLP", "SyntheticMLPDeep", "SyntheticMLPSmall")
 
 
 @dataclass(frozen=True)

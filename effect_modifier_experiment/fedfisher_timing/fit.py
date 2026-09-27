@@ -57,7 +57,7 @@ def _validate_method(method, seed):
             set(method) != {"family", "algorithm", "model", "optimizer"} or
             method["family"] != "legacy_fedfisher" or
             method["algorithm"] not in ("fedfisher_diag", "fedfisher_kfac") or
-            method["model"] not in ("SyntheticMLP", "SyntheticMLPDeep")):
+            method["model"] not in ("SyntheticMLP", "SyntheticMLPDeep", "SyntheticMLPSmall")):
         raise ValueError("invalid standalone FedFisher method")
     if type(seed) is not int or not 0 <= seed < 2**63:
         raise ValueError("seed must be a nonnegative integer below 2**63")

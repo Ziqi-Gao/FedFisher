@@ -35,12 +35,13 @@ def _hash(value):
     return isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value) is not None
 
 
-def validate_execution(execution):
+def validate_execution(execution, *, job_prefix='fedfisher-timing-', max_suffix=112):
     _require(isinstance(execution, dict) and set(execution) == {
         'job_id', 'execution_profile', 'allocation', 'attempt', 'estimated_runtime_seconds'},
         'timing execution receipt fields mismatch')
     _require(isinstance(execution['job_id'], str) and re.fullmatch(
-        r'fedfisher-timing-[A-Za-z0-9_.-]{1,112}', execution['job_id']) is not None,
+        re.escape(job_prefix) + r'[A-Za-z0-9_.-]{1,%d}' % max_suffix,
+        execution['job_id']) is not None,
         'invalid timing scheduler job identity')
     _require(execution['execution_profile'] == 'cpu-1core'
              and type(execution['attempt']) is int and execution['attempt'] >= 1,
@@ -61,10 +62,7 @@ class ArtifactStore:
 
     def __init__(self, config, provenance, directory=None):
         self.config = json.loads(canonical(config))
-        parameters = dict(cell=self.config['cell'], variant=self.config['variant'],
-            shard_index=0, shard_count=1 if self.config['task'] == protocol.PILOT_TASK else 8)
-        _require(self.config == protocol.run_config(self.config['task'], parameters),
-                 'timing configuration is not a reviewed fixed recipe')
+        self._validate_config()
         self.provenance = dict(provenance)
         _require(set(self.provenance) == {*PROVENANCE_KEYS, 'provenance_sha256'},
                  'timing provenance field inventory mismatch')
@@ -83,6 +81,18 @@ class ArtifactStore:
         self.manifest = dict(format_version='2', protocol=self.config['protocol'], run_id=self.run_id,
             config_json=canonical(self.config), config_sha256=self.config_sha256, **self.provenance)
         self._current()
+
+    def _validate_config(self):
+        parameters = dict(cell=self.config['cell'], variant=self.config['variant'],
+            shard_index=0, shard_count=1 if self.config['task'] == protocol.PILOT_TASK else 8)
+        _require(self.config == protocol.run_config(self.config['task'], parameters),
+                 'timing configuration is not a reviewed fixed recipe')
+
+    def _validate_execution(self, execution):
+        validate_execution(execution)
+
+    def _validate_result(self, result, arrays, identity):
+        validate_result(result, arrays, identity, self.config)
 
     def _current(self):
         _require(canonical(self.config) == self.manifest['config_json']
@@ -129,7 +139,7 @@ class ArtifactStore:
         started = read_json(self.cell_dir(seed, split)/'started.json')
         _require(set(started) == {'identity', 'execution'} and started['identity'] == self.identity(seed, split),
                  'timing started identity mismatch')
-        validate_execution(started['execution'])
+        self._validate_execution(started['execution'])
         return started
 
     def _read(self, seed, split):
@@ -138,7 +148,7 @@ class ArtifactStore:
         with np.load(safe_path(path/'model.npz'), allow_pickle=False) as archive:
             _require(len(archive.files) == len(set(archive.files)), 'duplicate timing model arrays')
             arrays = {name: archive[name] for name in archive.files}
-        validate_result(result, arrays, self.identity(seed, split), self.config)
+        self._validate_result(result, arrays, self.identity(seed, split))
         return result, arrays
 
     def status(self, seed, split):
@@ -166,7 +176,7 @@ class ArtifactStore:
 
     def start(self, seed, split, execution):
         self._manifest()
-        validate_execution(execution)
+        self._validate_execution(execution)
         if self.status(seed, split) != 'missing':
             raise FileExistsError('timing cell already complete')
         path = self.cell_dir(seed, split)
@@ -183,7 +193,7 @@ class ArtifactStore:
         _require(path.is_dir() and {entry.name for entry in path.iterdir()} == {'started.json'},
                  'partial or completed timing cell cannot be overwritten')
         self._started(seed, split)
-        validate_result(result, arrays, self.identity(seed, split), self.config)
+        self._validate_result(result, arrays, self.identity(seed, split))
         encoded = canonical(result).encode()
         buffer = io.BytesIO()
         np.savez(buffer, **arrays)
