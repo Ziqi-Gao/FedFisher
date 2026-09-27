@@ -14,14 +14,15 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', required=True, type=Path)
     parser.add_argument('--cohort', choices=('diagnostic', 'formal'), default='diagnostic')
+    parser.add_argument('--epoch', type=int, choices=(1, 2), default=1)
     args = parser.parse_args(argv)
     provenance = gate.current_provenance()
-    output = gate.default_acceptance_path(provenance, args.cohort)
+    output = gate.default_acceptance_path(provenance, args.cohort, args.epoch)
     pending = gate.old._ordinary_path(output.with_name('.' + output.name + '.pending'), exists=False)
     if output.exists() or pending.exists():
         raise FileExistsError('existing or partial recovery proof must be preserved')
     collect = gate.collect_diagnostic_acceptance if args.cohort == 'diagnostic' else gate.collect_formal_acceptance
-    proof = collect(args.inventory)
+    proof = collect(args.inventory, epoch=args.epoch)
     if proof['provenance'] != provenance or gate.current_provenance() != provenance:
         raise ValueError('source changed before recovery proof publication')
     payload = (json.dumps(proof, sort_keys=True, indent=2, allow_nan=False) + '\n').encode()

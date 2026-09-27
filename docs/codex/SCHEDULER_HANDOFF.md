@@ -5,6 +5,76 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Survival validation repair and replacement pilot — 2026-09-27 UTC
+
+The user requested correction and resubmission after the recovery formal cohort
+ended with 565 valid cells, three validation failures and 32 unattempted cells.
+Before any tracked edit, fresh frozen-source validation replayed all 108 r1
+diagnostics, checked every successful formal cell and paired input, and rehashed
+all 2,400 archived FedFisher models and their producer evidence. The three
+failures are exactly covariate-shift seeds 49, 63 and 240, all from post-fit
+majorization validation. Every r1 central task was terminal, attempt 1, with no
+pending retry; no FedFisher job was active at source release.
+
+Immutable closeout:
+`/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-v1/recovery-r1-closeout-20260927T001801Z/closeout.json`,
+SHA-256 `00e4a371797524322b584fc325da14888c11f1219dd1bd9192d7d2983de50f6c`.
+It explicitly passes source release while keeping whole-cohort acceptance false.
+All existing requests, outputs, failures and completion evidence are preserved.
+
+The fix preserves the runtime line-search comparison and records its exact
+floating-point operands. V2 evidence validation replays the same comparison;
+the original subtraction-based boundary test is retained only for archived V1
+evidence. R2 scientific configuration requires V2 evidence, so deleting new
+witnesses or claiming the old schema cannot bypass the repair checks. KKT and
+proximal-gradient tolerances, solver updates, iteration budget, step cap, CV,
+data, responses, link and evaluator are unchanged. Returned fits rejected by
+post-fit validation, evaluation or artifact publication retain full diagnostics,
+stage timing and hash-bound model arrays as failure evidence without a done
+marker. Failure outputs remain immutable and cannot be resumed as successes.
+
+The shared protocol, store, runner, builder and acceptance code add explicit
+epoch 2; no parallel lifecycle implementation is introduced. New task names are
+`effect-modifier-survival-dslasso-repair-pilot` and
+`effect-modifier-survival-dslasso-repair-shard`. Their additive disabled proposal
+and strict schemas are under `server_scheduler/survival-repair-v2/` in the effect
+modifier subtree. The installed registration inspected at bootstrap has only
+the prior recovery names; operator registration of the repair tasks is required.
+The project does not change central registration/state or submit via central CLI.
+
+The replacement pilot fixes the already selected `budget_and_step` recipe on
+30 cases: all 27 earlier controls plus the three new failures. All 30 must be
+stationary and the original 27 must preserve every prior model/numerical-path
+field except measured times and added observer evidence. The formal expansion
+remains gated on actual same-source r2 acceptance and operator cost review;
+it reruns all 600 cells coherently in new r2 namespaces. Old 565 successes are
+historical evidence, not replacements for new formal cells.
+
+After clean source freeze, publish the 30 diagnostic requests with
+`scripts/prepare_survival_recovery_requests.py --epoch 2 --generation 1`.
+The bundle is `fedfisher-survival-dslasso-repair-v2-diagnostic-p1`, below the
+FedFisher scratch outbox. This is an operator-review package, not submission.
+After actual pilot completion, run `scripts/validate_survival_recovery.py`
+with `--epoch 2 --inventory PATH`; only its source-bound proof may authorize
+`--epoch 2 --cohort formal --diagnostic-acceptance PATH` in the builder.
+The formal implementation and gate are frozen with the pilot, requiring no
+source change between stages. Do not resubmit old failed job IDs or write into
+r1 namespaces. Keep this source frozen through execution and acceptance.
+
+Validation logs, fixture temporary files and parser evidence are below
+`/scr/del6500/FedFisher/survival-repair-validation/`. Golden comparison proves
+all 374 original/r1 request specifications unchanged; six scientific module
+files remain byte-identical. The installed scheduler's read-only parsers accept
+the disabled proposal and all 62 in-memory pilot/formal specifications, each
+without resource/profile hints. The full no-cache, single-thread regression
+passed all 596 tests in 58.302 seconds with no failures or skips. It includes
+floating-point boundary/tampering checks, true tiny r2 pilot/formal stores,
+strict evidence-version gates, saved-error arrays and 30-case/parity admission
+fixtures. The log is `survival-repair-validation/full-suite.log` under FedFisher
+scratch. These checks do not establish actual pilot success. Final source
+commit, inventory hashes and operator instructions are recorded in the
+post-freeze scratch handoff and durable preparation report.
+
 ## Survival formal closeout and dsLasso recovery — 2026-09-21 UTC
 
 The user authorized the recovery plan and retained responsibility for asking

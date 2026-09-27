@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Survival dsLasso validation repair pilot parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case"
+  ],
+  "properties": {
+    "case": {
+      "type": "string",
+      "enum": [
+        "covariate_shift_042",
+        "covariate_shift_078",
+        "covariate_shift_091",
+        "covariate_shift_096",
+        "covariate_shift_103",
+        "covariate_shift_133",
+        "covariate_shift_136",
+        "covariate_shift_146",
+        "covariate_shift_164",
+        "covariate_shift_236",
+        "covariate_shift_237",
+        "covariate_shift_241",
+        "covariate_shift_259",
+        "covariate_shift_262",
+        "covariate_shift_297",
+        "iid_057",
+        "iid_083",
+        "iid_112",
+        "iid_191",
+        "iid_157",
+        "iid_000",
+        "iid_073",
+        "iid_089",
+        "covariate_shift_193",
+        "covariate_shift_000",
+        "covariate_shift_058",
+        "covariate_shift_074",
+        "covariate_shift_049",
+        "covariate_shift_063",
+        "covariate_shift_240"
+      ]
+    }
+  }
+}

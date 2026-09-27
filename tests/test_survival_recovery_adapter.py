@@ -14,7 +14,9 @@ from effect_modifier_experiment.survival import recovery
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/survival-recovery-v1'
 FIXTURES = ('survival-dslasso-diagnostic-running-job.json',
-            'survival-dslasso-recovery-shard-running-job.json')
+            'survival-dslasso-recovery-shard-running-job.json',
+            'survival-dslasso-repair-pilot-running-job.json',
+            'survival-dslasso-repair-shard-running-job.json')
 
 
 class SurvivalRecoveryAdapterTests(unittest.TestCase):
@@ -177,14 +179,14 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
             self.assertEqual(path.name, request['job_id'] + '.job-request.json')
             recovery.validate_parameters(request['task'], request['parameters'])
             tasks.add(request['task'])
-        self.assertEqual(tasks, set(recovery.TASKS))
+        self.assertEqual(tasks, set(recovery.tasks_for_epoch(1)))
 
     def test_registration_is_disabled_and_requires_diagnostic_and_operator_review(self):
         proposal = (PROPOSAL_ROOT / 'registration-proposal.toml').read_text()
         self.assertEqual(re.findall(r'(?m)^enabled = (.+)$', proposal), ['false'])
         self.assertEqual(proposal.count('[[tasks]]'), 2)
         self.assertEqual(proposal.count('[[tasks.execution_profiles]]'), 2)
-        for task in recovery.TASKS:
+        for task in recovery.tasks_for_epoch(1):
             self.assertIn('name = "' + task + '"', proposal)
         self.assertEqual(re.findall(r'(?m)^cpu_cores_max = (.+)$', proposal), ['1', '1'])
         self.assertEqual(re.findall(r'(?m)^host_memory_max_mib = (.+)$', proposal), ['8192', '8192'])
@@ -193,6 +195,39 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
         self.assertIn('operator runtime/memory review', proposal)
         self.assertIn('unmeasured admission estimates', proposal)
         self.assertIn('not outbox requests or submitted jobs', proposal)
+
+    def test_repair_pilot_has_exact_cases_and_no_recipe_or_runtime_override(self):
+        path, job = self.helper.fixture(FIXTURES[2])
+        self.assertEqual(len(recovery.REPAIR_CASES), 30)
+        for case in recovery.REPAIR_CASES:
+            self.assertEqual(self.validate(path, dict(job, parameters=dict(case=case)))['parameters'],
+                             dict(case=case))
+        for p in ({}, {'case': 'iid_001'}, {'case': True},
+                  {'case': 'covariate_shift_049', 'recipe': 'budget_only'},
+                  {'case': 'covariate_shift_049', 'max_iter': 16000}):
+            with self.assertRaises(fixture.ADAPTER.AdapterError):
+                self.validate(path, dict(job, parameters=p))
+
+    def test_repair_proposal_and_schemas_are_separate_and_disabled(self):
+        root = PROPOSAL_ROOT.parent / 'survival-repair-v2'
+        schema = json.loads((root / 'diagnostic-parameters.schema.json').read_text())
+        self.assertEqual(schema['required'], ['case'])
+        self.assertEqual(set(schema['properties']), {'case'})
+        self.assertFalse(schema['additionalProperties'])
+        self.assertEqual(set(schema['properties']['case']['enum']), set(recovery.REPAIR_CASES))
+        self.assertEqual(json.loads((root / 'shard-parameters.schema.json').read_text()),
+                         json.loads((PROPOSAL_ROOT / 'shard-parameters.schema.json').read_text()))
+        proposal = (root / 'registration-proposal.toml').read_text()
+        self.assertEqual(re.findall(r'(?m)^enabled = (.+)$', proposal), ['false'])
+        self.assertEqual(proposal.count('[[tasks]]'), 2)
+        for task in recovery.tasks_for_epoch(2):
+            self.assertIn('name = "' + task + '"', proposal)
+        requests = [json.loads(p.read_text()) for p in (root / 'examples').glob('*.json')]
+        self.assertEqual({r['task'] for r in requests}, set(recovery.tasks_for_epoch(2)))
+        for request in requests:
+            self.assertNotIn('resources', request)
+            self.assertNotIn('execution_profile', request)
+            recovery.validate_parameters(request['task'], request['parameters'])
 
 
 if __name__ == '__main__':

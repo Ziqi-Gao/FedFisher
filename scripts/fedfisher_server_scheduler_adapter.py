@@ -36,7 +36,10 @@ SURVIVAL_TASK = "effect-modifier-survival-shard"
 SURVIVAL_TASKS = (SURVIVAL_PILOT_TASK, SURVIVAL_TASK)
 SURVIVAL_DIAGNOSTIC_TASK = "effect-modifier-survival-dslasso-diagnostic"
 SURVIVAL_RECOVERY_TASK = "effect-modifier-survival-dslasso-recovery-shard"
-SURVIVAL_RECOVERY_TASKS = (SURVIVAL_DIAGNOSTIC_TASK, SURVIVAL_RECOVERY_TASK)
+SURVIVAL_REPAIR_PILOT_TASK = "effect-modifier-survival-dslasso-repair-pilot"
+SURVIVAL_REPAIR_TASK = "effect-modifier-survival-dslasso-repair-shard"
+SURVIVAL_RECOVERY_TASKS = (SURVIVAL_DIAGNOSTIC_TASK, SURVIVAL_RECOVERY_TASK,
+                           SURVIVAL_REPAIR_PILOT_TASK, SURVIVAL_REPAIR_TASK)
 # These new contracts are project-side proposals until centrally registered.
 COMPARISON_TASKS = (COMPARISON_PILOT_TASK, COMPARISON_TASK)
 FEDFISHER_TIMING_TASKS = (FEDFISHER_TIMING_PILOT_TASK, FEDFISHER_TIMING_TASK)
@@ -95,6 +98,8 @@ TASK_PROFILES = {
     SURVIVAL_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     SURVIVAL_DIAGNOSTIC_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
     SURVIVAL_RECOVERY_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    SURVIVAL_REPAIR_PILOT_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
+    SURVIVAL_REPAIR_TASK: {"execution_profile": CPU_PROFILE, "memory_mib": 8192},
 }
 DSLASSO_RUN_IDS = {
     "control": "dslassocov_control_server_scheduler_v2r2_300seeds",

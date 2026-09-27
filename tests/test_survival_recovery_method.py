@@ -9,7 +9,8 @@ import numpy as np
 from effect_modifier_experiment.survival.data import SurvivalRows, SurvivalSite
 from effect_modifier_experiment.survival.dslasso import DslassoConfig, fit_dslasso, proximal_fit
 from effect_modifier_experiment.survival.recovery_method import (
-    OptimizationFailure, RecoveryPolicy, _RecoveryRun, _validate_report,
+    OptimizationFailure, RecoveryPolicy, RECOVERY_SCHEMA_V1, RECOVERY_SCHEMA_V2,
+    _RecoveryRun, _validate_report,
     fit_recovery_dslasso, validate_recovery_diagnostics,
 )
 
@@ -105,9 +106,98 @@ class RecoveryMethodTests(unittest.TestCase):
         _, report = proximal_fit(sites, np.zeros(1), 1, 0., cfg,
                                  observer.communication, observer)
         self.assertGreater(report["backtracks"], 0)
-        self.assertLessEqual(report["majorization_max_gap"], 1e-14)
+        self.assertLessEqual(report["majorization_evidence"]["max_guard_witness"]["guard_excess"], 0.)
         self.assertEqual(report["loss_gradient_calls"], 1 + report["iterations"] + report["backtracks"])
         _validate_report(report, cfg, observer.policy, observer.fit_context)
+
+    def test_float_boundary_accepted_step_replays_exact_runtime_guard(self):
+        sites = [(np.ones((1, 1)), np.zeros(1))]
+        cfg = DslassoConfig(max_iter=1)
+        observer = kernel_observer(sites, cfg, RecoveryPolicy())
+        # One quadratic-like step: delta=-1, initial gradient=1 and smooth=.6.
+        # The final loss lies exactly on the rounded runtime acceptance bound.
+        bound = .6 - 1. + .5
+        loss = float(bound + 1e-14)
+        self.assertGreater(loss - bound, 1e-14)
+        evaluations = iter(((.6, np.ones(1)), (loss, np.zeros(1))))
+
+        def evaluate(*args):
+            observer.calls += 1
+            observer.last_saturation = dict(n=1, near_zero=0, near_one=0,
+                near_zero_fraction=0., near_one_fraction=0., epsilon=1e-8)
+            return next(evaluations)
+
+        with patch.object(observer, "evaluate", side_effect=evaluate):
+            beta, report = proximal_fit(sites, np.zeros(1), 1, 0., cfg,
+                                        observer.communication, observer)
+        np.testing.assert_array_equal(beta, [-1.])
+        self.assertTrue(report["converged"])
+        self.assertGreater(report["majorization_max_gap"], 1e-14)
+        report = json.loads(json.dumps(report, allow_nan=False))
+        _validate_report(report, cfg, observer.policy, observer.fit_context)
+        # The archived validator remains strict; only new evidence repairs the
+        # boundary rather than retrospectively weakening historical checks.
+        with self.assertRaisesRegex(ValueError, "majorization violation"):
+            _validate_report(report, cfg, observer.policy, observer.fit_context, RECOVERY_SCHEMA_V1)
+
+        def check(edit):
+            bad = copy.deepcopy(report)
+            edit(bad)
+            with self.assertRaises(ValueError):
+                _validate_report(bad, cfg, observer.policy, observer.fit_context)
+
+        check(lambda d: d.pop("majorization_evidence"))
+        check(lambda d: d["majorization_evidence"].__setitem__("accepted_checks", 2))
+        check(lambda d: d.__setitem__("majorization_max_gap", 0.))
+        for name in ("max_gap_witness", "max_guard_witness"):
+            for key in ("candidate_smooth", "bound", "accepted_bound", "guard_excess"):
+                check(lambda d, name=name, key=key: d["majorization_evidence"][name].__setitem__(
+                    key, float(np.nextafter(d["majorization_evidence"][name][key], np.inf))))
+
+    def test_one_ulp_above_runtime_bound_is_still_rejected(self):
+        sites = [(np.ones((1, 1)), np.zeros(1))]
+        cfg = DslassoConfig()
+        observer = kernel_observer(sites, cfg, RecoveryPolicy())
+        observer.start_fit(np.zeros(1), 1, 0., cfg)
+        bound = .1
+        rejected_loss = float(np.nextafter(bound + 1e-14, np.inf))
+        with patch.object(observer, "evaluate", return_value=(rejected_loss, np.zeros(1))):
+            accepted, _, _ = observer.trial(sites, np.zeros(1), np.zeros(1),
+                bound, np.zeros(1), 1., observer.communication)
+        self.assertFalse(accepted)
+        self.assertEqual(observer.rejections["majorization"], 1)
+        self.assertEqual(observer.steps, [])
+        self.assertIsNone(observer.majorization_gap_witness)
+        self.assertIsNone(observer.majorization_guard_witness)
+
+    def test_new_schema_is_required_without_disabling_archived_validation(self):
+        cfg = DslassoConfig(num_folds=2, num_lambdas=2, max_iter=1000)
+        model, diagnostics = fit_recovery_dslasso(tiny_sites(), 3., config=cfg)
+        arrays = dict(intercept=np.array(model.intercept), coefficients=model.coefficients)
+        self.assertEqual(diagnostics["recovery_schema"], RECOVERY_SCHEMA_V2)
+        validate_recovery_diagnostics(diagnostics, cfg, RecoveryPolicy(), arrays, [32, 32],
+                                      required_schema=RECOVERY_SCHEMA_V2)
+        archived = copy.deepcopy(diagnostics)
+        archived["recovery_schema"] = RECOVERY_SCHEMA_V1
+
+        def remove_new_evidence(value):
+            if isinstance(value, dict):
+                value.pop("majorization_evidence", None)
+                for item in value.values():
+                    remove_new_evidence(item)
+            elif isinstance(value, list):
+                for item in value:
+                    remove_new_evidence(item)
+
+        remove_new_evidence(archived)
+        validate_recovery_diagnostics(archived, cfg, RecoveryPolicy(), arrays, [32, 32],
+                                      required_schema=RECOVERY_SCHEMA_V1)
+        with self.assertRaises(ValueError):
+            validate_recovery_diagnostics(archived, cfg, RecoveryPolicy(), arrays, [32, 32],
+                                          required_schema=RECOVERY_SCHEMA_V2)
+        archived["recovery_schema"] = RECOVERY_SCHEMA_V2
+        with self.assertRaises(ValueError):
+            validate_recovery_diagnostics(archived, cfg, RecoveryPolicy(), arrays, [32, 32])
 
     def test_budget_prefix_and_typed_endpoint(self):
         sites = [(np.ones((4, 1)), np.array([0., 0., 1., 1.]))]

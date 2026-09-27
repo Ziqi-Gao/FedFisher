@@ -333,3 +333,49 @@ at tau, modifier recovery and contrast RMSE,
 solver stationarity, same-scenario paired data fingerprints, complete timing,
 and communication scope. Passing software fixtures is not a substitute for
 these scientific checks or the later real-EHR study.
+
+## Validation repair epoch
+
+The r2 repair keeps the selected `budget_and_step` optimizer unchanged. Its
+runtime line search still tests `candidate_smooth <= bound + 1e-14`.
+Diagnostics now save the exact operands and rounded right-hand side, with
+bounded witnesses for maximum raw gap and maximum guard excess. The validator
+replays that same comparison; subtracting the bound before comparing with the
+tolerance is not equivalent at a floating-point boundary. KKT, proximal-gradient,
+iteration, step, CV and penalty rules are unchanged. New r2 results explicitly
+require numerical evidence schema v2; archived v1 validation retains its
+original rules and cannot substitute for new completion evidence.
+
+Post-fit validation, evaluation or artifact-publication failures preserve
+`failure.json` with the complete optimizer diagnostics and available stage
+timings, plus hash-bound `failure_arrays.npz`. These are failure evidence, never
+completion markers, and cannot be overwritten or resumed as successful fits.
+
+The repair adds two fixed task names while sharing the existing runner, store,
+request builder and acceptance code:
+
+- `effect-modifier-survival-dslasso-repair-pilot`: parameters exactly `{case}`;
+  the original 27 cases plus `covariate_shift_049`, `_063` and `_240`, all using
+  the previously selected recipe. All 30 must be stationary. The 27 controls
+  must reproduce the archived r1 model hashes and all existing numerical path
+  fields, excluding measured time and added observational evidence. Modifier
+  truth and performance scores do not select a new recipe.
+- `effect-modifier-survival-dslasso-repair-shard`: parameters exactly
+  `{scenario,shard_index,shard_count}`; all 600 scenario/seed cells are rerun
+  under one new frozen source. The old 565 results remain historical controls.
+
+Both entry and request publication bind the immutable r1 failure closeout and
+archived diagnostic proof. Formal publication and execution additionally replay
+actual same-source r2 pilot acceptance. The ordinary r1 reader is not used to
+pretend archived artifacts have current provenance. Namespaces use
+`survival_v1_dslasso_diagnostic_r2_budget_and_step_<scenario>` and
+`survival_v1_dslasso_recovery_r2_<scenario>_300seeds`; original directories and
+job identifiers are preserved.
+
+Use the existing builder and validator with explicit `--epoch 2`. The initial
+builder call publishes only 30 diagnostic requests. After their actual
+acceptance, `--cohort formal --diagnostic-acceptance PATH` publishes the 32
+formal requests. The disabled proposal and schemas are in
+`server_scheduler/survival-repair-v2/`; central registration, submission and
+profile review remain operator actions. Proofs use the separate
+`dslasso-repair-v2` subdirectory under the durable survival report root.

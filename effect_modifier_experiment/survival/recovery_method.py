@@ -16,6 +16,10 @@ from .dslasso import (DslassoConfig, _Communication, _residuals, fit_dslasso,
 from .links import survival_mean, survival_mean_derivative
 
 
+RECOVERY_SCHEMA_V1 = "survival_dslasso_numerical_recovery_v1"
+RECOVERY_SCHEMA_V2 = "survival_dslasso_numerical_recovery_v2"
+
+
 @dataclass(frozen=True)
 class RecoveryPolicy:
     max_step: float = 1.0
@@ -192,6 +196,7 @@ class _RecoveryRun:
         self.local_rejections = 0
         self.steps = []
         self.majorization_max = None
+        self.majorization_gap_witness = self.majorization_guard_witness = None
         self.trace_fixed = {}
         self.trace_tail = deque(maxlen=self.policy.trace_tail)
         self.accepted_saturation = None
@@ -287,6 +292,21 @@ class _RecoveryRun:
                     reason = "majorization"
                 else:
                     gap = float(candidate_smooth - bound)
+                    # Retain the exact operands of the runtime comparison.
+                    # (candidate - bound) <= tolerance is not its floating-point
+                    # equivalent at the acceptance boundary.
+                    accepted_bound = float(bound + 1e-14)
+                    excess = float(candidate_smooth - accepted_bound)
+                    larger_gap = self.majorization_max is None or gap > self.majorization_max
+                    larger_excess = (self.majorization_guard_witness is None or
+                        excess > self.majorization_guard_witness["guard_excess"])
+                    if larger_gap or larger_excess:
+                        witness = dict(candidate_smooth=float(candidate_smooth),
+                            bound=float(bound), accepted_bound=accepted_bound, guard_excess=excess)
+                        if larger_gap:
+                            self.majorization_gap_witness = witness
+                        if larger_excess:
+                            self.majorization_guard_witness = witness
                     self.majorization_max = gap if self.majorization_max is None else max(
                         self.majorization_max, gap)
                     self.steps.append(float(trial))
@@ -311,6 +331,9 @@ class _RecoveryRun:
             min_accepted_step=min(self.steps) if self.steps else None,
             max_accepted_step=max(self.steps) if self.steps else None,
             accepted_steps=len(self.steps), majorization_max_gap=self.majorization_max,
+            majorization_evidence=dict(accepted_checks=len(self.steps),
+                max_gap_witness=self.majorization_gap_witness,
+                max_guard_witness=self.majorization_guard_witness),
             rejected_candidates=dict(self.rejections), server_local_rejections=self.local_rejections,
             loss_gradient_calls=self.calls - self.fit_calls,
             elapsed_wall_seconds=time.perf_counter() - self.fit_started[0],
@@ -354,7 +377,7 @@ class _RecoveryRun:
 
     def finalize(self, diagnostics, success):
         self._close_stage("complete" if success else "failed")
-        diagnostics.update(recovery_schema="survival_dslasso_numerical_recovery_v1",
+        diagnostics.update(recovery_schema=RECOVERY_SCHEMA_V2,
             outcome="stationary" if success else diagnostics["outcome"],
             config=asdict(self.config), recovery_policy=asdict(self.policy), context=self.context,
             site_sizes=getattr(self, "site_sizes", []),
@@ -397,7 +420,47 @@ def _require_finite(value, name, nonnegative=True):
         raise ValueError("invalid recovery " + name)
 
 
-def _validate_report(report, config, policy, context):
+def _validate_majorization(report, schema):
+    """Replay the original accepted comparison, preserving strict r1 validation."""
+    accepted = report["accepted_steps"]
+    if schema not in (RECOVERY_SCHEMA_V1, RECOVERY_SCHEMA_V2):
+        raise ValueError("unknown recovery evidence schema")
+    if accepted:
+        _require_finite(report["majorization_max_gap"], "majorization", False)
+    if schema == RECOVERY_SCHEMA_V1:
+        if accepted and report["majorization_max_gap"] > 1e-14:
+            raise ValueError("recovery accepted a majorization violation")
+        return
+    evidence = report.get("majorization_evidence")
+    if (not isinstance(evidence, dict) or set(evidence) != {
+            "accepted_checks", "max_gap_witness", "max_guard_witness"}
+            or type(evidence["accepted_checks"]) is not int
+            or evidence["accepted_checks"] != accepted):
+        raise ValueError("invalid recovery majorization evidence coverage")
+    if not accepted:
+        if any(evidence[key] is not None for key in ("max_gap_witness", "max_guard_witness")):
+            raise ValueError("majorization witness claimed without accepted steps")
+        return
+    witnesses = [evidence[key] for key in ("max_gap_witness", "max_guard_witness")]
+    for witness in witnesses:
+        if not isinstance(witness, dict) or set(witness) != {
+                "candidate_smooth", "bound", "accepted_bound", "guard_excess"}:
+            raise ValueError("invalid recovery majorization witness")
+        for key, value in witness.items():
+            _require_finite(value, "majorization " + key, key == "candidate_smooth")
+        candidate, bound = witness["candidate_smooth"], witness["bound"]
+        if (witness["accepted_bound"] != bound + 1e-14
+                or witness["guard_excess"] != candidate - witness["accepted_bound"]
+                or candidate > witness["accepted_bound"]):
+            raise ValueError("recovery accepted a majorization violation or invalid witness")
+    gap_witness, guard_witness = witnesses
+    if (report["majorization_max_gap"] != gap_witness["candidate_smooth"] - gap_witness["bound"]
+            or gap_witness["guard_excess"] > guard_witness["guard_excess"]
+            or guard_witness["candidate_smooth"] - guard_witness["bound"] > report["majorization_max_gap"]):
+        raise ValueError("recovery majorization extrema disagree with witnesses")
+
+
+def _validate_report(report, config, policy, context, schema=RECOVERY_SCHEMA_V2):
     """Recompute endpoint arithmetic using saved arrays, without prediction."""
     beta = np.asarray(report["terminal_beta"], dtype=float)
     gradient = np.asarray(report["terminal_gradient"], dtype=float)
@@ -448,12 +511,10 @@ def _validate_report(report, config, policy, context):
                 report["max_accepted_step"] <= policy.max_step
                 and config.min_step <= report["first_accepted_step"] <= config.initial_step):
             raise ValueError("invalid recovery accepted step bounds")
-        _require_finite(report["majorization_max_gap"], "majorization", False)
-        if report["majorization_max_gap"] > 1e-14:
-            raise ValueError("recovery accepted a majorization violation")
     elif any(report[key] is not None for key in (
             "first_accepted_step", "min_accepted_step", "max_accepted_step", "majorization_max_gap")):
         raise ValueError("steps claimed without iterations")
+    _validate_majorization(report, schema)
     rejected = report["rejected_candidates"]
     for count in list(rejected.values()) + [report["backtracks"], report["server_local_rejections"],
                                           report["loss_gradient_calls"]]:
@@ -506,14 +567,16 @@ def _validate_report(report, config, policy, context):
 
 
 def validate_recovery_diagnostics(diagnostics, config, policy, arrays, site_sizes,
-                                  require_success=None):
+                                  require_success=None, required_schema=None):
     """Validate saved successful fits or complete iteration-limit observations."""
     cfg = config if isinstance(config, DslassoConfig) else DslassoConfig(**config)
     pol = policy if isinstance(policy, RecoveryPolicy) else RecoveryPolicy(**policy)
     pol.validate(cfg)
     d = diagnostics
     outcome = d.get("outcome")
-    if (d.get("recovery_schema") != "survival_dslasso_numerical_recovery_v1"
+    schema = d.get("recovery_schema")
+    if (schema not in (RECOVERY_SCHEMA_V1, RECOVERY_SCHEMA_V2)
+            or (required_schema is not None and schema != required_schema)
             or d.get("config") != asdict(cfg) or d.get("recovery_policy") != asdict(pol)
             or d.get("site_sizes") != list(site_sizes)
             or outcome not in ("stationary", "iteration_limit")
@@ -583,7 +646,7 @@ def validate_recovery_diagnostics(diagnostics, config, policy, arrays, site_size
                     or report["penalty"] != (0. if fit_index == 0 else context["lambda_value"])
                     or len(report["terminal_beta"]) != (context["penalty_start"] if fit_index == 0 else width + 1)):
                 raise ValueError("recovery penalty metadata mismatch")
-            _validate_report(report, cfg, pol, context)
+            _validate_report(report, cfg, pol, context, schema)
             if report["saturation"]["n"] != sum(path["partition_site_sizes"]):
                 raise ValueError("recovery saturation partition mismatch")
             all_reports.append(report)
