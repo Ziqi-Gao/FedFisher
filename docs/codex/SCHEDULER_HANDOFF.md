@@ -5,7 +5,119 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
-## Repository refactor review and source-release blocker — 2026-10-03 UTC
+## Repository refactor integration and frozen V2 closeout — 2026-10-03 UTC
+
+The user explicitly authorized preserving the incomplete model/signal recovery
+epoch, fully verifying available saved models and producer evidence, publishing
+its immutable closeout, and then integrating the repository refactor. That
+archival source release and integration are complete. The historical review
+section below records the earlier canonical `4ecb6d5` and source-release blocker;
+those source/integration restrictions are superseded by this closeout. Whole
+experiment acceptance remains false, and no new execution is authorized by it.
+
+Canonical `/home/del6500/projects/FedFisher` is on
+`codex/repository-refactor-integrated-20261002`. Refactor implementation commit
+is `705dd5c92da4156711064e58e892a8fe437c322f`; fixture-isolation commit
+`2d7e7c8863247e9ed968321e07ff1f39172417c8` passed **713 tests in 136.243 seconds**
+with no failures or skips. The final metadata-only commit and clean source
+provenance are recorded in the external integration receipt below rather than
+binding a commit to its own contents.
+
+The released old source is
+`4ecb6d585b91d8119674fcdc2de052282524c9b9`, preserved by annotated Git tag
+`archive/model-signal-recovery-v2-4ecb6d5-20261002`. Immutable archive:
+
+`/data/del6500/FedFisher/archives/model-signal-recovery-v2-4ecb6d5-20261002/`
+
+Its authoritative `closeout.json` has SHA-256
+`1cc83b232fdfc8fc68c772215d5fa4827a6c37ec40aaf523dcdfb968829a6a46` and states
+"已有结果已封存、允许进入重构" together with "整批实验尚未完成".
+`source_release_passed`, `existing_results_archived`, and `allow_refactor` are
+true; `whole_experiment_completed`, `whole_cohort_accepted`, and
+`new_execution_authorized` remain false. This is the user's explicitly
+authorized incomplete-epoch archival release, not full scientific acceptance.
+
+The full saved-evidence verification finished at
+`2026-10-03T05:38:34.343033Z` before canonical source changed.
+`verification/summary.json` has SHA-256
+`f4e518df34be3cdf2328cc4c237c32cca5910123f3c6eb2c3cd1cd964240ed12`.
+It validates all **172,185 saved formal complete models**, their task-specific
+semantics, result/artifact hashes, completion markers, manifests and actual
+production attempts. The 174,008-row ledger additionally covers pilot and
+historical audit scopes. Verification reads saved artifacts only; it performed
+no fitting, model inference, data regeneration or new scientific execution.
+All original scientific outputs were rechecked unchanged. The saved central
+inventory was also unchanged across verification, with no active FedFisher
+jobs at those checks; this is a seal-time observation, not live scheduler state.
+
+The 172,800-unit formal contract retains 4,838 units from 129 historically
+successful shards. Of the 4,479 V2 shards, 4,455 completed and 24 failed. V2
+performance coverage accepts 167,060 complete units outside failed shards;
+including retained historical units gives 171,898 performance-complete units.
+Six separately verified formal training-cap outcomes give 171,904 terminal
+units but are scientific noncompletions, with no successful evaluation or full
+data refit. They require separate review; the two pilot caps are another scope.
+The original 200-round bound, patience 10 and `min_delta=1e-4` remain unchanged.
+
+All **24 failed whole deterministic shards remain pending: 896 units**,
+comprising **287 complete saved models retained only for audit, 597 missing,
+and 12 partial units**. The 287 must not be promoted to retained coverage.
+All failed attempts recorded exit status -15; the evidence does not identify
+the signal sender or cause. Existing files do not resolve the failed producer
+status. Available paired checks pass, while 4,127 exact performance-gap groups
+and 609 terminal-training-gap pairs remain listed in
+`verification/paired_checks.json`. Missing comparison-slot counts and their
+planned denominators remain distinct from these group/pair counts.
+`verification/pending.json` preserves the exact subsequent work scope.
+
+The archive indexes 33,334 evidence files with locations and SHA-256 hashes.
+It includes the old code archive and verified Git history bundle/tag, source
+and dependency inventories, seal-time interpreter/environment backup and
+restore guide, configuration and seed/shard lists, exact requests, manifests,
+logs, actual producer/retry evidence, prior proof chains and raw central audit
+ranges. Historical source files come from their actual Git blobs. The
+environment snapshot records seal-time recovery inputs; it does not infer the
+dependencies of historical producers. Original scientific outputs, including
+all failed-shard partial files, remain at their original paths with hashed
+in-place inventories. No original proof, provenance, result, manifest,
+completion marker or producer record was rewritten. Do not modify this archive.
+
+Post-integration development evidence is separate from that immutable archive:
+
+`/data/del6500/FedFisher/repository-refactors/20261002-705dd5c/`
+
+`archive-release-receipt.json` records successful readback of all archive-indexed
+files before integration. `post-merge-static.log` verifies 1,017 original
+scientific arithmetic definitions, 19 exact moves, 11 invariant functions,
+177 protected source/policy/schema/legacy files, and all eight unchanged agent
+protocols. Earlier review evidence also covers 13 reports/196 functions,
+29 request scenarios/13,210 exact specifications, and 21 running fixtures over
+20 routes. Scientific computation, fixed configurations and compatibility
+commands remain preserved by the extracted module boundaries.
+
+`canonical-tests-final.log` has SHA-256
+`f0e3a4d0963dd6b986f5152bd421dea21fb77a5d4a16d1163a9eb24be6bc8d38`.
+`tested-source.json` binds its clean tested source. All 698 original test
+identities remain; new tests cover module boundaries, request/source admission
+and early refusal of changed archived source. The initial post-merge test log
+is retained as `canonical-tests.log`; its three fixture failures were corrected
+by isolating test source inputs, while keeping production source protection and
+all original assertions. Test files exercise their own checkout, not another
+checkout's implementation. Only this handoff metadata changes after the final
+suite. `integration.json` binds the final commit, evidence and source provenance.
+Bounded development fixtures are not scientific acceptance or pilot admission.
+This refactor submitted no new scientific work and changed no central state.
+
+Future work must address the 24 failed shards and separately review the six
+formal cap outcomes using new tasks, request IDs and result namespaces. Do not
+resubmit old failed IDs, overwrite partial outputs, or reuse old proofs as
+new-source pilot admission. Apply schema/profile/fixture/operator-pilot and
+registration gates. Before combining replacement and retained results, verify
+exact deterministic coverage, task-specific semantic acceptance, required
+numerical consistency and paired data invariants. Every unit must retain its
+actual source and producer provenance; historical evidence remains immutable.
+
+## Historical repository refactor review and source-release blocker — 2026-10-03 UTC
 
 The user authorized modular repository restructuring while preserving existing
 scientific computation and the repository operating protocol. Canonical source
