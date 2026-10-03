@@ -8,8 +8,9 @@ import numpy as np
 
 from models import SYNTHETIC_MLP_HIDDEN_DIMS
 from ..infrastructure.artifacts import canonical
-from ..causal_comparison.evaluation import model_hash, signal_recovery_with_ties
-from ..causal_comparison.measurement import STAGES
+from ..components.fingerprints import model_hash
+from ..components.recovery_metrics import signal_recovery_with_ties
+from ..components.measurement import STAGES
 
 
 def _require(condition, message):

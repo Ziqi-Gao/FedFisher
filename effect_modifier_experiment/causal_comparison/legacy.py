@@ -15,9 +15,9 @@ import numpy as np
 from .. import dslassocov_benchmark as ds
 from .. import one_shot_lasso_benchmark as one_shot
 from ..one_shot_mlp_matched_fedavg import fit_matched_zero_penalty_site
-from .evaluation import array_hash, model_arrays, model_hash
+from ..components.fingerprints import array_hash, model_arrays, model_hash
 from .fedavg import _make_initial_model, _model_fingerprint
-from .measurement import CommunicationLedger, MethodTimer
+from ..components.measurement import CommunicationLedger, MethodTimer
 
 
 class DsCommunicationObserver:

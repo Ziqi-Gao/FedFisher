@@ -1,0 +1,6 @@
+# Optional static-tool settings. Dependencies remain in requirements.txt.
+# This configuration does not install tools or declare a distributable package.
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-exclude = ["results/server-scheduler-migration"]

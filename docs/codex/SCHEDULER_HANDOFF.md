@@ -5,6 +5,75 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Repository refactor review and source-release blocker — 2026-10-03 UTC
+
+The user authorized modular repository restructuring while preserving existing
+scientific computation and the repository operating protocol. Canonical source
+`/home/del6500/projects/FedFisher` remains clean and unchanged at
+`4ecb6d585b91d8119674fcdc2de052282524c9b9`. Refactor implementation is isolated
+on branch `codex/repository-refactor-20261002` in
+`/home/del6500/projects/FedFisher/.git/codex-review/repository-refactor-20261002`.
+This follows the earlier isolated-development precedent below. It is a review
+checkout for bounded fixtures, not a registered scientific execution path and
+not evidence that source release has passed. The scientific adapter retains
+its canonical-root guard and rejects execution from this review tree.
+
+The current model/signal recovery formal inventory contains 4,479 requests.
+Saved read-only scheduler and output forensic evidence records 4,455 completed
+jobs and 24 failed jobs. Across three affected V2 run namespaces, output layout
+inspection found 597 missing and 12 partial seed/split units: 609 units lack
+complete terminal artifacts. Existing files alone are not semantic acceptance.
+The failed attempts recorded exit status -15; the accessible evidence does not
+identify who sent SIGTERM. Neither terminal scheduler state nor completion of
+the refactor fixtures closes this scientific gap. The formal source-release
+gate remains blocked, and no refactor integration into canonical is authorized
+by this review implementation.
+
+Forensic evidence is preserved under
+`/scr/del6500/FedFisher/repository-refactor-20261002/`:
+
+- `formal-missing-evidence.json`: exact run/shard identities and missing/partial
+  output layout;
+- `formal-missing-audit-evidence.json`: the 24 failed attempts' central audit
+  evidence;
+- `formal-missing-forensics.json`: aggregate states, source binding, manifests
+  and failure-cause limitations;
+- `source-closeout.log`: the frozen-source acceptance checker trace.
+
+The isolated implementation extracts shared observations/fingerprints/ranking,
+path-free scientific composition, experiment-owned request plans, scheduler
+validation/runtime/dispatch/publication, and reusable completed-artifact
+reporting. Established command names, protected scientific source paths,
+historical launch/export material, result namespaces and existing scientific
+artifacts remain preserved. Tests are grouped by responsibility. No old proof,
+result, manifest or completion marker is rewritten to bind the new source.
+
+The report AST audit compares the original 13 modules and 196 functions with
+the extracted implementations. All computational ASTs match; the single raw
+function difference changes only the sequential renderer's import route.
+Its scratch baseline and verifier are `report-parity-before-4ecb6d5.json` and
+`check_generated_reports.py`. Source-root metadata adjusts to the new package
+depth; existing input/output defaults and arithmetic remain unchanged.
+Development tests and review metadata stay under the allowed repository and
+FedFisher scratch roots. No new scientific pilot/formal task, central submission,
+registration change or action on a foreign experiment is performed by this
+refactor review. Integration requires a valid source-bound scientific closeout;
+the current incomplete cohort and its original canonical source remain intact.
+
+Final bounded fixture verification: **712 tests passed in 136.799 seconds**.
+All 698 pre-refactor test identities remain present; 14 additional tests cover
+architecture, exact request parity and publication source authentication.
+Static audits verify 1,017 original arithmetic definitions, 19 exact scientific
+moves, 11 invariant functions, 13 report modules/196 functions, 29 request
+scenarios/13,210 specifications, and identical normalized validation for all
+21 running fixtures across 20 routes. Byte comparisons preserve 177 protected
+source/policy/schema/legacy files. Publication also rejects foreign source
+before provenance lookup; review-source inventories include its shared helper.
+The fixture result and source audit are saved as `refactor-verification.json`
+and `protected-paths-verification.json` in the scratch directory above.
+The complete suite log is `refactor-tests-final.log`; none of these development
+checks constitutes scientific acceptance or source release.
+
 ## Model/signal recovery implementation — 2026-09-27 UTC
 
 The user explicitly authorized implementing the repair, continuing through the

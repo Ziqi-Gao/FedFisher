@@ -209,7 +209,7 @@ def validate_result(result,arrays,payloads,config,identity):
             and prerequisite['identity']['run_id']==protocol.linearity_prerequisite(config)['run_id'],
             'missing accepted source-matched full-gradient prerequisite')
         from .artifacts import current_provenance
-        from .runner import compression_prerequisite
+        from .prerequisites import compression_prerequisite
         _same(prerequisite,compression_prerequisite(config,current_provenance()),
               'saved expansion evidence no longer matches the validated full-gradient artifact')
     else:

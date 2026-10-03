@@ -1,75 +1,14 @@
 """Identical raw-X interventions on the probability scale for every method."""
 
 import hashlib
-import math
 import numpy as np
 import torch
 
 from data import build_effect_modifier_site_evaluation_datasets
-from utils.prediction_intervention import predict_treatment_contrast, evaluate_signal_recovery
+from utils.prediction_intervention import predict_treatment_contrast
+from ..components.fingerprints import array_hash, model_arrays, model_hash
+from ..components.recovery_metrics import signal_recovery_with_ties
 from .protocol import VARIANTS, SPLITS
-
-
-def signal_recovery_with_ties(importance, signal_dim, metric):
-    """Primary Top-k recovery integrates uniform ties at the selection boundary.
-
-    The legacy stable index tie break is preserved only as a named diagnostic;
-    it cannot reward X1/X2 simply for appearing first in an all-zero ranking.
-    Exact equality of observed importance values defines a tie.
-    """
-    values = np.asarray(importance, dtype=np.float64)
-    if values.ndim != 1 or not np.isfinite(values).all() or np.any(values < 0):
-        raise ValueError("recovery requires finite nonnegative feature importances")
-    if type(signal_dim) is not int or not 1 <= signal_dim <= values.size:
-        raise ValueError("invalid recovery signal count")
-    diagnostic = evaluate_signal_recovery(
-        values, signal_dim, metric, signal_indices=list(range(signal_dim)),
-        candidate_indices=list(range(values.size)))
-    diagnostic = {key: value if math.isfinite(value) else None for key, value in diagnostic.items()}
-    cutoff = np.sort(values)[-signal_dim]
-    above = values > cutoff
-    tied = values == cutoff
-    slots = signal_dim - int(above.sum())
-    tied_count = int(tied.sum())
-    true_above = int(above[:signal_dim].sum())
-    true_tied = int(tied[:signal_dim].sum())
-    expected_hits = true_above + slots * true_tied / tied_count
-    if true_above + true_tied != signal_dim or true_tied > slots:
-        all_selected = 0.0
-    else:
-        all_selected = math.comb(tied_count - true_tied, slots - true_tied) / math.comb(tied_count, slots)
-    return {
-        "expected_topk_hits": expected_hits,
-        "expected_topk_precision": expected_hits / signal_dim,
-        "probability_all_signals_selected": all_selected,
-        "auroc": diagnostic["auroc"],
-        "boundary_tie_size": tied_count,
-        "boundary_slots": slots,
-        "tie_rule": "uniform_without_replacement_within_exact_score_boundary_ties",
-        "deterministic_index_tiebreak_diagnostic": diagnostic,
-    }
-
-
-def array_hash(values):
-    values = np.ascontiguousarray(values)
-    h = hashlib.sha256()
-    h.update(str(values.dtype).encode())
-    h.update(str(values.shape).encode())
-    h.update(values.tobytes())
-    return h.hexdigest()
-
-
-def model_arrays(model):
-    if hasattr(model, "predict_tau"):
-        return {"effect_coefficients": np.asarray(model.coefficients, dtype=np.float64)}
-    return {key: value.detach().cpu().numpy() for key, value in model.state_dict().items()}
-
-
-def model_hash(arrays):
-    h = hashlib.sha256()
-    for key in sorted(arrays):
-        h.update(key.encode() + b"\0" + array_hash(arrays[key]).encode())
-    return h.hexdigest()
 
 
 def contrasts(model, x, batch_size):

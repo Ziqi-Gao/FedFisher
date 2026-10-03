@@ -373,7 +373,7 @@ def default_acceptance_path(provenance=None):
 
 
 def _inventory(path, provenance, cohort, closeout, snapshot):
-    from scripts.prepare_model_signal_recovery_requests import build_requests, review_sources
+    from .recovery_requests import build_requests, review_sources
     path = old._ordinary_path(path)
     _require(REPORT_ROOT in path.parents, 'recovery inventory must be in scheduler reports')
     binding = snapshot.add(_binding(path))

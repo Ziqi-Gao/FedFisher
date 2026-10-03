@@ -12,7 +12,7 @@ import math
 import numpy as np
 
 from .artifacts import _hash, _finite_nonnegative, _validate_model_arrays
-from .evaluation import model_hash
+from ..components.fingerprints import model_hash
 from .fedavg import FedAvgConfig, _communication_report, _loader_seed, _without_timings
 from ..infrastructure.artifacts import canonical, digest
 
@@ -289,7 +289,7 @@ def validate_noncompletion_result(result, arrays, identity, config):
 
 
 def _validate_timer(timing, cell, fit_timing):
-    from .measurement import MethodTimer, STAGES
+    from ..components.measurement import MethodTimer, STAGES
     template = MethodTimer(cell).to_dict()
     _fields(timing, template, "method timing")
     for key in set(template) - {"stages", "measured_stage_sum"}:

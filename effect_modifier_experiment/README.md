@@ -18,6 +18,10 @@ following additions keep separate scientific configurations and output identitie
 | [one_shot_effects/diagnostics](one_shot_effects/diagnostics/README.md) | Saved-model gradient and approximation audits |
 | [fedfisher_timing](fedfisher_timing/README.md) | Original Diag/KFAC fitting on CPU with separately measured timings |
 | [survival](survival/README.md) | Site-local survival pseudo-observations, nonlinear dsLasso and neural working-Fisher adapters |
+| [model_signal_ablation](model_signal_ablation/README.md) | Small-model/signal recipes and separately bound recovery |
+| [components](components/README.md) | Shared measurement, fingerprints and tie-aware ranking arithmetic |
+| [scheduling](scheduling/README.md) | Manifest validation, foreground dispatch and publication composition |
+| [reporting](../reporting/README.md) | Completed-artifact tables and figures |
 | [infrastructure](infrastructure/README.md) | Shared artifact, provenance, immutable request-publication and read-only execution-evidence helpers |
 | [server_scheduler](server_scheduler/) | Scientific task schemas, registration proposals and request examples |
 | [tests](../tests/) | Numerical, scientific-contract and scheduler fixtures |

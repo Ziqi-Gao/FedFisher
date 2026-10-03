@@ -176,6 +176,9 @@ invariants.
 | Original Fisher CPU timing | [fedfisher_timing](../../effect_modifier_experiment/fedfisher_timing/README.md): isolated Diag/KFAC timing, immutable artifacts and pilot acceptance |
 | Survival | [survival](../../effect_modifier_experiment/survival/README.md): generator, IJ responses, links, methods, evaluation, protocol, artifacts and acceptance |
 | Shared infrastructure | [infrastructure](../../effect_modifier_experiment/infrastructure/README.md): standard-library artifact, provenance, request-publication and read-only execution-evidence helpers |
+| Shared scientific mechanisms | [components](../../effect_modifier_experiment/components/README.md): timing ledgers, array/model fingerprints and existing tie-aware recovery arithmetic; experiment scales remain local |
+| Scheduling implementation | [scheduling](../../effect_modifier_experiment/scheduling/README.md): catalog, strict validation, runtime setup, lazy dispatch and publication composition; deterministic request plans belong to experiment packages |
+| Reporting | [reporting](../../reporting/README.md): reusable presentation modules behind compatible script commands |
 | Scheduler boundary | [adapter](../../scripts/fedfisher_server_scheduler_adapter.py) and [schemas/proposals/examples](../../effect_modifier_experiment/server_scheduler/) |
 | Validation | [tests](../../tests/) and [scheduler fixtures](../../tests/fixtures/server_scheduler/) |
 
@@ -216,3 +219,23 @@ data, methods and evaluation. Scientific result validation remains with each
 experiment; infrastructure does not define a universal configuration or method
 API. The original root modules and historical scientific cross-imports remain;
 this extraction does not claim a complete reorganization of the flat pipeline.
+
+## Modular source composition
+
+Comparison and standalone timing expose path-free `computation.py` modules.
+Model/signal recipes reuse those modules rather than another experiment's runner.
+One-shot effects exposes `data_composition.py` and `prerequisites.py` so diagnostics
+and validators can reuse data/evidence composition without importing a runner.
+Compatibility exports retain existing public paths.
+
+Experiment `requests.py` and `recovery_requests.py` own deterministic scientific
+request plans. `scheduling/publication/` composes source review, experiment
+admission and immutable outbox publication. Acceptance readers use experiment
+plans instead of script wrappers. `components/` owns shared observations,
+fingerprints and ranking arithmetic; it does not select a contrast scale or
+replace an experiment's scientific contract.
+
+See [architecture](../architecture.md) and [development](../development.md) for
+the complete dependency direction and validation workflow. These documents
+describe stable structure; changing scientific and migration evidence belongs
+only in the handoff.

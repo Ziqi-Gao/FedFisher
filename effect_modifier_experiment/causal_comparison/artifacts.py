@@ -15,7 +15,8 @@ from ..infrastructure.artifacts import (
     OUTPUT_ROOT, PROVENANCE_KEYS, SCRATCH_ROOT, _pairs, canonical, create_bytes,
     digest, read_json, safe_path,
 )
-from .evaluation import model_hash, signal_recovery_with_ties
+from ..components.fingerprints import model_hash
+from ..components.recovery_metrics import signal_recovery_with_ties
 from .protocol import CELLS, VARIANTS
 from models import SYNTHETIC_MLP_HIDDEN_DIMS
 

@@ -8,34 +8,15 @@ import os
 
 import numpy as np
 
-from ..causal_comparison.measurement import MethodTimer
+from ..components.measurement import MethodTimer
 from . import protocol
 from .artifacts import EffectArtifactStore, current_provenance, read_json
-from .data import (SCMConfig,LegacyConfig,generate_scm,generate_legacy,
-                   rows_fingerprint,partition_fingerprint)
+from .prerequisites import compression_prerequisite
+from .data_composition import generate_data, _data_evidence
 from .evaluation import external_test,holdout_reference,score_agreement,summarize_linearization
 from .interventions import make_permutations
 from .model_io import archive_model,encode_model,model_wire
 from .wire import canonical,communication_report,pad_payload,unpad_payload,unpack_payload
-
-
-def generate_data(config):
-    definition=config['dataset_definition']
-    if definition['family']=='scmv2':
-        return generate_scm(SCMConfig(**config['dgp']),config['seed'],definition['scenario'])
-    return generate_legacy(LegacyConfig(**config['dgp']),config['seed'],definition['variant'],definition['split'])
-
-
-def _data_evidence(data):
-    from .audit_validation import observed_array_fingerprints
-    return dict(sites=[dict(site_id=s.site_id,n_total=s.n_total,
-        counts={key:len(getattr(s,key)) for key in ('train','validation','holdout')},
-        partition=partition_fingerprint(s),
-        array_fingerprints={key:observed_array_fingerprints(getattr(s,key))
-                            for key in ('train','validation','holdout')},
-        **{key:rows_fingerprint(getattr(s,key)) for key in ('train','validation','holdout')}) for s in data.sites],
-        test=rows_fingerprint(data.evaluation.rows),test_rows=len(data.evaluation.rows),
-        target_weights=data.evaluation.target_weights.tolist())
 
 
 def compute_cell(config):
@@ -155,21 +136,6 @@ def compute_cell(config):
     return dict(status='complete',data_fingerprints=evidence,models=records,communication=communication,
         timing=timer.to_dict(),local_audits=local_audits,diagnostics=diagnostics,
         scope='single_process_scientific_simulation; no_network_latency_measurement'),archive,payloads
-
-
-def compression_prerequisite(config,provenance):
-    prerequisite=protocol.linearity_prerequisite(config)
-    if prerequisite is None:
-        return None
-    store=EffectArtifactStore(prerequisite,provenance)
-    if store.status()!='validated':
-        raise ValueError('matching full-gradient pilot must complete before any low-rank training')
-    result=read_json(store.unit_dir/'result.json')
-    if result['diagnostics']['linearization']['gate']['compression_eligible'] is not True:
-        raise ValueError('full-gradient linearization gate failed; preserve and analyze it before expansion')
-    return dict(identity=store.identity,
-                result_sha256=hashlib.sha256((store.unit_dir/'result.json').read_bytes()).hexdigest(),
-                gate=result['diagnostics']['linearization']['gate'])
 
 
 def run_job(job):

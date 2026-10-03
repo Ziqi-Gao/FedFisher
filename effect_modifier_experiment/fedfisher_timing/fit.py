@@ -24,7 +24,7 @@ from train_model import LocalUpdate
 from effect_modifier_experiment.dslassocov_benchmark import (
     dataset_fingerprint, tensor_datasets_to_raw_sites, training_fingerprint,
 )
-from effect_modifier_experiment.causal_comparison.evaluation import (
+from effect_modifier_experiment.components.fingerprints import (
     array_hash, model_arrays, model_hash,
 )
 

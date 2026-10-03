@@ -1,30 +1,28 @@
 #!/usr/bin/env python3
-"""Foreground reporting only; never starts a scientific workload."""
+"""Compatibility entrypoint for completed-artifact reporting.
 
-import argparse
+Implementation: reporting.effect_modifier.causal_comparison. This path remains a compatible command entrypoint.
+"""
 from pathlib import Path
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# Script execution does not otherwise put the repository on the import path.
+if __name__ == '__main__':
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from effect_modifier_experiment.causal_comparison import protocol
-from effect_modifier_experiment.causal_comparison.reporting import write_report
-
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cohort", choices=("pilot", "formal"), required=True)
-    parser.add_argument("--cells", nargs="+", choices=tuple(protocol.CELLS), required=True)
-    parser.add_argument("--output-prefix", type=Path, required=True)
-    args = parser.parse_args()
-    if len(set(args.cells)) != len(args.cells):
-        parser.error("cells must be unique")
-    for path in write_report(protocol.PILOT_TASK if args.cohort == "pilot" else protocol.FORMAL_TASK,
-                             args.cells, args.output_prefix):
-        print(path)
+from reporting.effect_modifier import causal_comparison as _implementation
 
 
-if __name__ == "__main__":
-    main()
+def __getattr__(name):
+    return getattr(_implementation, name)
+
+
+def __dir__():
+    return sorted(set(globals()) | set(dir(_implementation)))
+
+
+if __name__ == '__main__':
+    raise SystemExit(_implementation.main())
+else:
+    # Preserve module identity for callers that import and configure the old API.
+    sys.modules[__name__] = _implementation

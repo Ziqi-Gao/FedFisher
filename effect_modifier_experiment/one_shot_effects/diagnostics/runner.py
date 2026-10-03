@@ -2,10 +2,10 @@
 import os
 import resource
 
-from ...causal_comparison.measurement import MethodTimer
+from ...components.measurement import MethodTimer
 from ..artifacts import current_provenance
 from ..interventions import make_permutations
-from ..runner import generate_data
+from ..data_composition import generate_data
 from . import protocol
 from .artifacts import ReplayArtifactStore
 from .sources import load_sources, validate_data_replay, verify_source_bindings

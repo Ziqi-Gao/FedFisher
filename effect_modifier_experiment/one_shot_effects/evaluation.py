@@ -4,7 +4,8 @@ import math
 
 import numpy as np
 
-from ..causal_comparison.evaluation import signal_recovery_with_ties, array_hash
+from ..components.recovery_metrics import signal_recovery_with_ties
+from ..components.fingerprints import array_hash
 from .interventions import make_permutations, perturbed_covariates, permutation_hash
 
 

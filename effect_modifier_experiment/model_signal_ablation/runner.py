@@ -9,9 +9,9 @@ from .artifacts import ArtifactStore, MEMORY_SCOPE, current_provenance
 
 def compute_cell(config, seed, split):
     if config['method']['family'] == 'legacy_fedfisher':
-        from ..fedfisher_timing.runner import compute_cell as compute
+        from ..fedfisher_timing.computation import compute_cell as compute
     else:
-        from ..causal_comparison.runner import compute_cell as compute
+        from ..causal_comparison.computation import compute_cell as compute
     result, arrays = compute(config, seed, split)
     result['memory'] = dict(process_peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                             scope=MEMORY_SCOPE)

@@ -149,7 +149,7 @@ def load_sources(config):
 def validate_data_replay(data, plans, sources):
     """Check regenerated observed rows and every original plan before inference."""
     import numpy as np
-    from ..runner import _data_evidence
+    from ..data_composition import _data_evidence
     from ..evaluation import array_hash
     from ..interventions import make_permutations, permutation_hash
     first = next(iter(sources.values()))

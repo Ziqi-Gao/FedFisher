@@ -343,7 +343,7 @@ def _completed_job(request):
 
 
 def _inventory(path, provenance, cohort, recipe=None, epoch=1):
-    from scripts.prepare_survival_recovery_requests import build_requests, bundle_prefix, review_sources
+    from .recovery_requests import build_requests, bundle_prefix, review_sources
     path = old._ordinary_path(path)
     _require(old.INVENTORY_ROOT in path.parents, 'recovery inventory must be in project scratch reports')
     binding, inventory = old._binding(path), old._read_json(path)
