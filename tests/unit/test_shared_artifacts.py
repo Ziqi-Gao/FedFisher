@@ -8,6 +8,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from tests.paths import PROJECT_ROOT
 from effect_modifier_experiment.infrastructure import artifacts, provenance
 
 
@@ -33,7 +34,7 @@ for name in sys.modules:
         'effect_modifier_experiment.fedfisher_timing')), name
 '''
         subprocess.run([sys.executable, '-B', '-c', script], check=True,
-                       cwd=provenance.PROJECT_ROOT, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
+                       cwd=PROJECT_ROOT, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def test_survival_artifacts_import_has_no_sibling_experiment_dependency(self):
@@ -48,7 +49,7 @@ for name in sys.modules:
         'effect_modifier_experiment.fedfisher_timing')), name
 '''
         subprocess.run([sys.executable, '-B', '-c', script], check=True,
-                       cwd=provenance.PROJECT_ROOT, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
+                       cwd=PROJECT_ROOT, env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def test_old_public_imports_are_compatibility_aliases(self):

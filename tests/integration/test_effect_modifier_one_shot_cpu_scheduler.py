@@ -2,6 +2,7 @@ import subprocess
 import unittest
 from pathlib import Path
 
+from tests.paths import PROJECT_ROOT
 from effect_modifier_experiment.manage_one_shot_lasso_cpu_run import (
     FORMAL_SEED_END,
     FORMAL_SEED_START,
@@ -19,7 +20,6 @@ from effect_modifier_experiment.run_one_shot_lasso_effect_modifier import (
 )
 
 
-PROJECT_ROOT = Path("/home/del6500/projects/FedFisher")
 SCRIPTS = PROJECT_ROOT / "scripts"
 SHELLS = (
     SCRIPTS / "effect_modifier_one_shot_cpu_lock.sh",
@@ -30,6 +30,17 @@ SHELLS = (
 
 
 class OneShotCpuSchedulerTests(unittest.TestCase):
+    def setUp(self):
+        # Exercise the checkout under test and verify the preserved legacy
+        # shell bytes before sourcing them from an isolated review worktree.
+        canonical_root = Path("/home/del6500/projects/FedFisher")
+        if PROJECT_ROOT != canonical_root:
+            for path in SHELLS:
+                self.assertEqual(
+                    path.read_bytes(),
+                    (canonical_root / path.relative_to(PROJECT_ROOT)).read_bytes(),
+                )
+
     def test_formal_configuration_is_full_and_one_thread(self):
         logistic = formal_runner_args(
             "one_shot_local_logistic_lasso_fedavg", "control"

@@ -29,6 +29,25 @@ class ReplaySourceTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.config = protocol.run_config(protocol.PILOT_TASK, protocol.cohort_plan()[0])
+        self.original_generation_source_files = copy.deepcopy(self.config['original_generation_source_files'])
+        # Real fixture files keep these hash/path checks independent of the
+        # active checkout and the scientific recipe's immutable archived hashes.
+        source_root = self.root/'generation-source'
+        for relative in self.original_generation_source_files:
+            path = source_root/relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('bounded generation source fixture '+relative)
+        self.config['original_generation_source_files'] = {
+            relative: hashlib.sha256((source_root/relative).read_bytes()).hexdigest()
+            for relative in self.original_generation_source_files
+        }
+        path_type = sources.Path
+        def source_path(*parts, **kwargs):
+            if parts == ('/home/del6500/projects/FedFisher',) and not kwargs:
+                return source_root
+            return path_type(*parts, **kwargs)
+        patch = mock.patch.object(sources, 'Path', side_effect=source_path)
+        patch.start(); self.addCleanup(patch.stop)
         self.binding = copy.deepcopy(next(iter(self.config['sources'].values())))
         directory = self.root/Path(self.binding['directory']).name
         (directory/'seed_000').mkdir(parents=True)
@@ -63,6 +82,18 @@ class ReplaySourceTests(unittest.TestCase):
         self.binding['files'][name] = hashlib.sha256(path.read_bytes()).hexdigest()
         with self.assertRaisesRegex(ValueError, 'hash'):
             sources.verify_source_bindings(self.config)
+
+    def test_archived_generation_hashes_reject_changed_source_before_artifact_checks(self):
+        stale = copy.deepcopy(self.config)
+        stale['original_generation_source_files'] = self.original_generation_source_files
+        self.assertNotEqual(stale['original_generation_source_files'],
+                            self.config['original_generation_source_files'])
+        with mock.patch.object(sources, '_sha', wraps=sources._sha) as sha:
+            with self.assertRaisesRegex(ValueError, 'original generation code changed'):
+                sources.verify_source_bindings(stale)
+        sha.assert_called_once_with(self.report)
+        self.assertEqual(self.original_generation_source_files,
+            protocol.run_config(protocol.PILOT_TASK, protocol.cohort_plan()[0])['original_generation_source_files'])
 
     def test_original_symlink_extra_and_report_change_are_rejected(self):
         path = Path(self.binding['directory'])/'seed_000/result.json'
