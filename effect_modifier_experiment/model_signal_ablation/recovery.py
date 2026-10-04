@@ -35,11 +35,15 @@ def _require(condition, message):
         raise ValueError(message)
 
 
-def validate_prerequisites(prerequisites, task):
+def validate_prerequisites(prerequisites, task, *, pilot_task=protocol.PILOT_TASK,
+                           closeout_binding=None):
     _require(isinstance(prerequisites, dict) and set(prerequisites) == {'closeout', 'pilot'},
              'recovery requires explicit closeout and pilot prerequisites')
     _require(isinstance(prerequisites['closeout'], dict), 'recovery closeout binding is mandatory')
-    _require((prerequisites['pilot'] is None) == (task == protocol.PILOT_TASK),
+    if closeout_binding is not None:
+        _require(prerequisites['closeout'] == closeout_binding,
+                 'completion requires the fixed immutable archive binding')
+    _require((prerequisites['pilot'] is None) == (task == pilot_task),
              'recovery pilot prerequisite differs from task stage')
     for name, binding in prerequisites.items():
         if binding is None:
@@ -48,7 +52,8 @@ def validate_prerequisites(prerequisites, task):
                  and isinstance(binding['path'], str) and lifecycle._hash(binding['sha256']),
                  'invalid recovery prerequisite binding')
         path = ordinary_path(binding['path'], exists=False)
-        _require(any(root in path.parents for root in (
+        fixed_archive = name == 'closeout' and closeout_binding is not None
+        _require(fixed_archive or any(root in path.parents for root in (
             Path('/data/del6500/FedFisher/effect_modifier_experiment/reports'),
             Path('/scr/del6500/FedFisher'))), 'recovery prerequisite outside project reports')
 
@@ -56,12 +61,18 @@ def validate_prerequisites(prerequisites, task):
 class RecoveryStore(ArtifactStore):
     """The v1 successful-result validators, plus a distinct capped outcome."""
 
+    execution_protocol = protocol
+    source_closeout = None
+
     def __init__(self, config, provenance, prerequisites, directory=None):
-        validate_prerequisites(prerequisites, config['task'])
+        validate_prerequisites(prerequisites, config['task'],
+                               pilot_task=self.execution_protocol.PILOT_TASK,
+                               closeout_binding=self.source_closeout)
         self.prerequisites = deepcopy(prerequisites)
         super().__init__(config, provenance, directory)
 
     def _validate_config(self):
+        protocol = self.execution_protocol
         parameters = {key: self.config[key] for key in ('setting', 'cell', 'variant')}
         parameters.update(shard_index=0,
                           shard_count=1 if self.config['task'] == protocol.PILOT_TASK else 16)
@@ -178,13 +189,14 @@ def shard_summary_path(store, job):
 
 
 def _summary_body(store, job, execution, verified_units=None):
-    parameters = protocol.validate_parameters(job['task'], job['parameters'])
-    _require(canonical(protocol.run_config(job['task'], parameters)) == canonical(store.config),
+    policy = getattr(store, 'execution_protocol', protocol)
+    parameters = policy.validate_parameters(job['task'], job['parameters'])
+    _require(canonical(policy.run_config(job['task'], parameters)) == canonical(store.config),
              'shard summary configuration mismatch')
     validate_execution(execution)
     _require(execution['job_id'] == job['job_id'], 'shard summary belongs to another producer')
-    expected = [(seed, split) for seed in protocol.seed_sequence(job['task'], parameters)
-                for split in protocol.SPLITS]
+    expected = [(seed, split) for seed in policy.seed_sequence(job['task'], parameters)
+                for split in policy.SPLITS]
     units = ([terminal_unit_record(store, seed, split) for seed, split in expected]
              if verified_units is None else deepcopy(verified_units))
     _require(isinstance(units, list) and [(u.get('seed'), u.get('split')) for u in units] == expected,
@@ -200,7 +212,7 @@ def _summary_body(store, job, execution, verified_units=None):
         _require(receipt['job_id'] == job['job_id'] and receipt['attempt'] <= execution['attempt'],
                  'shard unit has a foreign or later producing attempt')
     complete = sum(unit['outcome'] == 'complete' for unit in units)
-    return dict(schema_version=1, protocol=protocol.PROTOCOL, run_id=store.run_id,
+    return dict(schema_version=1, protocol=policy.PROTOCOL, run_id=store.run_id,
                 config_sha256=store.config_sha256, provenance=store.provenance,
                 job_id=job['job_id'], task=job['task'], parameters=parameters,
                 producer_execution=execution, prerequisites=store.prerequisites,
@@ -235,8 +247,14 @@ def publish_shard_summary(store, job, execution):
 
 def run_shard(job):
     """Run only centrally allocated work; no submission, resources, or workers."""
-    import torch
     from . import recovery_acceptance as gate
+
+    return execute_shard(job, protocol, gate, RecoveryStore)
+
+
+def execute_shard(job, protocol, gate, store_factory):
+    """Shared immutable execution; each reviewed epoch supplies its own admission."""
+    import torch
 
     torch.set_num_threads(1)
     try:
@@ -259,7 +277,7 @@ def run_shard(job):
                  'formal recovery must replace exactly a non-retained old shard')
         prerequisites['pilot'] = gate._binding(path)
     _require(current_provenance() == provenance, 'source changed during recovery admission')
-    store = RecoveryStore(config, provenance, prerequisites)
+    store = store_factory(config, provenance, prerequisites)
     store.initialize()
     execution = {key: job[key] for key in (
         'job_id', 'execution_profile', 'allocation', 'estimated_runtime_seconds')}

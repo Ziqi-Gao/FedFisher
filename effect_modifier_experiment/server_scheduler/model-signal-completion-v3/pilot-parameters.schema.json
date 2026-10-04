@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher model/signal completion pilot scientific parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "setting",
+    "cell",
+    "variant",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "setting": {
+      "type": "string",
+      "const": "weak_signal_05"
+    },
+    "cell": {
+      "type": "string",
+      "enum": [
+        "fedavg_shallow_e1_budget30",
+        "fedavg_shallow_e1_patience"
+      ]
+    },
+    "variant": {
+      "type": "string",
+      "enum": [
+        "control",
+        "site_gaussian_shift",
+        "local_permutation",
+        "site_gaussian_local_permutation"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 0
+    },
+    "shard_count": {
+      "type": "integer",
+      "const": 1
+    }
+  },
+  "enum": [
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_budget30",
+      "variant": "control",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_budget30",
+      "variant": "site_gaussian_shift",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_budget30",
+      "variant": "local_permutation",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_budget30",
+      "variant": "site_gaussian_local_permutation",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_patience",
+      "variant": "control",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_patience",
+      "variant": "site_gaussian_shift",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_patience",
+      "variant": "local_permutation",
+      "shard_index": 0,
+      "shard_count": 1
+    },
+    {
+      "setting": "weak_signal_05",
+      "cell": "fedavg_shallow_e1_patience",
+      "variant": "site_gaussian_local_permutation",
+      "shard_index": 0,
+      "shard_count": 1
+    }
+  ]
+}

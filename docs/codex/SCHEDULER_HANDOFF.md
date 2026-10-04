@@ -68,6 +68,108 @@ handoff/durable delivery receipt. Keep that source unchanged through admitted
 pilot/formal execution and acceptance. No new scientific pooled run has started
 at this preparation checkpoint; only an operator may register and admit it.
 
+## Post-refactor model/signal completion preparation — 2026-10-04 UTC
+
+The user authorized resuming the missing experiments after the refactor. The
+new additive contract is `model-signal-completion-v3`, with tasks
+`effect-modifier-model-signal-completion-pilot` and
+`effect-modifier-model-signal-completion-shard`. The disabled proposal, exact
+schemas, examples and admission sequence are in
+`effect_modifier_experiment/server_scheduler/model-signal-completion-v3/`.
+This preparation does not modify the scientific recipes, original outputs,
+partial directories or immutable V2 archive.
+
+The fixed archive anchor remains
+`/data/del6500/FedFisher/archives/model-signal-recovery-v2-4ecb6d5-20261002/closeout.json`,
+SHA-256 `1cc83b232fdfc8fc68c772215d5fa4827a6c37ec40aaf523dcdfb968829a6a46`.
+At the read-only scheduler checks around 2026-10-04 05:18--05:22 UTC, all
+FedFisher jobs were terminal and the same 24 V2 shards remained failed with
+exit status -15 and one started attempt. No replacement was submitted.
+Registration then contained no V3 completion task. These are timestamped
+observations; recheck live state before an operator takes action.
+
+Formal replacement is exactly **24 whole shards / 896 units**:
+
+- `weak_signal_05`, `fedavg_shallow_e1_budget30`, `control`: all 16 shards.
+- The same recipe, `site_gaussian_shift`: shard 0 of 16.
+- `weak_signal_05`, `fedavg_shallow_e1_patience`,
+  `site_gaussian_local_permutation`: shards 9 through 15 of 16.
+
+Every shard retains its original deterministic seeds and both splits. Its
+287 previously saved complete units remain audit-only and are all rerun with
+the other failed-shard units. New results use `_v3_300seeds` namespaces and
+`fedfisher-ms-v3-` request IDs. The 171,904 retained terminal units include six
+scientific training-cap noncompletions and 171,898 performance-complete units.
+Those six caps remain separately classified and are outside this retry scope.
+The original 200-round limit and stopping rules are unchanged.
+
+The new pilot has **8 requests / 16 units**: the two affected recipes, all
+four variants, seed zero and both splits. Its outputs use `_v3_pilot`. Saved
+evidence must match the 16 successful archived V2 reference results exactly
+apart from observational timing/memory and execution identity. Actual producing
+attempts, semantic artifacts, paired data/training/evaluation invariants, source
+hashes and shard summaries are required. A fresh source-addressed V3 acceptance
+proof is required before formal publication and again before formal runtime.
+The sealed old closeout and old pilot proof cannot open this gate.
+
+Final acceptance reads the immutable old-source evidence in its actual source
+and producer identity, rechecks original retained artifacts and producing
+attempts, and combines only the exact new 896 units with the retained 171,904.
+It verifies the full 172,800-unit union, terminal training pairs and available
+successful performance pairs. Hash, directory-layout, producer-audit or source
+changes fail closed. No archived Python is imported or executed.
+
+Development fixtures and pure parser evidence are under
+`/scr/del6500/FedFisher/model-signal-completion-validation/`. The 42 old V2
+regression tests passed after preserving their existing fixture compatibility.
+The 32 in-memory V3 request specifications and disabled proposal passed the
+central pure parsers without calling a central CLI or writing scheduler state.
+These tests are development evidence, not scientific pilot acceptance.
+
+The full development suite passed **811 tests in 141.887 seconds**. Following
+the final publication-race guard, all **36 completion-specific tests passed in
+4.429 seconds**. Logs are `canonical-full-development.log` and
+`completion-final-focused.log` under the same validation directory. The
+historical reader's full original-byte readback is a separate compatibility
+check, never a new pilot or formal acceptance proof.
+After both owners finished their implementation, the final combined suite
+passed **838 tests in 143.671 seconds**, recorded in
+`canonical-final-development.log`. No scientific computation was submitted by
+these bounded development fixtures.
+
+Canonical source was not frozen at this preparation checkpoint. The separately
+authorized survival pooled task committed its own scoped changes at `03e31d3`,
+preserving all uncommitted completion work and shared catalog additions. Finish
+the remaining completion checks and commit its source before
+publishing source-bound requests, then keep canonical source unchanged through
+their admitted pilots and formal execution/acceptance. No V3 outbox inventory,
+submitted receipt, scientific result or new acceptance proof exists yet.
+Final source and delivery bindings belong in post-freeze scratch receipts,
+rather than a commit referring to its own hash in this document.
+
+Next actions after a clean source freeze:
+
+1. Rebind review/test evidence to that exact source. The project command
+   `scripts/prepare_model_signal_completion_requests.py --cohort pilot`
+   publishes the nested eight-request bundle and publishes its inventory last.
+2. The ServerScheduler operator separately reviews and additively registers
+   the new tasks, preserving existing registrations, then validates and admits
+   the exact pilot. The proposed one-core/8-GiB CPU profile and inherited
+   runtime fallbacks are provisional inputs; pilot observations inform review.
+3. Validate actual completed pilot artifacts using
+   `scripts/validate_model_signal_completion.py --cohort pilot --inventory
+   /scr/del6500/FedFisher/scheduler/reports/fedfisher-ms-v3-pilot-cohort-p1.inventory.json`.
+4. Only after that real same-source proof passes, publish the exact 24 formal
+   requests using the prepare command's `--cohort formal --pilot-acceptance`
+   arguments. Operator admission is separate from project publication.
+5. Validate actual formal outputs with the same validator's formal mode,
+   retaining the six historical caps as scientific noncompletions.
+
+The previous operator watch is bound to the old V2 source/cohort and cannot
+silently take over V3. Central intake scans top-level outbox JSON, whereas this
+bundle is nested for explicit operator review. Delivery alone is not submission.
+No project central registration, validate/submit/dispatch, service, process,
+resource-selection or foreign-experiment action is authorized by preparation.
 
 ## Repository refactor integration and frozen V2 closeout — 2026-10-03 UTC
 

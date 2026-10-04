@@ -23,6 +23,7 @@ MOVED = {
     'prepare_fedfisher_timing_requests': 'effect_modifier_experiment.scheduling.publication.fedfisher_timing',
     'prepare_model_signal_requests': 'effect_modifier_experiment.scheduling.publication.model_signal',
     'prepare_model_signal_recovery_requests': 'effect_modifier_experiment.scheduling.publication.model_signal_recovery',
+    'prepare_model_signal_completion_requests': 'effect_modifier_experiment.scheduling.publication.model_signal_completion',
     'prepare_survival_requests': 'effect_modifier_experiment.scheduling.publication.survival',
     'prepare_survival_recovery_requests': 'effect_modifier_experiment.scheduling.publication.survival_recovery',
     'make_synthetic_compare_visualizations': 'reporting.binary.comparison',
@@ -41,6 +42,9 @@ MOVED = {
 }
 
 PLANS = {'original': 'effect_modifier_experiment.requests', 'comparison': 'effect_modifier_experiment.causal_comparison.requests', 'effects_replay': 'effect_modifier_experiment.one_shot_effects.diagnostics.requests', 'fedfisher_timing': 'effect_modifier_experiment.fedfisher_timing.requests', 'model_signal': 'effect_modifier_experiment.model_signal_ablation.requests', 'model_signal_recovery': 'effect_modifier_experiment.model_signal_ablation.recovery_requests', 'survival': 'effect_modifier_experiment.survival.requests', 'survival_recovery': 'effect_modifier_experiment.survival.recovery_requests'}
+
+
+PLANS['model_signal_completion'] = 'effect_modifier_experiment.model_signal_ablation.completion_requests'
 
 
 class RepositoryLayoutTests(unittest.TestCase):
@@ -88,7 +92,7 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_task_catalog_covers_every_running_fixture_without_profile_drift(self):
         fixtures = [json.loads(p.read_text()) for p in (ROOT / 'tests/fixtures/server_scheduler').glob('*.json')]
         self.assertEqual({row['task'] for row in fixtures}, catalog.ALLOWED_TASKS)
-        self.assertEqual(len(catalog.ALLOWED_TASKS), 22)
+        self.assertEqual(len(catalog.ALLOWED_TASKS), 24)
         for row in fixtures:
             expected = catalog.TASK_PROFILES[row['task']]
             self.assertEqual(row['allocation']['memory_mib'], expected['memory_mib'])
@@ -142,7 +146,7 @@ for name in sys.modules:
 
     def test_review_inventory_binds_extracted_implementations(self):
         for name in ('comparison', 'effects_replay', 'fedfisher_timing', 'model_signal',
-                     'model_signal_recovery', 'survival', 'survival_recovery'):
+                     'model_signal_recovery', 'model_signal_completion', 'survival', 'survival_recovery'):
             module = importlib.import_module('effect_modifier_experiment.scheduling.publication.' + name)
             with self.subTest(builder=name):
                 self.assertEqual(module.REVIEW_SOURCES['request_publication'],

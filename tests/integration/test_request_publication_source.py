@@ -18,7 +18,7 @@ class RequestPublicationSourceTests(unittest.TestCase):
             foreign = Path(directory) / "foreign.py"
             foreign.write_text("# unrelated source must never publish canonical provenance\n")
             for name in ("original", "comparison", "effects_replay", "fedfisher_timing",
-                         "model_signal", "model_signal_recovery", "survival", "survival_recovery"):
+                         "model_signal", "model_signal_recovery", "model_signal_completion", "survival", "survival_recovery"):
                 publisher = import_module("effect_modifier_experiment.scheduling.publication." + name)
                 entry = "git_snapshot" if name == "original" else (
                     "current_provenance" if name in ("survival", "survival_recovery") else "_provenance")

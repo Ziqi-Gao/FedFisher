@@ -50,6 +50,10 @@ MODEL_SIGNAL_RECOVERY_PILOT_TASK = "effect-modifier-model-signal-recovery-pilot"
 
 MODEL_SIGNAL_RECOVERY_TASK = "effect-modifier-model-signal-recovery-shard"
 
+MODEL_SIGNAL_COMPLETION_PILOT_TASK = "effect-modifier-model-signal-completion-pilot"
+
+MODEL_SIGNAL_COMPLETION_TASK = "effect-modifier-model-signal-completion-shard"
+
 SURVIVAL_PILOT_TASK = "effect-modifier-survival-pilot"
 
 SURVIVAL_TASK = "effect-modifier-survival-shard"
@@ -85,6 +89,8 @@ FEDFISHER_TIMING_TASKS = (FEDFISHER_TIMING_PILOT_TASK, FEDFISHER_TIMING_TASK)
 MODEL_SIGNAL_TASKS = (MODEL_SIGNAL_PILOT_TASK, MODEL_SIGNAL_TASK)
 
 MODEL_SIGNAL_RECOVERY_TASKS = (MODEL_SIGNAL_RECOVERY_PILOT_TASK, MODEL_SIGNAL_RECOVERY_TASK)
+
+MODEL_SIGNAL_COMPLETION_TASKS = (MODEL_SIGNAL_COMPLETION_PILOT_TASK, MODEL_SIGNAL_COMPLETION_TASK)
 
 JOB_FIELDS = frozenset(
     (
@@ -156,6 +162,13 @@ for _names, _package, _runner, _entrypoint in (
             raise ValueError('duplicate reviewed task: ' + _name)
         TASK_CONTRACTS[_name] = TaskContract(
             _BASE + _package + '.' + _protocol, _BASE + _package + '.' + _runner, _entrypoint)
+
+for _name in MODEL_SIGNAL_COMPLETION_TASKS:
+    if _name in TASK_CONTRACTS:
+        raise ValueError('duplicate reviewed task: ' + _name)
+    TASK_CONTRACTS[_name] = TaskContract(
+        _BASE + 'model_signal_ablation.completion_protocol',
+        _BASE + 'model_signal_ablation.completion', 'run_shard')
 
 ALLOWED_TASKS = frozenset(TASK_CONTRACTS)
 TASK_PROFILES = {name: dict(execution_profile=CPU_PROFILE, memory_mib=contract.memory_mib)

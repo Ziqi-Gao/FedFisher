@@ -150,3 +150,21 @@ disabled proposal is under `../server_scheduler/model-signal-recovery-v2/`.
 Same-source evidence checks include startup I/O beyond fitting time; the
 operator must account for that cost. Outbox files remain delivery artifacts,
 and only ServerScheduler admits and executes them.
+
+## Post-refactor completion epoch
+
+The additive `completion_protocol.py`, `completion.py`, `completion_archive.py`
+and `completion_acceptance.py` connect the sealed incomplete V2 epoch to a new
+source-bound execution contract. The disabled proposal and full operating
+sequence are documented in
+[`../server_scheduler/model-signal-completion-v3/README.md`](../server_scheduler/model-signal-completion-v3/README.md).
+Existing science, archived source and original result namespaces remain intact.
+
+`scripts/prepare_model_signal_completion_requests.py` publishes an immutable
+pilot delivery after a clean canonical source freeze. Its formal mode requires
+the new pilot's freshly verified saved evidence, produced through
+`scripts/validate_model_signal_completion.py`. Neither the immutable historical
+closeout nor an old-source pilot proof authorizes the new formal task. Completion
+uses separate request IDs, result namespaces and proofs, retains the original
+training cap classification, and verifies exact mixed-source ownership before
+combining results. Publication never performs central registration or submission.

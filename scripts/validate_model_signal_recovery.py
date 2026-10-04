@@ -14,6 +14,12 @@ sys.path.insert(0, '/home/del6500/projects/FedFisher')
 def main(argv=None):
     from effect_modifier_experiment.model_signal_ablation import recovery_acceptance as gate
 
+    return validate_saved_cohort(argv, gate)
+
+
+def validate_saved_cohort(argv, gate):
+    """The immutable proof publisher shared by separately reviewed epoch gates."""
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', type=Path, required=True)
     parser.add_argument('--cohort', choices=('pilot', 'formal'), default='pilot')

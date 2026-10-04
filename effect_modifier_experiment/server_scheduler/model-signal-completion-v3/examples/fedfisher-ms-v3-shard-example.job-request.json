@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v3-shard-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-completion-shard",
+  "parameters": {
+    "setting": "weak_signal_05",
+    "cell": "fedavg_shallow_e1_patience",
+    "variant": "site_gaussian_local_permutation",
+    "shard_index": 9,
+    "shard_count": 16
+  },
+  "priority": 0
+}

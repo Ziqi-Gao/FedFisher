@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-ms-v3-pilot-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-model-signal-completion-pilot",
+  "parameters": {
+    "setting": "weak_signal_05",
+    "cell": "fedavg_shallow_e1_budget30",
+    "variant": "control",
+    "shard_index": 0,
+    "shard_count": 1
+  },
+  "priority": 0
+}
