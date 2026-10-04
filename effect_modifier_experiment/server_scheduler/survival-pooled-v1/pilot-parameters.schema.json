@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FedFisher pooled survival prediction pilot parameters",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["family", "scenario"],
+  "properties": {
+    "family": {"type": "string", "enum": ["linear", "shallow", "deep"]},
+    "scenario": {"type": "string", "enum": ["iid", "covariate_shift"]}
+  }
+}

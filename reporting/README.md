@@ -18,6 +18,7 @@ names and arguments remain available. New code imports package modules directly.
 | `report_effects_replay.py` | [effect_modifier/effects_replay.py](effect_modifier/effects_replay.py) |
 | `report_fedfisher_timing.py` | [effect_modifier/fedfisher_timing.py](effect_modifier/fedfisher_timing.py) |
 | `summarize_effect_modifier_ablations.py` | [effect_modifier/ablations.py](effect_modifier/ablations.py) |
+| `make_survival_pooled_results.py` | [effect_modifier/survival_pooled.py](effect_modifier/survival_pooled.py) |
 
 These modules preserve their input contracts, metrics, aggregation and output
 formats. Source-lineage hashes identify the actual implementation after a move.

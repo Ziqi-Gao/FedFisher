@@ -24,6 +24,7 @@ FedFisher/
     fedfisher_timing/                 original Diag/KFAC CPU timing
     model_signal_ablation/            model/signal recipes and recovery
     survival/                        survival methods and recovery epochs
+    survival_pooled/                 paired pooled survival probability validation
     dslassocov/, one_shot_lasso/       guides and original benchmark invariant validators
     dslassocov_*.py, one_shot_*.py, run_*.py, manage_*.py
                                      preserved original LASSO interfaces

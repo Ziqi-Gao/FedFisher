@@ -5,6 +5,70 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Pooled survival prediction benchmark preparation — 2026-10-04 UTC
+
+The user authorized constructing and running the professor's pooled comparison:
+check survival probability predictions against the simulation oracle before
+treatment contrasts, and compare FL with centralized analysis. The additive
+implementation is `effect_modifier_experiment/survival_pooled/`; its English
+README defines the recipe, endpoints, modules and admission sequence. The two
+task names are `effect-modifier-survival-pooled-pilot` and
+`effect-modifier-survival-pooled-shard`, proposed disabled under
+`effect_modifier_experiment/server_scheduler/survival-pooled-v1/`.
+
+The original ten-site, 100-covariate DGP, IID/covariate-shift settings and
+independent common test sample remain unchanged. Three model families (linear,
+shallow and deep) each have two centralized controls: preserving hospital-local
+KM/IJ labels, or recomputing KM/IJ labels after pooling observed records. CV
+recomputes labels within disjoint partitions. Neither oracle truth nor test
+records enter fitting. Neural training retains the original public initialization
+and 30-epoch SGD recipe; epochs, total row passes and optimizer updates are
+reported separately. The linear site-label control reproduces the accepted
+dsLasso r3 objective, rather than claiming a distinct statistical method.
+
+The 3,000 accepted historical FL models retain their original sources and
+producing attempts. Startup anchors are the frozen r3 acceptance, CSV and
+original FedFisher closeout; selected manifest/artifact hashes, numerical
+semantics, complete inventory and producer receipts are checked before replay.
+Training/test/oracle fingerprints must match before pooled fitting. Primary
+endpoints are S0/S1 and factual probability RMSE/MAE/bias, equal-arm combined
+accuracy and oracle calibration. Paired FL–pooled probability gaps and secondary
+log cumulative-hazard contrast error are recorded separately. Complete prediction
+and oracle arrays are saved so subsequent reporting performs no inference.
+Poor accuracy is a scientific observation, not an undocumented completion bar.
+
+The pilot plan is **6 requests / 12 units / 24 centralized fits**: both scenarios,
+three families and seeds 0 and 49. Formal work is **96 default shards / 1,800
+units / 3,600 centralized fits**, seeds 0–299. Formal publication and execution
+both reverify complete same-source pilot scientific, paired and actual-producer
+evidence. Run IDs, artifacts and acceptance proofs use separate pooled namespaces;
+original results and proofs are unchanged. Disabled one-core/8192-MiB profile and
+runtime estimates require operator review and observed pilot costs before formal
+admission. Publication never registers or submits jobs.
+
+Development evidence is under
+`/scr/del6500/FedFisher/survival-pooled-validation/`. The project-wide development
+suite passed **824 tests in 143.134 seconds**; later focused tests cover newly
+added orchestration and probability-gap reporting. Actual read-only restoration
+of all ten seed-zero historical method/scenario models passed with prediction
+forbidden. Installed pure central parsers accepted the disabled proposal and
+all 102 in-memory pilot/formal request specifications without central CLI calls.
+These checks are development validation, not scientific pilot execution.
+
+At the read-only central check at **2026-10-04 05:43:29 UTC**, FedFisher had
+7,604 completed and 953 failed jobs, no nonterminal jobs and no pooled registration.
+The registration SHA-256 was
+`0282501881b38b8064fff9e51a8a19ab20c0496bdfd0fffcd50cf0be7c36cd31`.
+This is a timestamped observation, not a live-state guarantee. A separately
+authorized model/signal completion implementation is developing in the same
+canonical checkout. Preserve its changes and commit both owners' source before
+publishing either source-bound cohort. Final clean commit/provenance, test logs,
+outbox inventory and operator instructions belong in an external scratch
+handoff/durable delivery receipt. Keep that source unchanged through admitted
+pilot/formal execution and acceptance. No new scientific pooled run has started
+at this preparation checkpoint; only an operator may register and admit it.
+
+
 ## Repository refactor integration and frozen V2 closeout — 2026-10-03 UTC
 
 The user explicitly authorized preserving the incomplete model/signal recovery
