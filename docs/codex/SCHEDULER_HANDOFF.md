@@ -5,6 +5,38 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Pooled path-contract correction before admission — 2026-10-04 UTC
+
+The pooled P1 bundle was published on clean `eeb50c8`, but final readback found
+two presentation/acceptance path defects before registration or scientific
+execution: the inherited store writes beneath `outputs/`, whereas the new
+report reader/README named `runs/`; and the new acceptance CLI used the model
+artifact writer, which intentionally refuses the durable `reports/` namespace.
+The correction binds reporting to the actual shared `OUTPUT_ROOT`, fixes the
+documentation and introduces an immutable source-addressed report-proof writer
+with ordinary-path, pending-file and source-drift checks. Added regression
+fixtures exercise the unpatched default output root and proof publication.
+No fitting, data-generation, link, optimizer or numerical endpoint changes.
+
+Fresh central read-only checks before correction found no active FedFisher
+jobs, no pooled or completion-v3 task registrations, and no durable jobs for
+either published P1 inventory. Both original outbox deliveries remain unchanged.
+Pooled P1 inventory SHA-256 is
+`e30aba3ad23af5deb5b21102cc34fccf731fefe323898de17104cf48a68d1eb2`.
+It must not be admitted; an external immutable supersession sidecar and pooled
+P2 delivery will identify the corrected clean source. Do not overwrite P1 or
+invent successful pilot evidence.
+
+The separately owned completion P1 inventory also binds `eeb50c8`:
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-ms-v3-pilot-cohort-p1.inventory.json`,
+SHA-256 `164c7c2e2c3ea2e5bae210e59e788ba61eb48a987becd741a8c0f1bb29e991af`.
+The common source correction requires its owner to rebind that delivery before
+admission too. This task does not modify its outbox, source, archive or results,
+publish foreign requests, register tasks or control any foreign experiment.
+Final test evidence, new commit/provenance, P2 inventory and operator steps
+belong in the external corrected-source delivery receipt. Freeze corrected
+canonical source through both admitted cohorts and their acceptance.
+
 ## Pooled survival prediction benchmark preparation — 2026-10-04 UTC
 
 The user authorized constructing and running the professor's pooled comparison:

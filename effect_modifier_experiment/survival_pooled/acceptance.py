@@ -5,6 +5,8 @@ manifest, producing attempt, fitted model, prediction arrays and recomputed
 probability summaries must also agree. No dataset or prediction is regenerated.
 """
 from pathlib import Path
+import json
+import os
 
 from ..infrastructure import evidence
 from ..infrastructure.artifacts import digest
@@ -200,3 +202,38 @@ def verify_pilot_acceptance(path):
     require(collect_pilot_acceptance(proof['inventory']['path']) == proof and _binding(path) == binding,
             'pooled pilot proof differs from freshly verified evidence')
     return proof
+
+
+def publish_acceptance(proof, cohort='pilot'):
+    """Create a source-addressed report proof, preserving every partial write.
+
+    The model-artifact writer is deliberately restricted to outputs/scratch;
+    acceptance reports have their own canonical durable report namespace.
+    Publishing a proof never substitutes for its fresh scientific verification.
+    """
+    source = current_provenance()
+    require(proof.get('provenance') == source and proof.get('passed') is True
+            and proof.get('scope') == 'survival_pooled_' + cohort + '_scientific_acceptance',
+            'acceptance publication needs the current source and matching scientific scope')
+    output = default_acceptance_path(source, cohort)
+    pending = output.with_name('.' + output.name + '.pending')
+    _ordinary_path(output, exists=False)
+    _ordinary_path(pending, exists=False)
+    require(not output.exists() and not pending.exists(), 'preserving existing or partial pooled acceptance proof')
+    data = (json.dumps(proof, sort_keys=True, indent=2, allow_nan=False) + '\n').encode()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    _ordinary_path(output, exists=False)
+    _ordinary_path(pending, exists=False)
+    require(current_provenance() == source, 'source changed before acceptance publication')
+    with pending.open('xb') as stream:
+        stream.write(data)
+        stream.flush()
+        os.fsync(stream.fileno())
+    require(current_provenance() == source, 'source changed while publishing acceptance; partial proof preserved')
+    _ordinary_path(output, exists=False)
+    _ordinary_path(pending)
+    os.link(pending, output)
+    pending.unlink()
+    require(output.read_bytes() == data and current_provenance() == source,
+            'acceptance readback or source changed; preserve proof for review')
+    return output

@@ -10,6 +10,7 @@ from unittest.mock import patch
 import numpy as np
 
 from effect_modifier_experiment.survival.artifacts import array_hash
+from effect_modifier_experiment.infrastructure.artifacts import OUTPUT_ROOT
 from effect_modifier_experiment.survival.links import survival_mean
 from effect_modifier_experiment.survival_pooled.evaluation import compare_predictions, summarize_arrays
 from reporting.effect_modifier import survival_pooled as reporting
@@ -28,7 +29,7 @@ class SurvivalPooledReportingTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='pooled-report-fixture-', dir=SCRATCH)
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
-        self.run_root = self.root / 'runs'
+        self.run_root = self.root / 'outputs'
         self.run_root.mkdir()
         self.proof_path = self.root / 'acceptance.json'
         self.units = []
@@ -116,6 +117,11 @@ class SurvivalPooledReportingTests(unittest.TestCase):
         gaps = reporting.aggregate_gaps(rows)
         self.assertEqual(len(gaps), 20)  # five FL methods, two scenarios, two PV scopes
         self.assertTrue(all(row['combined_rms_gap_mean'] == 0 for row in gaps))
+
+    def test_real_reporting_run_root_matches_scientific_artifact_store(self):
+        # Exercise the actual exported constant, not this class's fixture patch.
+        self.run_patch.stop()
+        self.assertEqual(reporting.RUN_ROOT, OUTPUT_ROOT)
 
     def test_paired_rms_gap_mean_standard_error_and_arm_mapping(self):
         rows = []
@@ -260,6 +266,17 @@ class SurvivalPooledReportingTests(unittest.TestCase):
         self.units[0]['manifest'] = reporting._binding(outside)
         write_json(self.proof_path, self.proof)
         with self.assertRaises(ValueError):
+            reporting.load_completed(self.proof_path)
+
+    def test_manifest_in_legacy_runs_location_is_rejected(self):
+        wrong_run = self.root / 'runs' / self.units[0]['run_id']
+        wrong_run.mkdir(parents=True)
+        wrong_manifest = wrong_run / 'run_manifest.env'
+        correct_manifest = Path(self.units[0]['manifest']['path'])
+        wrong_manifest.write_bytes(correct_manifest.read_bytes())
+        self.units[0]['manifest'] = reporting._binding(wrong_manifest)
+        write_json(self.proof_path, self.proof)
+        with self.assertRaisesRegex(ValueError, 'artifact changed'):
             reporting.load_completed(self.proof_path)
 
     def test_acceptance_proof_change_during_read_is_rejected(self):

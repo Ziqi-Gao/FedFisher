@@ -93,7 +93,7 @@ not an automatic hidden failure threshold.
 | `acceptance.py` | Saved-only pilot/formal verification and same-source gate |
 
 Source files belong in the canonical repository. Completed models, prediction
-arrays and results use `/data/del6500/FedFisher/effect_modifier_experiment/runs/`
+arrays and results use `/data/del6500/FedFisher/effect_modifier_experiment/outputs/`
 with independent `survival_pooled_v1_*` run IDs. Acceptance proofs and figures
 use `/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-pooled-v1/`.
 Requests and inventories belong below the FedFisher scratch scheduler outbox

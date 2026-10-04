@@ -9,11 +9,12 @@ import numpy as np
 
 from effect_modifier_experiment.survival.acceptance import _binding, _ordinary_path, _read_json
 from effect_modifier_experiment.survival.artifacts import array_hash
+from effect_modifier_experiment.infrastructure.artifacts import OUTPUT_ROOT
 from effect_modifier_experiment.survival_pooled.evaluation import summarize_arrays, compare_predictions
 from effect_modifier_experiment.survival_pooled import protocol
 
 REPORT_ROOT = Path('/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-pooled-v1')
-RUN_ROOT = Path('/data/del6500/FedFisher/effect_modifier_experiment/runs')
+RUN_ROOT = OUTPUT_ROOT
 
 
 def load_completed(proof_path):
