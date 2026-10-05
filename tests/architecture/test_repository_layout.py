@@ -45,6 +45,7 @@ PLANS = {'original': 'effect_modifier_experiment.requests', 'comparison': 'effec
 
 
 PLANS['model_signal_completion'] = 'effect_modifier_experiment.model_signal_ablation.completion_requests'
+PLANS['survival_mlp8'] = 'effect_modifier_experiment.survival_mlp8.requests'
 
 
 class RepositoryLayoutTests(unittest.TestCase):
@@ -70,7 +71,7 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_shared_layers_and_experiment_runner_dependencies_remain_separate(self):
         owners = {'causal_comparison', 'fedfisher_timing', 'model_signal_ablation',
-                  'one_shot_effects', 'survival'}
+                  'one_shot_effects', 'survival', 'survival_pooled', 'survival_mlp8'}
         base = ROOT / 'effect_modifier_experiment'
         for path in base.rglob('*.py'):
             parts = path.relative_to(ROOT).with_suffix('').parts
@@ -92,7 +93,7 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_task_catalog_covers_every_running_fixture_without_profile_drift(self):
         fixtures = [json.loads(p.read_text()) for p in (ROOT / 'tests/fixtures/server_scheduler').glob('*.json')]
         self.assertEqual({row['task'] for row in fixtures}, catalog.ALLOWED_TASKS)
-        self.assertEqual(len(catalog.ALLOWED_TASKS), 24)
+        self.assertEqual(len(catalog.ALLOWED_TASKS), 26)
         for row in fixtures:
             expected = catalog.TASK_PROFILES[row['task']]
             self.assertEqual(row['allocation']['memory_mib'], expected['memory_mib'])
@@ -146,7 +147,7 @@ for name in sys.modules:
 
     def test_review_inventory_binds_extracted_implementations(self):
         for name in ('comparison', 'effects_replay', 'fedfisher_timing', 'model_signal',
-                     'model_signal_recovery', 'model_signal_completion', 'survival', 'survival_recovery'):
+                     'model_signal_recovery', 'model_signal_completion', 'survival', 'survival_recovery', 'survival_mlp8'):
             module = importlib.import_module('effect_modifier_experiment.scheduling.publication.' + name)
             with self.subTest(builder=name):
                 self.assertEqual(module.REVIEW_SOURCES['request_publication'],

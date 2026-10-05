@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario"
+  ],
+  "properties": {
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "iid",
+        "covariate_shift"
+      ]
+    }
+  }
+}

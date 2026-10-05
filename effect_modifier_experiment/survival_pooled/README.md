@@ -1,5 +1,11 @@
 # Pooled survival probability benchmark
 
+This guide preserves the historical three-family benchmark recipe. For new
+experiments, the project uses one ReLU hidden layer with 8 neurons; see
+`../../docs/codex/PROJECT_CONTEXT.md`. Do not publish another shallow/deep
+cohort from this recipe. Its historical pilot does not authorize an MLP8 formal
+run; that architecture needs fresh federated models and a separate paired pilot.
+
 This additive benchmark tests whether predicted survival probabilities agree
 with simulation truth **before** evaluating treatment contrasts. It compares
 the accepted survival-v1 federated models with centralized models using the

@@ -66,6 +66,8 @@ SURVIVAL_POOLED_TASK = "effect-modifier-survival-pooled-shard"
 
 SURVIVAL_POOLED_TASKS = (SURVIVAL_POOLED_PILOT_TASK, SURVIVAL_POOLED_TASK)
 
+SURVIVAL_MLP8_TASKS = ('effect-modifier-survival-mlp8-pilot', 'effect-modifier-survival-mlp8-shard')
+
 SURVIVAL_DIAGNOSTIC_TASK = "effect-modifier-survival-dslasso-diagnostic"
 
 SURVIVAL_RECOVERY_TASK = "effect-modifier-survival-dslasso-recovery-shard"
@@ -154,6 +156,7 @@ for _names, _package, _runner, _entrypoint in (
     (MODEL_SIGNAL_RECOVERY_TASKS, 'model_signal_ablation', 'recovery', 'run_shard'),
     (SURVIVAL_TASKS, 'survival', 'runner', 'run_job'),
     (SURVIVAL_POOLED_TASKS, 'survival_pooled', 'runner', 'run_job'),
+    (SURVIVAL_MLP8_TASKS, 'survival_mlp8', 'runner', 'run_job'),
     (SURVIVAL_RECOVERY_TASKS, 'survival', 'recovery', 'run_job'),
 ):
     _protocol = 'recovery_protocol' if _runner == 'recovery' else 'protocol'

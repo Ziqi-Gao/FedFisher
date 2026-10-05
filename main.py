@@ -44,7 +44,10 @@ parser.add_argument(
     required=True,
     choices=["SyntheticBinary", "SyntheticEffectModifier", "LocalBinaryCSV"],
 )
-parser.add_argument("--model", type=str, required=True, choices=["SyntheticMLP", "SyntheticMLPDeep"])
+parser.add_argument(
+    "--model", type=str, default="SyntheticMLPSmall",
+    choices=["SyntheticMLPSmall", "SyntheticMLP", "SyntheticMLPDeep"],
+)
 parser.add_argument(
     "--algs_to_run",
     nargs="+",

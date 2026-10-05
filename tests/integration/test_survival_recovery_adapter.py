@@ -10,6 +10,7 @@ from unittest import mock
 
 import tests.integration.test_fedfisher_server_scheduler_adapter as fixture
 from effect_modifier_experiment.survival import recovery
+from effect_modifier_experiment.survival_mlp8 import protocol as mlp8
 
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/survival-recovery-v1'
@@ -152,9 +153,22 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
     def test_new_scientific_parameters_cannot_enter_old_task_names(self):
         for name in FIXTURES:
             path, job = self.helper.fixture(name)
-            for task in fixture.ADAPTER.ALLOWED_TASKS - set(recovery.TASKS):
+            # MLP8 is a newer independent recipe. Its formal task deliberately
+            # shares scenario/shard field names, with its own runner and namespace.
+            for task in fixture.ADAPTER.ALLOWED_TASKS - set(recovery.TASKS) - set(mlp8.TASKS):
                 with self.subTest(name=name, task=task), self.assertRaises(fixture.ADAPTER.AdapterError):
                     self.validate(path, dict(job, task=task))
+
+    def test_same_shard_fields_preserve_distinct_new_mlp8_recipe(self):
+        for name in FIXTURES:
+            path, job = self.helper.fixture(name)
+            if set(job['parameters']) == {'scenario', 'shard_index', 'shard_count'}:
+                candidate = self.validate(path, dict(job, task=mlp8.FORMAL_TASK))
+                self.assertEqual(candidate['task'], mlp8.FORMAL_TASK)
+                config = mlp8.run_config(candidate['task'], candidate['parameters'])
+                self.assertEqual(config['protocol'], mlp8.PROTOCOL)
+                self.assertTrue(config['run_id'].startswith('survival_mlp8_v1_'))
+                self.assertEqual(config['method']['optimizer']['architecture'], 'mlp8')
 
     def test_strict_schemas_and_two_examples_match_protocol_and_omit_hardware(self):
         diagnostic = json.loads((PROPOSAL_ROOT / 'diagnostic-parameters.schema.json').read_text())

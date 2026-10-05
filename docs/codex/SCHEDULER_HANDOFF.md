@@ -5,6 +5,88 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## MLP8 survival FL/pooled pilot preparation — 2026-10-05 UTC
+
+The user authorized preparing the new pilot after changing future MLPs to a
+single 8-neuron hidden layer. The additive `survival_mlp8/` implementation fits
+fresh scalar 201 -> 8 -> 1 Diag/KFAC and two pooled pseudo-value controls. It
+preserves the survival DGP, site-local IJ response, survival mean link, raw
+inputs, public initialization and 30-epoch SGD recipe. Accepted r3 linear
+artifacts are only fingerprint witnesses; historical neural fits are not
+replayed. Primary evaluation is arm-wise/factual survival accuracy against
+simulation truth; contrast error is secondary, without permutation ranking.
+
+Pre-publication validation passed: all **912** repository fixtures in 143.930 s;
+all **59** dedicated MLP8 fixtures in 2.013 s; no-cache syntax and whitespace;
+pure ServerScheduler registration/request parsers. The tests include actual
+tiny four-model fits, independent Fisher/objective arithmetic, serialized
+uploads, saved-only probability validation, actual-producer/retry/audit
+witnesses, immutable publication, source/artifact races and fresh formal gates.
+The ten protected historical survival source hashes and four selected r3
+linear references (both scenarios, seeds 0 and 49) were verified read-only with
+model prediction forbidden. No scientific pilot was executed locally.
+
+The disabled proposal is
+`effect_modifier_experiment/server_scheduler/survival-mlp8-v1/registration-proposal.toml`.
+Its one-core/8192-MiB profile and 86400/604800-second pilot/formal estimates are
+provisional, not measured capacity or runtime. Before publication, read-only
+central inspection found no active FedFisher job, no registered MLP8 task, and
+neither planned pilot ID in central state. The project does not change central
+registration, queues, services or foreign experiments.
+
+After committing this source, the intended immutable delivery is:
+
+- Inventory: `/scr/del6500/FedFisher/scheduler/reports/fedfisher-survival-mlp8-v1-pilot-cohort-p1.inventory.json`.
+- Requests: the matching nested `scheduler/outbox/fedfisher-survival-mlp8-v1-pilot-cohort-p1/` bundle, one per scenario.
+- Exact release/readback/operator evidence: `/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-mlp8-v1/preparation-p1/`.
+- Fixture logs: `/scr/del6500/FedFisher/survival-mlp8-validation/`.
+
+The pilot owns four scientific units and 16 final models, backed by 80 local
+fits and eight pooled fits. Outbox publication is not central submission.
+An operator must review/merge only the new pilot registration, validate and
+submit the two exact requests, and preserve all existing task registrations.
+Keep canonical source frozen through pilot execution and saved-artifact
+acceptance. The default formal plan is 32 requests / 600 units / 2400 final
+models, but no formal request is authorized for publication before a fresh,
+same-source MLP8 pilot proof and operator runtime/memory review. Old pooled or
+model/signal acceptance cannot satisfy this gate. Preserve superseded
+unsubmitted shallow/deep bundles; do not admit them.
+
+## Future MLP scope and completed-pilot source release — 2026-10-05 UTC
+
+The user changed the scope of all future MLP experiments to one hidden layer
+with 8 neurons. Do not admit additional shallow/deep cohorts. The stable
+architecture choice is recorded in `PROJECT_CONTEXT.md`; historical named
+models and scientific contracts retain their original meanings.
+
+Before this source change, both shared-source pilots were verified on clean
+`b6cbf124003eb05ee0197812ffd2e223704bd915`: pooled P2 passed 6 requests / 12
+units, and model/signal completion P2 passed 8 requests / 16 successful units
+with exact historical parity and paired checks. Their canonical pilot proofs
+use provenance `ccb3eb5a2b02ff98def6f204b5c51ee048da4d83537c4696fa56c7c04d3dda57`
+under the respective durable report roots. Those proofs remain historical after
+source changes and cannot open a new-source MLP8 formal gate.
+
+Read-only central inspection found no active FedFisher jobs. All 24 job IDs in
+the already prepared model/signal formal inventory were absent from central
+state. Preserve that unsubmitted inventory and all request bytes:
+`/scr/del6500/FedFisher/scheduler/reports/fedfisher-ms-v3-formal-cohort-p1.inventory.json`,
+SHA-256 `375c3fab184efc0e0c96c7205d6a5279db981a377333143bfc39748ce6c9408e`.
+Its 896 replacement units use shallow MLPs and are outside the new user scope;
+do not submit them. This is a project-side scope change, not a central job
+withdrawal or a claim that the unfinished historical formal cohort is complete.
+
+The pooled three-family formal plan is likewise superseded for future work.
+The next survival neural recipe must use 201 -> 8 -> 1, fit fresh Diag/KFAC and
+pooled comparators on paired data, and obtain its own fixture/profile/pilot
+acceptance before formal admission. No new scientific job or formal request is
+created by this default-model and documentation update.
+
+Validation passed: the default/explicit model choices were checked through an
+isolated argparse AST, the existing small-model factory test passed, syntax and
+`git diff --check` passed, and all ten protected historical survival source
+hashes remain unchanged. No model fitting or inference was run for this update.
+
 ## Pooled path-contract correction before admission — 2026-10-04 UTC
 
 The pooled P1 bundle was published on clean `eeb50c8`, but final readback found

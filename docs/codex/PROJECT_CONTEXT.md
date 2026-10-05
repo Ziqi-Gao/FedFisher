@@ -60,6 +60,27 @@ LASSO benchmarks that reuse the effect-modifier data-generating process and
 evaluation protocol; they do not run `fedfisher_diag` or `fedfisher_kfac`.
 Current admission must be verified against the live central registration.
 
+## MLP architecture for new experiments
+
+Use exactly one ReLU hidden layer with **8 neurons** for every newly designed
+MLP experiment. The existing binary model name is `SyntheticMLPSmall`; preserve
+the outcome-specific output head. For survival with `[A,X,A*X]` and 100 raw
+covariates, the intended network is **201 -> 8 -> 1**, where the scalar output
+is log cumulative hazard and the survival mean remains `exp(-exp(eta))`.
+
+Do not schedule additional shallow `[64,32]` or deep `[256,128,64,32]` MLP
+experiments. Their named models, fixed historical recipes, checkpoints and
+results remain available for historical interpretation. Do not redefine those
+names as 8-neuron models or count their acceptance evidence as an MLP8 pilot.
+Linear comparators remain separate from this neural architecture choice.
+
+Architecture changes require an independent recipe, scientific namespace and
+bounded pilot under the usual scheduler gates. In particular, a new survival
+FL-versus-pooled comparison must fit fresh MLP8 federated and pooled models;
+the historical shallow/deep replay benchmark does not implement that comparison.
+Keep data generation, pseudo-value construction, link, endpoints and training
+settings unchanged unless the user separately requests a change.
+
 ## Original binary data-generating processes
 
 ### SyntheticBinary
@@ -175,6 +196,7 @@ invariants.
 | Saved-model diagnostics | [one_shot_effects/diagnostics](../../effect_modifier_experiment/one_shot_effects/diagnostics/README.md): gradient audits, approximation gates and source-bound replay |
 | Original Fisher CPU timing | [fedfisher_timing](../../effect_modifier_experiment/fedfisher_timing/README.md): isolated Diag/KFAC timing, immutable artifacts and pilot acceptance |
 | Survival | [survival](../../effect_modifier_experiment/survival/README.md): generator, IJ responses, links, methods, evaluation, protocol, artifacts and acceptance |
+| Survival probability comparison | [survival_mlp8](../../effect_modifier_experiment/survival_mlp8/README.md): fresh single-layer 8-neuron Diag/KFAC and paired pooled controls, truth-based probability evaluation and independent scheduler gates; historical [survival_pooled](../../effect_modifier_experiment/survival_pooled/README.md) remains separate |
 | Shared infrastructure | [infrastructure](../../effect_modifier_experiment/infrastructure/README.md): standard-library artifact, provenance, request-publication and read-only execution-evidence helpers |
 | Shared scientific mechanisms | [components](../../effect_modifier_experiment/components/README.md): timing ledgers, array/model fingerprints and existing tie-aware recovery arithmetic; experiment scales remain local |
 | Scheduling implementation | [scheduling](../../effect_modifier_experiment/scheduling/README.md): catalog, strict validation, runtime setup, lazy dispatch and publication composition; deterministic request plans belong to experiment packages |

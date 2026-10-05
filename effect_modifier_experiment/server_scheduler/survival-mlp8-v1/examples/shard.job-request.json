@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-mlp8-shard-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-mlp8-shard",
+  "parameters": {
+    "scenario": "iid",
+    "shard_index": 0,
+    "shard_count": 16
+  },
+  "priority": 0
+}

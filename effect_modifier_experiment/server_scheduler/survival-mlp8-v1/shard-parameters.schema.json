@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenario",
+    "shard_index",
+    "shard_count"
+  ],
+  "properties": {
+    "scenario": {
+      "type": "string",
+      "enum": [
+        "iid",
+        "covariate_shift"
+      ]
+    },
+    "shard_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 15
+    },
+    "shard_count": {
+      "type": "integer",
+      "enum": [
+        8,
+        16
+      ]
+    }
+  }
+}
