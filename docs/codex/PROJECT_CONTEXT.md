@@ -81,6 +81,13 @@ the historical shallow/deep replay benchmark does not implement that comparison.
 Keep data generation, pseudo-value construction, link, endpoints and training
 settings unchanged unless the user separately requests a change.
 
+The complete survival FL-versus-pooled comparison checks survival-probability
+accuracy first, then log cumulative-hazard treatment contrasts and raw-X
+permutation modifier discovery. All four MLP8 models must report Top-2 recovery
+of both X1/X2 and AUROC using the original five-repeat, tie-aware survival
+evaluator. Prediction-only completion evidence cannot authorize a discovery
+cohort. Each recipe keeps separate task names, namespaces and pilot proofs.
+
 ## Original binary data-generating processes
 
 ### SyntheticBinary
@@ -196,7 +203,7 @@ invariants.
 | Saved-model diagnostics | [one_shot_effects/diagnostics](../../effect_modifier_experiment/one_shot_effects/diagnostics/README.md): gradient audits, approximation gates and source-bound replay |
 | Original Fisher CPU timing | [fedfisher_timing](../../effect_modifier_experiment/fedfisher_timing/README.md): isolated Diag/KFAC timing, immutable artifacts and pilot acceptance |
 | Survival | [survival](../../effect_modifier_experiment/survival/README.md): generator, IJ responses, links, methods, evaluation, protocol, artifacts and acceptance |
-| Survival probability comparison | [survival_mlp8](../../effect_modifier_experiment/survival_mlp8/README.md): fresh single-layer 8-neuron Diag/KFAC and paired pooled controls, truth-based probability evaluation and independent scheduler gates; historical [survival_pooled](../../effect_modifier_experiment/survival_pooled/README.md) remains separate |
+| Survival FL-versus-pooled comparison | [survival_mlp8](../../effect_modifier_experiment/survival_mlp8/README.md): fresh single-layer 8-neuron Diag/KFAC and paired pooled controls; probability checks followed by original Top-2/AUROC discovery, separate recipe/proof gates; historical [survival_pooled](../../effect_modifier_experiment/survival_pooled/README.md) remains separate |
 | Shared infrastructure | [infrastructure](../../effect_modifier_experiment/infrastructure/README.md): standard-library artifact, provenance, request-publication and read-only execution-evidence helpers |
 | Shared scientific mechanisms | [components](../../effect_modifier_experiment/components/README.md): timing ledgers, array/model fingerprints and existing tie-aware recovery arithmetic; experiment scales remain local |
 | Scheduling implementation | [scheduling](../../effect_modifier_experiment/scheduling/README.md): catalog, strict validation, runtime setup, lazy dispatch and publication composition; deterministic request plans belong to experiment packages |

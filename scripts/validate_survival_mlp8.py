@@ -10,7 +10,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--inventory', type=Path, required=True)
     parser.add_argument('--cohort', choices=('pilot', 'formal'), default='pilot')
+    parser.add_argument('--discovery', action='store_true', help='Require complete V2 probability and Top-2/AUROC results')
     args = parser.parse_args()
     from effect_modifier_experiment.survival_mlp8.acceptance import collect_acceptance, publish_acceptance
-    proof = collect_acceptance(args.inventory, args.cohort)
-    print(publish_acceptance(proof, args.cohort))
+    proof = collect_acceptance(args.inventory, args.cohort, discovery=args.discovery)
+    print(publish_acceptance(proof, args.cohort, discovery=args.discovery))

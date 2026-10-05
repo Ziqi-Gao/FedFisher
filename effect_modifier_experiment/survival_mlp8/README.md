@@ -1,7 +1,9 @@
-# Survival probability comparison with an 8-neuron MLP
+# Survival modifier discovery with an 8-neuron MLP
 
-This additive experiment checks predicted survival probabilities against known
-simulation truth before interpreting a counterfactual treatment contrast. All
+The complete V2 comparison first checks predicted survival probabilities against
+simulation truth, then evaluates treatment contrasts and modifier discovery.
+Probability accuracy is a diagnostic before discovery, not a replacement for
+the project's Top-2/AUROC endpoints. All
 four models have the same float64 CPU network: **201 -> 8 ReLU -> 1**, with
 1,625 parameters. Historical shallow/deep recipes and outputs remain separate.
 
@@ -61,9 +63,23 @@ Primary evaluation saves treatment/control/factual survival predictions and
 compares them with generator truth using RMSE, MAE, signed mean bias and
 10-bin calibration. The evaluator also saves RMS prediction differences between
 each FedFisher model and each pooled control. Secondary evaluation compares
-`eta(1,X)-eta(0,X)` with the known log cumulative-hazard contrast. This recipe
-does not perform permutation modifier ranking or claim that good contrast
-accuracy follows from accurate factual predictions alone.
+`eta(1,X)-eta(0,X)` with the known log cumulative-hazard contrast. Accurate
+factual predictions alone do not establish accurate treatment contrasts.
+
+V2 then uses the unchanged `survival/evaluation.py` discovery procedure for
+each of the four models. For each raw covariate and each of five repeats, it
+permutes that covariate on the common test set, rebuilds both `[1,X,X]` and
+`[0,X,0]`, and measures the mean absolute change in the estimated eta contrast.
+The mean score across repeats ranks the 100 covariates. Top-2 reports recovery
+of **both X1 and X2**; AUROC compares these two signals with the 98 noise
+covariates. Exact boundary ties use the original uniform selection rule, so
+an all-zero ranking is not a successful discovery. All models and scenarios
+share seed-bound permutation streams. Probability, contrast and ranking
+metrics remain separate.
+
+Historical V1 results contain probability and contrast diagnostics only. They
+contain no modifier ranking and cannot establish a Top-2 result or qualify as
+the completed V2 comparison.
 
 Fitting reports distinguish local epochs/updates, Fisher calculation,
 serialization, server iterations and pooled training. Timing excludes queueing,
@@ -73,6 +89,8 @@ outside the one-upload fitting boundary. Process peak RSS is observational.
 ## Files and completion contract
 
 - `protocol.py`: fixed recipes, scientific parameter admission and seed sequences.
+- `discovery_protocol.py`: separate V2 task names and the complete fixed recipe.
+- `discovery_evaluation.py`: reuse of original rankings and saved-only checks.
 - `methods.py`: MLP8 training, serialized Fisher uploads, aggregation and saved-fit checks.
 - `computation.py`: paired data, four fits and probability evaluation.
 - `artifacts.py`: immutable results and numerical/semantic saved-array validation.
@@ -80,33 +98,43 @@ outside the one-upload fitting boundary. Process peak RSS is observational.
 - `requests.py`: scientific request plans and reviewed source bindings.
 - `acceptance.py`: saved-artifact, actual-producer and paired-cohort verification without inference.
 
-Durable runs live below
-`/data/del6500/FedFisher/effect_modifier_experiment/outputs/survival_mlp8_v1_<scenario>_<pilot|300seeds>/`.
+V2 durable runs live below
+`/data/del6500/FedFisher/effect_modifier_experiment/outputs/survival_mlp8_v2_<scenario>_<pilot|300seeds>/`.
 Each seed saves a started receipt, result JSON, prediction/fit arrays and a
-completion marker, under a source-bound format-v2 run manifest. Partial,
+completion marker, under a source-bound format-v2 run manifest. V2 also saves
+the common raw test matrix and all four five-repeat importance summaries.
+Acceptance validates saved rankings, tie arithmetic and contrasts against
+saved eta predictions and the accepted historical data witness without fitting,
+inference or permutation replay. Partial,
 different-source, altered or numerically invalid artifacts fail closed without
 overwrite. Canonical acceptance proofs live below the durable
-`reports/survival-mlp8-v1/` directory.
+`reports/survival-mlp8-v1/` directory, with V2-specific filenames
+`<cohort>-discovery-v2-<provenance>.acceptance.json` and proof scopes. V1 paths,
+results, manifests and proofs retain their original contract.
 
 ## Scheduler gates
 
 Only the canonical ServerScheduler adapter may execute this workload. The
-additive proposal under `server_scheduler/survival-mlp8-v1/` is disabled;
+additive V2 proposal under `server_scheduler/survival-mlp8-v2/` is disabled;
 registration and resource review belong to a ServerScheduler operator.
 
-The pilot task `effect-modifier-survival-mlp8-pilot` accepts only `scenario`.
+The pilot task `effect-modifier-survival-mlp8-discovery-pilot` accepts only `scenario`.
 Two requests cover both scenarios at seeds 0 and 49: four scientific units and
 16 final models (backed by 80 local Diag/KFAC fits and 8 pooled fits). The formal task
-`effect-modifier-survival-mlp8-shard` additionally accepts `shard_index` and
+`effect-modifier-survival-mlp8-discovery-shard` additionally accepts `shard_index` and
 `shard_count` (8 or 16); it covers 300 seeds per scenario, 600 units and 2,400
 final models. Default formal publication has 32 deterministic shard requests.
 Formal publication and execution require a freshly reverified, canonical,
-same-source MLP8 pilot proof. Old pooled/shallow/deep proofs cannot open this gate.
+same-source V2 discovery pilot proof. Prediction-only V1 and old
+pooled/shallow/deep proofs cannot open this gate. The historical V1 formal plan
+does not serve the complete discovery comparison.
 Scientific acceptance checks correctness rather than an accuracy cutoff;
 runtime/memory review and central admission remain separate operator decisions.
 
-`scripts/prepare_survival_mlp8_requests.py` publishes immutable request bundles
+`scripts/prepare_survival_mlp8_requests.py --discovery` publishes V2 immutable request bundles
 only into the project scratch outbox, with the inventory written last. An outbox
 file is not a submitted job. `scripts/validate_survival_mlp8.py` verifies completed
-saved results and publishes a source-addressed proof. Freeze canonical source
+saved results and publishes a source-addressed proof; use its `--discovery`
+flag for V2. Commands without that flag retain the historical V1 contract.
+Freeze canonical source
 through the pilot and its acceptance before admitting the formal cohort.

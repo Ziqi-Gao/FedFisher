@@ -20,7 +20,22 @@ def compute_cell(config, seed):
     never evaluated here. Trainers receive observed hospital rows; independent
     test rows and simulation truth enter only the probability evaluator.
     """
-    protocol.validate_seed(config, seed)
+    return _compute_cell(config, seed, protocol, discovery=False)
+
+
+def compute_discovery_cell(config, seed):
+    """Fit the same four MLP8 models, assess probability, then discover modifiers.
+
+    V2 has a separate recipe and output namespace. Its five-repeat raw-covariate
+    permutation assessment follows the original survival discovery evaluator;
+    the accepted dsLasso fit remains a data witness and is never inferred.
+    """
+    from . import discovery_protocol
+    return _compute_cell(config, seed, discovery_protocol, discovery=True)
+
+
+def _compute_cell(config, seed, recipe, *, discovery):
+    recipe.validate_seed(config, seed)
     stages = {}
 
     @contextmanager
@@ -75,11 +90,25 @@ def compute_cell(config, seed):
                                    'delta', 'modifier_mask')})
         arrays['factual_a'] = np.asarray(dataset.evaluation.a, dtype=np.float64)
         arrays['plot_x12'] = np.asarray(dataset.evaluation.x[:500, :2], dtype=np.float64)
-    return dict(status='complete', fit=fits, prediction=metrics, comparisons=comparisons,
+    ranking = {}
+    if discovery:
+        from .discovery_evaluation import evaluate_discovery
+        with measured('discovery_evaluation'):
+            repeats = config['evaluation']['discovery']['repeats']
+            ranking = {tag: evaluate_discovery(model.predict_eta, dataset, seed, repeats=repeats)
+                       for tag, model in models.items()}
+            # One complete common test matrix binds the original permutation
+            # recipe across methods and scenarios. Acceptance reads saved
+            # predictions and scores; it never re-runs neural inference.
+            arrays['discovery__x'] = np.array(dataset.evaluation.x, dtype=np.float64, copy=True)
+    result = dict(status='complete', fit=fits, prediction=metrics, comparisons=comparisons,
                 reference=reference['binding'], historical_inputs=anchors,
                 site_sizes=sizes, fingerprints=fingerprints,
                 timing=dict(stages=stages, network_transport_measured=False,
                             fit_includes_all_selection_and_refits=True),
                 memory=dict(process_peak_rss_kib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss,
                     scope='Linux process-lifetime high-water RSS, not allocation or cgroup peak'),
-                prediction_arrays_sha256=array_hash(arrays)), arrays
+                prediction_arrays_sha256=array_hash(arrays))
+    if discovery:
+        result['discovery'] = ranking
+    return result, arrays

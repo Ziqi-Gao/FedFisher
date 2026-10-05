@@ -5,6 +5,7 @@ import re
 import numpy as np
 
 from ..infrastructure.artifacts import canonical, read_json
+from ..infrastructure.evidence import file_binding
 from ..survival.artifacts import ArtifactStore as SurvivalStore, array_hash
 from . import protocol
 
@@ -149,6 +150,43 @@ def validate_result(result, arrays, identity, config):
         raise ValueError('malformed MLP8 survival result') from error
 
 
+def validate_discovery_result(result, arrays, identity, config):
+    """Validate V2's complete evidence, then reuse the probability checks.
+
+    Check the full array digest before constructing a projection for the V1
+    validator. The projection is in memory only; the saved result and arrays
+    remain intact, including the complete common raw-covariate test matrix.
+    """
+    from .discovery_evaluation import validate_discovery
+    try:
+        canonical(result)
+        require(isinstance(result, dict) and 'discovery' in result,
+                'MLP8 discovery result is missing modifier ranking')
+        require(isinstance(arrays, dict) and 'discovery__x' in arrays
+                and all(isinstance(name, str) and isinstance(value, np.ndarray)
+                        and not value.dtype.hasobject and np.isfinite(value).all()
+                        for name, value in arrays.items()), 'invalid MLP8 discovery saved arrays')
+        require(result['prediction_arrays_sha256'] == array_hash(arrays),
+                'MLP8 discovery array fingerprint mismatch')
+        base_arrays = {name: value for name, value in arrays.items() if name != 'discovery__x'}
+        base_result = {name: value for name, value in result.items() if name != 'discovery'}
+        base_result['prediction_arrays_sha256'] = array_hash(base_arrays)
+        validate_result(base_result, base_arrays, identity, config)
+
+        # The selected receipt has already passed historical producer checks.
+        # Bind this second read as well, so rankings cannot use changed bytes
+        # between the probability and discovery validation stages.
+        binding = result['reference']['artifacts']['result.json']
+        require(file_binding(binding['path']) == binding, 'MLP8 discovery reference checksum mismatch')
+        reference = read_json(binding['path'])
+        require(file_binding(binding['path']) == binding
+                and reference['identity'] == result['reference']['identity']
+                and reference['status'] == 'complete', 'MLP8 discovery reference changed while reading')
+        return validate_discovery(result['discovery'], arrays, config, reference, seed=identity['seed'])
+    except (KeyError, TypeError, IndexError, AttributeError) as error:
+        raise ValueError('malformed MLP8 discovery survival result') from error
+
+
 class ArtifactStore(SurvivalStore):
     """Reuse immutable publication without inheriting historical model semantics."""
     protocol_name = 'survival-mlp8-prediction-v1'
@@ -195,3 +233,46 @@ class ArtifactStore(SurvivalStore):
         if getattr(error, 'diagnostics', None) is not None:
             record['optimizer_diagnostics'] = error.diagnostics
         return record
+
+
+class DiscoveryArtifactStore(ArtifactStore):
+    """Separate V2 identity and proof gates; V1 artifacts remain immutable."""
+    protocol_name = 'survival-mlp8-discovery-v2'
+
+    def _validate_config(self):
+        from . import discovery_protocol as recipe
+        parameters = dict(scenario=self.config['scenario'])
+        if self.config['task'] == recipe.FORMAL_TASK:
+            parameters.update(shard_index=0, shard_count=16)
+        require(self.config == recipe.run_config(self.config['task'], parameters),
+                'MLP8 discovery configuration is not the fixed recipe')
+
+    def _validate_seed(self, seed):
+        from . import discovery_protocol
+        return discovery_protocol.validate_seed(self.config, seed)
+
+    def _validate_prerequisite(self, prerequisite):
+        from . import discovery_protocol
+        if self.config['task'] == discovery_protocol.FORMAL_TASK:
+            require(isinstance(prerequisite, dict) and set(prerequisite) == {
+                'pilot_acceptance_sha256', 'provenance_sha256'}
+                and isinstance(prerequisite['pilot_acceptance_sha256'], str)
+                and re.fullmatch('[0-9a-f]{64}', prerequisite['pilot_acceptance_sha256'])
+                and prerequisite['provenance_sha256'] == self.provenance['provenance_sha256'],
+                'formal MLP8 discovery requires same-source discovery pilot acceptance')
+        else:
+            require(prerequisite is None, 'MLP8 discovery pilot cannot use formal prerequisites')
+
+    def _validate_result(self, result, arrays, identity):
+        try:
+            validate_discovery_result(result, arrays, identity, self.config)
+        except ValueError as error:
+            if isinstance(result, dict) and isinstance(result.get('fit'), dict):
+                try:
+                    canonical(result['fit'])
+                except (ValueError, TypeError):
+                    pass
+                else:
+                    if getattr(error, 'diagnostics', None) is None:
+                        error.diagnostics = result['fit']
+            raise

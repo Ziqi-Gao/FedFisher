@@ -67,6 +67,7 @@ SURVIVAL_POOLED_TASK = "effect-modifier-survival-pooled-shard"
 SURVIVAL_POOLED_TASKS = (SURVIVAL_POOLED_PILOT_TASK, SURVIVAL_POOLED_TASK)
 
 SURVIVAL_MLP8_TASKS = ('effect-modifier-survival-mlp8-pilot', 'effect-modifier-survival-mlp8-shard')
+SURVIVAL_MLP8_DISCOVERY_TASKS = ('effect-modifier-survival-mlp8-discovery-pilot', 'effect-modifier-survival-mlp8-discovery-shard')
 
 SURVIVAL_DIAGNOSTIC_TASK = "effect-modifier-survival-dslasso-diagnostic"
 
@@ -172,6 +173,12 @@ for _name in MODEL_SIGNAL_COMPLETION_TASKS:
     TASK_CONTRACTS[_name] = TaskContract(
         _BASE + 'model_signal_ablation.completion_protocol',
         _BASE + 'model_signal_ablation.completion', 'run_shard')
+
+for _name in SURVIVAL_MLP8_DISCOVERY_TASKS:
+    if _name in TASK_CONTRACTS:
+        raise ValueError('duplicate reviewed task: ' + _name)
+    TASK_CONTRACTS[_name] = TaskContract(_BASE + 'survival_mlp8.discovery_protocol',
+        _BASE + 'survival_mlp8.runner', 'run_discovery_job')
 
 ALLOWED_TASKS = frozenset(TASK_CONTRACTS)
 TASK_PROFILES = {name: dict(execution_profile=CPU_PROFILE, memory_mib=contract.memory_mib)

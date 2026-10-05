@@ -28,18 +28,24 @@ REVIEW_SOURCES.update({
 })
 
 
-def bundle_name(generation=1, cohort='pilot'):
+def bundle_name(generation=1, cohort='pilot', *, discovery=False):
     if type(generation) is not int or generation < 1 or cohort not in ('pilot', 'formal'):
         raise ValueError('positive generation and pilot/formal cohort required')
-    return 'fedfisher-survival-mlp8-v1-%s-cohort-p%d' % (cohort, generation)
+    if type(discovery) is not bool:
+        raise ValueError('discovery recipe selector must be boolean')
+    return 'fedfisher-survival-mlp8-v%d-%s-cohort-p%d' % (2 if discovery else 1, cohort, generation)
 
 
-def inventory_name(generation=1, cohort='pilot'):
-    return bundle_name(generation, cohort) + '.inventory.json'
+def inventory_name(generation=1, cohort='pilot', *, discovery=False):
+    return bundle_name(generation, cohort, discovery=discovery) + '.inventory.json'
 
 
-def build_requests(generation=1, cohort='pilot', shard_count=None):
-    bundle = bundle_name(generation, cohort)
+def build_requests(generation=1, cohort='pilot', shard_count=None, *, discovery=False):
+    if discovery:
+        from . import discovery_protocol as recipe
+    else:
+        recipe = protocol
+    bundle = bundle_name(generation, cohort, discovery=discovery)
     pilot = cohort == 'pilot'
     if pilot and shard_count is not None:
         raise ValueError('pilot does not accept shard choices')
@@ -47,30 +53,39 @@ def build_requests(generation=1, cohort='pilot', shard_count=None):
     if type(count) is not int or count not in ((1,) if pilot else (8, 16)):
         raise ValueError('formal shard count must be 8 or 16')
     specs = []
-    for scenario in protocol.SCENARIOS:
+    for scenario in recipe.SCENARIOS:
         seen = []
         for index in range(count):
             p = dict(scenario=scenario)
             if not pilot:
                 p.update(shard_index=index, shard_count=count)
-            task = protocol.PILOT_TASK if pilot else protocol.FORMAL_TASK
+            task = recipe.PILOT_TASK if pilot else recipe.FORMAL_TASK
             job_id = bundle + '-' + scenario.replace('_', '-')
             if not pilot:
                 job_id += '-s%02dof%02d' % (index, count)
             if len(job_id) > 128:
                 raise ValueError('generation exceeds the job identifier limit')
             request = dict(schema_version=2, project='FedFisher', task=task, job_id=job_id, parameters=p, priority=0)
-            config, seeds = protocol.run_config(task, p), list(protocol.seed_sequence(task, p))
+            config, seeds = recipe.run_config(task, p), list(recipe.seed_sequence(task, p))
             seen.extend(seeds)
             specs.append(dict(filename=job_id + '.job-request.json', request=request,
                 request_sha256=sha256(encoded(request)), run_id=config['run_id'], configuration=config,
                 configuration_sha256=sha256(canonical(config).encode()), seed_sequence=seeds))
-        if sorted(seen) != list(protocol.PILOT_SEEDS if pilot else protocol.FORMAL_SEEDS):
+        if sorted(seen) != list(recipe.PILOT_SEEDS if pilot else recipe.FORMAL_SEEDS):
             raise ValueError('missing or duplicated MLP8 seed coverage')
     if len(specs) != 2 * count or len({s['filename'] for s in specs}) != len(specs):
         raise ValueError('invalid MLP8 request coverage')
     return tuple(specs)
 
 
-def review_sources():
-    return source_bindings(REVIEW_SOURCES, PROJECT_ROOT)
+def review_sources(*, discovery=False):
+    if not discovery:
+        return source_bindings(REVIEW_SOURCES, PROJECT_ROOT)
+    sources = dict(REVIEW_SOURCES)
+    for name in ('discovery_protocol', 'discovery_evaluation'):
+        sources[name] = PROJECT_ROOT / ('effect_modifier_experiment/survival_mlp8/' + name + '.py')
+    sources['survival_discovery'] = PROJECT_ROOT / 'effect_modifier_experiment/survival/evaluation.py'
+    directory = PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/survival-mlp8-v2'
+    for label, name in [('proposal', 'registration-proposal.toml'), ('pilot_schema', 'pilot-parameters.schema.json'), ('formal_schema', 'shard-parameters.schema.json')]:
+        sources[label] = directory / name
+    return source_bindings(sources, PROJECT_ROOT)

@@ -5,6 +5,75 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Complete MLP8 FL/pooled discovery correction — 2026-10-05 UTC
+
+The user clarified that the pooled comparison must still assess effect-modifier
+discovery. The prediction-only V1 implementation omitted that endpoint. The
+professor's probability check is a prerequisite diagnostic before treatment
+contrasts, not a replacement for Top-2/AUROC. V2 keeps the same four fresh MLP8
+fits, DGP, pseudo-values, link and 30-epoch settings, then runs the original
+five-repeat raw-X log cumulative-hazard contrast permutation evaluation for
+Diag, KFAC and both pooled controls. Top-2 means both true modifiers recovered,
+with the original uniform exact-tie rule. All models/scenarios share test data,
+oracle contrasts and permutation streams.
+
+Before editing source, the V1 pilot was freshly reverified at clean
+`e8bd66c13dd22efba6618a4d69ab070a252ad6fe`: both central jobs completed on attempt
+1, and all four scientific units / 16 final models passed saved-only acceptance.
+Its canonical proof has provenance
+`d6aac06a82d846c524ff6cad3d9e186a852dcc1eada9b2b999876a5963c51330`
+and SHA-256 `c4c26e38c40cfcc532d8f2221823419bc5ddb9dd46e3717a089fd5ec33f0bc5d`.
+The before-edit receipt and all 50 golden V1 pilot/formal request specifications
+are preserved under `/scr/del6500/FedFisher/survival-mlp8-discovery-validation/`.
+V1 acceptance is historical probability/contrast evidence; it contains no
+Top-2 result and cannot qualify the new complete discovery cohort.
+
+V2 uses the new tasks `effect-modifier-survival-mlp8-discovery-pilot` and
+`effect-modifier-survival-mlp8-discovery-shard`, namespaces
+`survival_mlp8_v2_<scenario>_<pilot|300seeds>`, and separate source-addressed
+`pilot-discovery-v2-<provenance>.acceptance.json` proofs under the existing
+MLP8 report root. Missing or altered rankings fail closed. Saved-only
+acceptance checks score means, Top-2/AUROC and tie arithmetic, the full saved
+test matrix, historical permutation/truth hashes and saved eta contrasts;
+it does not generate data, fit, infer or replay permutations. Original V1
+artifacts and completion contracts are preserved.
+
+The disabled proposal is
+`effect_modifier_experiment/server_scheduler/survival-mlp8-v2/registration-proposal.toml`.
+Its one-core/8192-MiB profile and runtime fallbacks remain provisional; the V1
+runtime does not measure the added ranking cost. Centrally review and admit
+only the new pilot first, preserving all existing registrations. The V1 formal
+plan is superseded for this comparison: do not submit prediction-only formal
+requests or use its proof to bypass V2 piloting.
+
+At `2026-10-05T04:49:35Z`, read-only central inspection found no active FedFisher
+job, the historical V1 pilot task registered, no V1 formal or either V2 task
+registered, and neither planned V2 pilot ID in durable state. These observations
+are snapshots, not live admission authority. Pure registration/request parsers,
+50 unchanged V1 specifications, ten protected source hashes, and four saved
+historical discovery-reference schemas passed preflight. Tiny actual four-fit
+fixtures confirm V1/V2 fit and prediction arrays are identical and probability
+evaluation precedes discovery. Further regression results and the exact clean
+release binding are recorded in the external delivery evidence after freeze.
+The complete regression suite passed **952 fixtures in 144.814 s**, including
+40 new bounded discovery/evidence/admission cases. No-cache Python syntax and
+`git diff --check` also passed.
+
+After source freeze, the intended pilot delivery is:
+
+- Inventory: `/scr/del6500/FedFisher/scheduler/reports/fedfisher-survival-mlp8-v2-pilot-cohort-p1.inventory.json`.
+- Requests: matching `scheduler/outbox/fedfisher-survival-mlp8-v2-pilot-cohort-p1/` bundle.
+- Release, validation and operator instructions: `/data/del6500/FedFisher/effect_modifier_experiment/reports/survival-mlp8-v1/discovery-v2-preparation-p1/`.
+- Preflight/fixture logs: `/scr/del6500/FedFisher/survival-mlp8-discovery-validation/`.
+
+The pilot covers two scenarios at seeds 0/49: four units and 16 final models,
+each with survival accuracy, contrast error, Top-2 and AUROC. Use `--discovery`
+for both request publication and saved-result validation. An outbox is not
+central submission. The operator must register, validate and submit the exact
+new pilot requests. Freeze source through V2 pilot acceptance; formal request
+publication remains blocked until a fresh same-source V2 proof and operator
+runtime/memory review. No new scientific experiment ran locally.
+
 ## MLP8 survival FL/pooled pilot preparation — 2026-10-05 UTC
 
 The user authorized preparing the new pilot after changing future MLPs to a

@@ -11,6 +11,7 @@ from unittest import mock
 import tests.integration.test_fedfisher_server_scheduler_adapter as fixture
 from effect_modifier_experiment.survival import recovery
 from effect_modifier_experiment.survival_mlp8 import protocol as mlp8
+from effect_modifier_experiment.survival_mlp8 import discovery_protocol as discovery
 
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/survival-recovery-v1'
@@ -155,7 +156,7 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
             path, job = self.helper.fixture(name)
             # MLP8 is a newer independent recipe. Its formal task deliberately
             # shares scenario/shard field names, with its own runner and namespace.
-            for task in fixture.ADAPTER.ALLOWED_TASKS - set(recovery.TASKS) - set(mlp8.TASKS):
+            for task in fixture.ADAPTER.ALLOWED_TASKS - set(recovery.TASKS) - set(mlp8.TASKS) - set(discovery.TASKS):
                 with self.subTest(name=name, task=task), self.assertRaises(fixture.ADAPTER.AdapterError):
                     self.validate(path, dict(job, task=task))
 

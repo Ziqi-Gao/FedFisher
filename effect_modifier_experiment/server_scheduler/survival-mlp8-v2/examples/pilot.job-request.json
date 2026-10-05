@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "job_id": "fedfisher-survival-mlp8-pilot-example",
+  "project": "FedFisher",
+  "task": "effect-modifier-survival-mlp8-discovery-pilot",
+  "parameters": {
+    "scenario": "iid"
+  },
+  "priority": 0
+}

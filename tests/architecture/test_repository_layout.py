@@ -93,7 +93,7 @@ class RepositoryLayoutTests(unittest.TestCase):
     def test_task_catalog_covers_every_running_fixture_without_profile_drift(self):
         fixtures = [json.loads(p.read_text()) for p in (ROOT / 'tests/fixtures/server_scheduler').glob('*.json')]
         self.assertEqual({row['task'] for row in fixtures}, catalog.ALLOWED_TASKS)
-        self.assertEqual(len(catalog.ALLOWED_TASKS), 26)
+        self.assertEqual(len(catalog.ALLOWED_TASKS), 28)
         for row in fixtures:
             expected = catalog.TASK_PROFILES[row['task']]
             self.assertEqual(row['allocation']['memory_mib'], expected['memory_mib'])
