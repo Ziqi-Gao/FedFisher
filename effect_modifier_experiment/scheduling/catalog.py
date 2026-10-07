@@ -68,6 +68,7 @@ SURVIVAL_POOLED_TASKS = (SURVIVAL_POOLED_PILOT_TASK, SURVIVAL_POOLED_TASK)
 
 SURVIVAL_MLP8_TASKS = ('effect-modifier-survival-mlp8-pilot', 'effect-modifier-survival-mlp8-shard')
 SURVIVAL_MLP8_DISCOVERY_TASKS = ('effect-modifier-survival-mlp8-discovery-pilot', 'effect-modifier-survival-mlp8-discovery-shard')
+SURVIVAL_COMPARATOR_TASKS = ('effect-modifier-survival-comparators-pilot',)
 
 SURVIVAL_DIAGNOSTIC_TASK = "effect-modifier-survival-dslasso-diagnostic"
 
@@ -158,6 +159,7 @@ for _names, _package, _runner, _entrypoint in (
     (SURVIVAL_TASKS, 'survival', 'runner', 'run_job'),
     (SURVIVAL_POOLED_TASKS, 'survival_pooled', 'runner', 'run_job'),
     (SURVIVAL_MLP8_TASKS, 'survival_mlp8', 'runner', 'run_job'),
+    (SURVIVAL_COMPARATOR_TASKS, 'survival_comparators', 'runner', 'run_job'),
     (SURVIVAL_RECOVERY_TASKS, 'survival', 'recovery', 'run_job'),
 ):
     _protocol = 'recovery_protocol' if _runner == 'recovery' else 'protocol'

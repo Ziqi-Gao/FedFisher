@@ -5,6 +5,43 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## Ten-seed survival FedAvg and accepted dsLasso replay
+
+The user authorized transferring the best previous FedAvg hyperparameters,
+restricting the new comparison to ten seeds, and restoring accepted dsLasso
+models. The selected recipe is `fedavg_small_e5_budget30`: six rounds of five
+local epochs, SGD lr 0.01/momentum 0.9/batch 64, with fresh momentum and aggregate
+rebroadcast each round. It is the fastest tied perfect-recovery recipe under
+the original signal-2 small-MLP setting; no survival-optimality claim is made.
+
+Before editing source, the fully accepted MLP8 V2 formal proof was preserved
+by exact source/provenance and artifact/producer rechecks: all 600 scientific
+units, 2,400 models, 32 successful jobs and 300 paired seeds remain accepted.
+The source-release receipt is under
+`/scr/del6500/FedFisher/survival-comparator-validation/` with SHA-256
+`625594fdac889446663f9999da36b58f2e86405cc545c6b22e09b1b78ff7fb05`.
+No FedFisher job was active at that read-only check. Historical outputs/proofs
+and the ten protected survival/five protected MLP8 sources remain unchanged.
+
+The additive `survival_comparators/` package has one proposed bounded task,
+`effect-modifier-survival-comparators-pilot`, parameters exactly `{scenario,seed}`,
+with seed 0..9 and both original survival scenarios. Twenty independent requests
+produce twenty new FedAvg fits and twenty dsLasso probability replays; eighty
+accepted baseline predictions are referenced without inference. The fixed
+201-to-8-to-1 survival head, float64, local pseudo-values, DGP and original
+five-repeat Top-2/AUROC evaluation are preserved. All six methods must be compared
+on the same ten-seed subset. Existing dsLasso costs retain their producer scope.
+
+The disabled proposal under `server_scheduler/survival-comparators-v1/` requires
+operator profile review and central registration/admission. Only this small
+cohort is authorized; no 300-seed expansion, new one-shot FedAvg arm or central
+action is authorized. `scripts/prepare_survival_comparators_requests.py` will
+publish the immutable nested outbox bundle after clean source freeze. Validate
+completed saved evidence with `scripts/validate_survival_comparators.py`.
+Final release binding, fixture logs, request inventory and operator instructions
+belong in scratch/durable post-freeze receipts. Keep source frozen throughout
+the admitted small cohort and acceptance. Outbox publication is not submission.
+
 ## Complete MLP8 FL/pooled discovery correction — 2026-10-05 UTC
 
 The user clarified that the pooled comparison must still assess effect-modifier

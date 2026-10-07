@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["scenario", "seed"],
+  "properties": {
+    "scenario": {"type": "string", "enum": ["iid", "covariate_shift"]},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 9}
+  }
+}
