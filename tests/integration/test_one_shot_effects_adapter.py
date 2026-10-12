@@ -15,6 +15,7 @@ from effect_modifier_experiment.one_shot_effects import protocol
 PROPOSAL_ROOT = (
     fixture.PROJECT_ROOT / "effect_modifier_experiment/server_scheduler/one-shot-effects-v1"
 )
+EXAMPLE_ROOT = fixture.PROJECT_ROOT / "tests/fixtures/server_scheduler_requests/one-shot-effects-v1"
 
 
 class OneShotEffectsAdapterTests(unittest.TestCase):
@@ -134,7 +135,7 @@ class OneShotEffectsAdapterTests(unittest.TestCase):
         for key, registry in (("recipe", protocol.RECIPES), ("dataset", protocol.DATASETS)):
             self.assertEqual(schema["properties"][key]["type"], "string")
             self.assertEqual(schema["properties"][key]["enum"], list(registry))
-        examples = sorted((PROPOSAL_ROOT / "examples").glob("*.job-request.json"))
+        examples = sorted(EXAMPLE_ROOT.glob("*.job-request.json"))
         self.assertEqual(len(examples), 12)
         observed, job_ids = [], set()
         for path in examples:

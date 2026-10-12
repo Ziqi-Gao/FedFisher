@@ -2,6 +2,7 @@
 """Compatibility entrypoint for completed-artifact reporting.
 
 Implementation: reporting.binary.comparison. This path remains a compatible command entrypoint.
+Use --help for explicit saved-CSV inputs, archival defaults and durable output paths.
 """
 from pathlib import Path
 import sys

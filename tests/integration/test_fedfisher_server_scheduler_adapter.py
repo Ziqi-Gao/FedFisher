@@ -281,7 +281,7 @@ class FedFisherServerSchedulerAdapterTests(unittest.TestCase):
 
     def test_v2_examples_use_automatic_profile_selection(self):
         example_root = (
-            PROJECT_ROOT / "effect_modifier_experiment/server_scheduler/examples"
+            PROJECT_ROOT / "tests/fixtures/server_scheduler_requests/original-lasso"
         )
         for name in (
             "dslassocov-shard.job-request.json",

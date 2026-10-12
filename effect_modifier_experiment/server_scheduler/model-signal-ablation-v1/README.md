@@ -31,8 +31,9 @@ first. Formal publication and execution require actual same-source pilot
 acceptance, complete scientific artifacts, paired invariants, measured costs,
 and operator profile/admission review. Process exit zero alone is insufficient.
 
-The two source examples illustrate request syntax only. They are not an outbox
-bundle, central registration or submitted jobs. This code-delivery phase does
+The two [request fixtures](../../../tests/fixtures/server_scheduler_requests/model-signal-ablation-v1/)
+illustrate request syntax only. They are not an outbox bundle, central registration
+or submitted jobs. This code-delivery phase does
 not publish requests or execute experiments. Any later request publication must
 use the project scratch outbox after a clean canonical source freeze, with
 immutable inventory and provenance. Keep that source unchanged through admitted

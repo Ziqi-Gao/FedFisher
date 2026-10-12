@@ -13,6 +13,7 @@ from effect_modifier_experiment.model_signal_ablation import protocol
 
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/model-signal-ablation-v1'
+EXAMPLE_ROOT = fixture.PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests/model-signal-ablation-v1'
 FIXTURES = ('model-signal-pilot-running-job.json', 'model-signal-shard-running-job.json')
 
 
@@ -183,7 +184,7 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.model_signal_ablati
                 self.assertEqual(schema['allOf'][1], {
                     'if': {'properties': {'shard_count': {'const': 8}}},
                     'then': {'properties': {'shard_index': {'maximum': 7}}}})
-        examples = list((PROPOSAL_ROOT / 'examples').glob('*.job-request.json'))
+        examples = list(EXAMPLE_ROOT.glob('*.job-request.json'))
         self.assertEqual(len(examples), 2)
         tasks = set()
         for path in examples:

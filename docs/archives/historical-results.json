@@ -1,0 +1,362 @@
+{
+  "archive_root": "/data/del6500/FedFisher/repository-archives/github-content-cleanup-20261012",
+  "description": "Historical non-authoritative summaries preserved outside the active source tree.",
+  "file_count": 70,
+  "files": [
+    {
+      "path": "results/compare/README.md",
+      "sha256": "44bb2ea5cd0dc2fd724b5e6d5b98882b5e4e310007fb51692c4ecc4eecef1d3b",
+      "size_bytes": 1828
+    },
+    {
+      "path": "results/compare/fedavg_vs_fedfisher_diag_summary.csv",
+      "sha256": "cb67b41f91cee8153c43f943ab68fe1bf38aa94fdf3d810f73fe6afbf1bea083",
+      "size_bytes": 864
+    },
+    {
+      "path": "results/compare/synthetic_feature_importance_selected_summary.csv",
+      "sha256": "0bdb60c3d7d908e0df46769726af87438c340b667c65ae7bfe05599c469c794d",
+      "size_bytes": 6498
+    },
+    {
+      "path": "results/compare/synthetic_prediction_model_summary.csv",
+      "sha256": "b9cc0a853d44e5d6436afa00e4f9d0eccc8bae849bbd0a095e21749212c9a114",
+      "size_bytes": 1931
+    },
+    {
+      "path": "results/compare/synthetic_prediction_primary_metrics_summary.csv",
+      "sha256": "32bf97c63bc775cab0570bd8923fa33e41151721a5171f7caf43eb0743add31e",
+      "size_bytes": 3121
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CIFAR10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "7a79bfee7b4fdaa83a35eb021eb3d993f32efe83d59f2eef17d6c5dec678d02d",
+      "size_bytes": 785
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CIFAR10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "8c534b034574b1483992da28446741626b6dcd4c3be7d844a1080ec0cb4037b7",
+      "size_bytes": 783
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CIFAR10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "85494b96f0a5ba9edb42e132eacac076b058048d88fc741ed47f02e721d3477c",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CINIC10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "daea14839d8443414eb67301df73e3ac7535dc5187fcdad18e00fd6c9e73e91c",
+      "size_bytes": 825
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CINIC10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "c5f7897e71f48b2e8492ed07bad99b0f8559810fe363bccaf0fa2a64c015d6c1",
+      "size_bytes": 827
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_CINIC10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "9b0543dea999518211b71d14f556a78d9fedb136fa783387d8591915e4ad0b7f",
+      "size_bytes": 825
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_FashionMNIST_LeNet_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "22f526697149a6749625672e3b4382e59c029ea254046b6feef25ac3a840ff19",
+      "size_bytes": 790
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_FashionMNIST_LeNet_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "7c28720912ed12b45ac0af7b76c1cbe437f7f4db1c54c38557b7ac1e901d1ad6",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_FashionMNIST_LeNet_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "d6a0f6b28c6485b5165d3b9b4e550d19a4962fb0932c3693a870a6d03bf11ca4",
+      "size_bytes": 790
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_SVHN_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "cbd70d4077c6f2ff9f7599d1022782f4f244d1762bd6aad525bdc959569305c9",
+      "size_bytes": 839
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_SVHN_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "6dc9ab16d1f8fbe63d0a42abb7e1d481bd3c91514e0069ae4f199c1c639b1eda",
+      "size_bytes": 827
+    },
+    {
+      "path": "results/table2/one_shot_results_seed0_SVHN_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "67843bfee1af742e5a2874e38d19c250bd803dceb5a815c2afa3ba0d4878cdab",
+      "size_bytes": 825
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CIFAR10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "e0fc9125bb80b42cfd731ad55b2e8b9b20cb1fe2992ab7d6bda052c81cf41fa2",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CIFAR10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "9f07d06246c69c6e7af6d406fafc62400e9b6bce15864ab80df57a0279325d5f",
+      "size_bytes": 789
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CIFAR10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "44dca4f3676bcb1310e8286ebe309b03fb4ce9747ccbd62d9db2216d32e9c6db",
+      "size_bytes": 786
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CINIC10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "41a60a2a5446733bd972e015575bee21198a14e5af05c110bf70fd9f5d924a81",
+      "size_bytes": 826
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CINIC10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "41fb8506a7a9e4300808fe25d7f0b7449d1eec443684a7b60cdfccb5348dbc06",
+      "size_bytes": 836
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_CINIC10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "99dd25b135b4e1bfe1500b9639e07002a7d010e239cf8e8bf700c0a6331a1010",
+      "size_bytes": 825
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_FashionMNIST_LeNet_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "55efb6deef3347b3d50bf7897d00b1215459b0cc281008271b699453cddb9dfe",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_FashionMNIST_LeNet_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "8e1d3347ded437089585ee3b87ed529814077cd27f5a742f1e50eb378f6036ca",
+      "size_bytes": 786
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_FashionMNIST_LeNet_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "a670b9100f06f5e1196d2cacfe4d75bd4d808cca59ad96f593367cd98d084d22",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_SVHN_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "9d110f36c36aed995fe7b84bcc00df3701ca408a38bfa66d54b542a5302873f7",
+      "size_bytes": 838
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_SVHN_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "ccd93f54f6e5be0bdbd4167738b11593c2595ba62e77ead72c6dea885de000eb",
+      "size_bytes": 835
+    },
+    {
+      "path": "results/table2/one_shot_results_seed1_SVHN_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "d287a01d16039a144c39d33eb3bb6a5d438fe6ae53ac1fb68a340b7bfb0af5b6",
+      "size_bytes": 833
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CIFAR10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "b4502f376f699591883464e79d01de07c68f015987ffbc80b2c86303de5ab5ba",
+      "size_bytes": 789
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CIFAR10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "2c4c20e0323d66602e123d3a167f41a1e972ab38959b5c3a2a0e911f81f5c45e",
+      "size_bytes": 786
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CIFAR10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "aa3ef4f0dcc1c2dfa299217f777524eeda9da6c6f43d760a795a56fb4969e69f",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CINIC10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "88fb165cc4e9964ee68b70d72068e31b118e15f40c61d9dff15e112ecbb962d0",
+      "size_bytes": 834
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CINIC10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "18ceefdde3c9c4d6a4e9cb7bc610c457399cd75281ba27dce71a5e1336aa48ae",
+      "size_bytes": 833
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_CINIC10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "c17dd98ba966ce5888d09e794806054cb64d6f686dc1dca4b1eb372408220c9f",
+      "size_bytes": 823
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_FashionMNIST_LeNet_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "66e351fe71b74fc4c5d949a641aca7a52cb499927245a5c4c4638f137868879f",
+      "size_bytes": 789
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_FashionMNIST_LeNet_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "795ef2565871a9c05a39ad969a576ad41732196a4834bdec280066c8ade19c92",
+      "size_bytes": 786
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_FashionMNIST_LeNet_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "bc8ec2205fb5daa398fc5f26af3bc4fd40e19421b0e1435456d91de2d9f5e4f6",
+      "size_bytes": 791
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_SVHN_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "b6b4a8946bd99c475dfe8489363d337189409b36f25fd3ae98c44dd38a2a0b46",
+      "size_bytes": 836
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_SVHN_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "86d0588d91ec3db2c0dfee99f203cbcbd4d1717a5771ebc98b9312c33334e005",
+      "size_bytes": 832
+    },
+    {
+      "path": "results/table2/one_shot_results_seed2_SVHN_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "04e74e1321d15a4ef993e589c483b60946421c80637ed08f19cc196efd926a3a",
+      "size_bytes": 834
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CIFAR10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "8c87f185954c0d61656c0cdd0b7ea68408a23a80d621f10b3d246b08b2d98392",
+      "size_bytes": 787
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CIFAR10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "399db69382e145411e1254ee42c7f604ae601c8d907f3dcc948450a7619cf44c",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CIFAR10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "5a51a12938cc8cf1dc209293b8f28d079a9a1f2c53c8df97de11c79d660c9bed",
+      "size_bytes": 787
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CINIC10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "266eb3d349b6a7f7af71092f0cd2ff4550075787554bc159f85fc35cffda75d7",
+      "size_bytes": 837
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CINIC10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "5b64ae280b02241049e6491908d5dd40aaa7a32c85252e9414c087914c54c1e2",
+      "size_bytes": 827
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_CINIC10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "6677c1a7c2f041cf96b82223ac358048802666749d3fda05b7fea37c57cf65bb",
+      "size_bytes": 836
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_FashionMNIST_LeNet_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "59f5b2dd699e7d3f9cf31aba5ed7cd03de08433ea149c33f768f59c39445d9ee",
+      "size_bytes": 790
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_FashionMNIST_LeNet_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "f90421d3d2baf54d5ac140dc58ed7c0fcf1348422b9c93b18966ca7d122f7dea",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_FashionMNIST_LeNet_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "3bd051358b9cd3d50ffab0f1b5f8b05bea1f8961d009429b451a63230143e0f5",
+      "size_bytes": 791
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_SVHN_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "9c150145b0f1d6d52fc9805e675ad3dd98446d98718b279fc9112ed40864bba8",
+      "size_bytes": 838
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_SVHN_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "893413ea1bf34a8d118982048471b80135340eaa63aa97570e10c03053d53375",
+      "size_bytes": 837
+    },
+    {
+      "path": "results/table2/one_shot_results_seed3_SVHN_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "47610c4cde71438ab65116ac5c9b1c7900992f60fc51d2cf5b88d8a3520d401b",
+      "size_bytes": 835
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CIFAR10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "5cdc0833c0870db5b277d95fa75b685be497570aa79758a26d65d1e19701c7b1",
+      "size_bytes": 780
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CIFAR10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "c5363d79ffae18f07cf04ca0b708831e7af0b1a9455ab72143e942410525793e",
+      "size_bytes": 785
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CIFAR10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "6e23bd30a3768b643e1f942483bac5723ffbb27bb82e510bad86e736a096316e",
+      "size_bytes": 788
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CINIC10_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "895084d680cca307aee22159257d0f8515c789b4783701fa560996ba21051578",
+      "size_bytes": 827
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CINIC10_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "dcf98227b40e8d9cb2b27fcaea4514b0d5baa1430a1b5e7b2a59324c06776125",
+      "size_bytes": 828
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_CINIC10_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "544c55a2da01ce339082e2b1e574e391b90620fcd11b14515323acc0b5aba405",
+      "size_bytes": 819
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_FashionMNIST_LeNet_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "7771d52ff1f1d7d4c81d5188af6bdd9ef7eb8a492c2fba7586e34206cf1a8483",
+      "size_bytes": 785
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_FashionMNIST_LeNet_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "d58ad5a8cb7fe0d53425d857b2a04414ae0c2c9defaca05c666065765b180fff",
+      "size_bytes": 787
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_FashionMNIST_LeNet_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "2b5629eb8bcc1081124354da530033f7753c39b1ecbe2483f5d8b4fbdd836051",
+      "size_bytes": 790
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_SVHN_CNN_epochs30_alpha0p05_clients5_rounds1.csv",
+      "sha256": "1f54cd86c113f0f53e4ee29b452dc1d3622bb21ef5294b7a2f038545125d174a",
+      "size_bytes": 838
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_SVHN_CNN_epochs30_alpha0p1_clients5_rounds1.csv",
+      "sha256": "10c9078715f25ec0d7cef329abc9056de7c9a158408f9b814a516ebef34dacab",
+      "size_bytes": 835
+    },
+    {
+      "path": "results/table2/one_shot_results_seed4_SVHN_CNN_epochs30_alpha0p2_clients5_rounds1.csv",
+      "sha256": "c2aeefbf8427c20bc5d0dc30f20bf11ed35bc3362e18389f8617e83d7be0ce46",
+      "size_bytes": 826
+    },
+    {
+      "path": "results/table2_summary.csv",
+      "sha256": "d520a3c0e9826f8c31987b32f8a70ca55795f0dee9f19e890cab81299db6778b",
+      "size_bytes": 4806
+    },
+    {
+      "path": "synthetic_binary_experiment/outputs/main_cpu/figures/synthetic_compare_summary.csv",
+      "sha256": "28334d4c35ced8b8a911eefee1332a12027afb441064a9760365f2f28a39d883",
+      "size_bytes": 1602
+    },
+    {
+      "path": "synthetic_binary_experiment/outputs/original_fedfisher/figures/original_compare_summary.csv",
+      "sha256": "303fc6f528d5ac757bbf6c395a6052cd39fc16c4411b18cfdeffe684cf94bf23",
+      "size_bytes": 924
+    },
+    {
+      "path": "synthetic_binary_experiment/outputs/original_fedfisher_1000seeds/figures/original_compare_summary.csv",
+      "sha256": "9f5622b4b96600f33661d73fd2313536127df13bc33fb19d5184f2e14f93caac",
+      "size_bytes": 964
+    },
+    {
+      "path": "synthetic_binary_experiment/outputs/original_fedfisher_alpha_sweep_1000seeds/figures/alpha_sweep_summary.csv",
+      "sha256": "4d548d091a53c08ed3c304a14d1847de19b4947cefcd09362fec9acb53e5997e",
+      "size_bytes": 3252
+    }
+  ],
+  "git_history_retained": true,
+  "historical_source_commit": "a3784653f80b209ea3c7fe4cd11fd9efe94987c3",
+  "original_local_files_retained": true,
+  "schema_version": 1,
+  "total_bytes": 74350
+}

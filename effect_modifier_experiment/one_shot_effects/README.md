@@ -116,7 +116,8 @@ DR 名称不代表 nuisance 正确、模型无偏、变量选择具有 FDR 保�
 
 提案任务名为 `effect-modifier-one-shot-effects-pilot`，参数只有 `recipe`、`dataset`。
 可审查的阶段清单见 [staged-pilot-plan.json](../server_scheduler/one-shot-effects-v1/staged-pilot-plan.json)，
-首阶段请求示例保存在同目录的 `examples/`；这些文件不是已发送请求。
+首阶段请求示例保存在
+[测试 fixtures](../../tests/fixtures/server_scheduler_requests/one-shot-effects-v1/)；这些文件不是已发送请求。
 必须经独立注册、fixture、operator 准入；本地 outbox 文件不是已提交任务。
 使用中央协议 v2 前台适配入口，遵守分配的线程数；不通过旧 launcher 或旧任务名绕过。
 

@@ -46,6 +46,7 @@ dist/
 /results/
 /outputs/
 /checkpoints/
+/synthetic_binary_experiment/outputs/
 slurm-*.out
 
 # Generated model/data arrays belong under /data or /scr, not in source.

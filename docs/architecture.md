@@ -16,7 +16,7 @@ FedFisher/
     infrastructure/                  artifacts, provenance, publication bytes, evidence
     scheduling/                      task catalog, validation, runtime, dispatch
       publication/                   experiment-specific CLI and acceptance composition
-    server_scheduler/                schemas, disabled proposals, examples, audit records
+    server_scheduler/                schemas, disabled proposals, plans, audit records
     requests.py                      original LASSO request specifications
     causal_comparison/                multiround FedAvg and homogeneous R methods
     one_shot_effects/                 FedFisher-EM, DR-Sieve, SCMV2
@@ -32,10 +32,11 @@ FedFisher/
                                      preserved original LASSO interfaces
   reporting/binary/                   original binary tables and plots
   reporting/effect_modifier/          factorial, method, timing, replay and survival reports
-  scripts/                           compatible Python commands and historical launch files
+  scripts/                           compatible Python commands and preserved launch interfaces
+    legacy/slurm/                    historical batch exports without external path bindings
   tests/unit/, contracts/, integration/, regression/, architecture/, fixtures/
-  docs/architecture.md, development.md, codex/, legacy/
-  results/                           preserved small historical material and clone
+    fixtures/server_scheduler_requests/  reviewed example requests, grouped by recipe
+  docs/architecture.md, development.md, codex/, legacy/, archives/
 ```
 
 ## Dependency direction
@@ -105,7 +106,9 @@ the implementation file after a move.
 Original scientific paths remain in place, including `run_one_shot_algs.py`,
 `algs/fisher_avg.py`, `train_model.py` and `utils/compress_fisher.py`. Legacy
 shell/Slurm workers, scientific manifests, completion markers and historical
-results remain preserved. `results/server-scheduler-migration/` is a historical
+results remain preserved. Generated historical tables are indexed in
+[the archive guide](archives/README.md), with durable copies and unchanged Git
+history; local originals remain ignored. `results/server-scheduler-migration/` is a historical
 clone and is never an execution or import source.
 
 The `dslassocov/` and `one_shot_lasso/` packages expose the original four-variant

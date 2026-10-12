@@ -37,9 +37,9 @@ ServerScheduler task and
 The adapter remains in the foreground, honors the allocated CPU set and thread
 count, and resumes only through validated scientific completion markers.
 It accepts only protocol-v2 running manifests and validates the selected
-`cpu-1core` profile and complete scheduler environment. Protocol-v2 request
-examples under `server_scheduler/examples/` omit hardware fields for automatic
-profile selection.
+`cpu-1core` profile and complete scheduler environment. Protocol-v2
+[request fixtures](../tests/fixtures/server_scheduler_requests/original-lasso/)
+omit hardware fields for automatic profile selection.
 
 The GNU Screen launchers, GPU polling, and local CPU/GPU lock scripts documented
 below are legacy audit material and must not be used to submit new work.

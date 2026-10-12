@@ -34,8 +34,9 @@ scope and expansion gate.
 `scripts/prepare_fedfisher_timing_requests.py --generation 1` publishes a clean,
 immutable sixteen-request review bundle below the nested project outbox and
 writes its inventory last. It binds the canonical source and full scientific
-configuration; requests omit resources and profiles. Source examples here are
-not submitted requests. Partial bundles cannot be overwritten or submitted.
+configuration; requests omit resources and profiles. The checked-in
+[request fixtures](../../../tests/fixtures/server_scheduler_requests/fedfisher-timing-v1/)
+are not submitted requests. Partial bundles cannot be overwritten or submitted.
 
 Keep the source frozen from publication through execution and scientific
 acceptance. New source or incompatible/partial output requires new job IDs and

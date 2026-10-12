@@ -58,8 +58,10 @@ guide before preparing requests or validating an artifact namespace.
 remains the existing reviewed environment setup; a layout change needs no
 installation. See [development](../docs/development.md).
 
-Historical `launch_*.sh`, `run_*_worker.sh`, `run_*_slot.sh`, `status_*.sh`,
-`*_cpu_lock.sh` and `.slurm` files retain their original locations for audit or
-export. Their Screen, resource-polling and lock workflows do not authorize new
-local experiments. Follow the [runbook](../docs/codex/SCHEDULER_RUNBOOK.md) and
-refer to the [complete earlier README](../docs/legacy/root-readme.md).
+Historical batch exports without external path bindings are grouped under
+[`legacy/slurm/`](legacy/README.md). Other `launch_*.sh`, `run_*_worker.sh`,
+`run_*_slot.sh`, `status_*.sh`, `*_cpu_lock.sh` and original-FedFisher `.slurm`
+files retain their contract-bound paths. Their Screen, resource-polling and lock
+workflows do not authorize new local experiments. Follow the
+[runbook](../docs/codex/SCHEDULER_RUNBOOK.md) and refer to the
+[complete earlier README](../docs/legacy/root-readme.md).

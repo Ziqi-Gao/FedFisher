@@ -14,6 +14,7 @@ from effect_modifier_experiment.survival import recovery_requests as request_pla
 import tests.integration.test_survival_recovery_acceptance as legacy
 import tests.integration.test_survival_repair_epoch as repair_fixture
 SCRATCH = Path('/scr/del6500/FedFisher/survival-current-compat-validation')
+EXAMPLE_ROOT = builder.PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests/survival-integrated-v3'
 
 
 class IntegratedProtocolTests(unittest.TestCase):
@@ -35,7 +36,9 @@ class IntegratedProtocolTests(unittest.TestCase):
         self.assertIn('\nallow_gpu_jobs = false\n', proposal)
         for task in protocol.tasks_for_epoch(3):
             self.assertIn('name = "' + task + '"', proposal)
-        for path in (root / 'examples').glob('*.json'):
+        examples = list(EXAMPLE_ROOT.glob('*.json'))
+        self.assertEqual(len(examples), 2)
+        for path in examples:
             request = json.loads(path.read_text())
             self.assertIn(request['task'], protocol.tasks_for_epoch(3))
             protocol.validate_parameters(request['task'], request['parameters'])

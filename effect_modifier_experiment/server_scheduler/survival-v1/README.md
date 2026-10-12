@@ -8,8 +8,10 @@ Each shard processes only seeds in `range(shard_index,300,shard_count)`.
 The default 16-way cohort is 160 requests and 3,000 method/scenario/seed cells.
 There is no standalone local execution entrypoint.
 
-`examples/` and `formal-examples/` contain repository examples only. These are not published outbox
-requests and have not been submitted. Do not copy the additive registration
+[Pilot request fixtures](../../../tests/fixtures/server_scheduler_requests/survival-v1/)
+and [formal request fixtures](../../../tests/fixtures/server_scheduler_requests/survival-v1/formal/)
+illustrate the request contracts only. These are not published outbox requests
+and have not been submitted. Do not copy the additive registration
 over the central registration or alter any previously registered task.
 
 Before any computation, finalize the scientific source and configuration,

@@ -20,6 +20,7 @@ from tests.paths import PROJECT_ROOT
 
 
 PROPOSAL_ROOT = PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/model-signal-completion-v3'
+EXAMPLE_ROOT = PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests/model-signal-completion-v3'
 FIXTURES = ('model-signal-completion-pilot-running-job.json',
             'model-signal-completion-shard-running-job.json')
 
@@ -238,7 +239,7 @@ for name in sys.modules:
         for field, expected in (('cpu_cores_max', ['1', '1']), ('host_memory_max_mib', ['8192', '8192']),
                                  ('gpu_count', ['0', '0'])):
             self.assertEqual(re.findall(r'(?m)^'+field+r' = (.+)$', proposal), expected)
-        examples = list((PROPOSAL_ROOT / 'examples').glob('*.job-request.json'))
+        examples = list(EXAMPLE_ROOT.glob('*.job-request.json'))
         self.assertEqual(len(examples), 2)
         for path in examples:
             value = json.loads(path.read_text())

@@ -148,6 +148,11 @@ profile needs a separate adapter change and measurement/pilot stage.
   and
   `effect_modifier_experiment/server_scheduler/examples/one-shot-lasso-shard.job-request.json`
 
+Those example paths describe the original migration snapshot. The unchanged
+request bytes now live in the
+[original-LASSO request fixtures](../../tests/fixtures/server_scheduler_requests/original-lasso/).
+Schemas and the disabled proposal remain at the paths recorded above.
+
 The installed ServerScheduler currently has `max_parallel_jobs = 8`. It cannot
 recreate the legacy 32/64-way simultaneous one-shot layout without an operator
 policy change; the same shards could run in admitted waves. That policy decision

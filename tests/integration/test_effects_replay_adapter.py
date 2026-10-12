@@ -15,6 +15,7 @@ from effect_modifier_experiment.one_shot_effects.diagnostics import protocol
 PROPOSAL_ROOT = (
     fixture.PROJECT_ROOT / "effect_modifier_experiment/server_scheduler/effects-replay-v1"
 )
+EXAMPLE_ROOT = fixture.PROJECT_ROOT / "tests/fixtures/server_scheduler_requests/effects-replay-v1"
 
 
 class EffectsReplayAdapterTests(unittest.TestCase):
@@ -143,7 +144,7 @@ class EffectsReplayAdapterTests(unittest.TestCase):
             {"properties": {"recipe": {"const": "dr_path"},
                             "dataset": {"const": "scmv2_base"}}},
         ])
-        examples = sorted((PROPOSAL_ROOT / "examples").glob("*.job-request.json"))
+        examples = sorted(EXAMPLE_ROOT.glob("*.job-request.json"))
         self.assertEqual(len(examples), 5)
         observed, job_ids = [], set()
         for path in examples:

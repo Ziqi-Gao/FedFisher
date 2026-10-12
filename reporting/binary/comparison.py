@@ -1,5 +1,6 @@
 """Generate synthetic FedFisher comparison SVGs without third-party packages."""
 
+import argparse
 import csv
 import html
 import math
@@ -9,8 +10,11 @@ from statistics import mean
 
 
 ROOT = Path(__file__).resolve().parents[2]
-COMPARE = ROOT / "results" / "compare"
-SYN = ROOT / "synthetic_binary_experiment" / "outputs"
+DATA_ROOT = Path("/data/del6500/FedFisher")
+SCRATCH_ROOT = Path("/scr/del6500/FedFisher")
+ARCHIVE_ROOT = DATA_ROOT / "repository-archives" / "github-content-cleanup-20261012"
+COMPARE = DATA_ROOT / "results" / "compare"
+SYN = ARCHIVE_ROOT / "synthetic_binary_experiment" / "outputs"
 
 ORIGINAL_SUMMARY = (
     SYN / "original_fedfisher_1000seeds" / "figures" / "original_compare_summary.csv"
@@ -21,8 +25,12 @@ ALPHA_SUMMARY = (
     / "figures"
     / "alpha_sweep_summary.csv"
 )
-PRED_DIR = SYN / "prediction_intervention_1000seeds"
-FI_DIR = SYN / "feature_importance_1000seeds"
+PRED_DIR = DATA_ROOT / "synthetic_binary_experiment" / "outputs" / "prediction_intervention_1000seeds"
+FI_DIR = DATA_ROOT / "synthetic_binary_experiment" / "outputs" / "feature_importance_1000seeds"
+
+MODEL_SUMMARY = "synthetic_prediction_model_summary.csv"
+PRIMARY_SUMMARY = "synthetic_prediction_primary_metrics_summary.csv"
+FEATURE_SUMMARY = "synthetic_feature_importance_selected_summary.csv"
 
 METHOD_LABELS = {
     "fedavg": "FedAvg",
@@ -58,6 +66,26 @@ def esc(value):
 def read_rows(path):
     with path.open(newline="") as f:
         return list(csv.DictReader(f))
+
+
+def output_path(name, output_dir=None):
+    """Keep presentation writes below the project data/scratch roots."""
+    directory = Path(COMPARE if output_dir is None else output_dir).resolve()
+    path = (directory / name).resolve()
+    if not any(root in path.parents for root in (DATA_ROOT, SCRATCH_ROOT)):
+        raise ValueError("Report output must remain below /data/del6500/FedFisher or /scr/del6500/FedFisher")
+    if DATA_ROOT / "repository-archives" in path.parents:
+        raise ValueError("Report output must not modify the preserved repository archive")
+    if path.parent != directory:
+        raise ValueError("Report output must not follow a file symlink outside its output directory")
+    return path
+
+
+def input_files(directory, pattern):
+    files = sorted(Path(directory).glob(pattern))
+    if not files:
+        raise FileNotFoundError("No saved input CSVs match " + str(Path(directory) / pattern))
+    return files
 
 
 def write_csv(path, rows, fields):
@@ -155,7 +183,7 @@ def draw_legend(body, x, y, keys):
         cursor += 18 + len(METHOD_LABELS[key]) * 7.0 + 22
 
 
-def plot_original_gain(rows):
+def plot_original_gain(rows, output_dir=None):
     methods = ["fedfisher_diag", "fedfisher_kfac"]
     groups = [
         ("SyntheticMLP", "iid", "MLP\nIID"),
@@ -211,12 +239,12 @@ def plot_original_gain(rows):
         top_label, bottom_label = label.split("\n")
         add_text(body, center, bottom + 34, top_label, "axis", "middle")
         add_text(body, center, bottom + 51, bottom_label, "axis", "middle")
-    (COMPARE / "synthetic_original_accuracy_gains.svg").write_text(
+    output_path("synthetic_original_accuracy_gains.svg", output_dir).write_text(
         svg_page(width, height, body)
     )
 
 
-def plot_alpha_sweep(rows):
+def plot_alpha_sweep(rows, output_dir=None):
     methods = ["fedfisher_diag", "fedfisher_kfac"]
     models = ["SyntheticMLP", "SyntheticMLPDeep"]
     levels = ["IID", "alpha=2", "alpha=1", "alpha=0.5", "alpha=0.1", "alpha=0.02"]
@@ -299,7 +327,7 @@ def plot_alpha_sweep(rows):
         'transform="rotate(-90 32 {})"'.format((top + bottom) / 2),
     )
     add_text(body, 520, 545, "Dirichlet alpha", "axis", "middle")
-    (COMPARE / "synthetic_alpha_sweep_accuracy_gains.svg").write_text(
+    output_path("synthetic_alpha_sweep_accuracy_gains.svg", output_dir).write_text(
         svg_page(width, height, body)
     )
 
@@ -327,8 +355,9 @@ def aggregate_csv_files(files, key_fields, value_fields, row_filter=None):
     return out
 
 
-def aggregate_prediction_model():
-    files = sorted(PRED_DIR.glob("*_prediction_intervention_model_summary.csv"))
+def aggregate_prediction_model(input_dir=None, output_dir=None):
+    files = input_files(PRED_DIR if input_dir is None else input_dir,
+                        "*_prediction_intervention_model_summary.csv")
     rows = aggregate_csv_files(
         files,
         ["model_source", "model", "split"],
@@ -340,7 +369,7 @@ def aggregate_prediction_model():
         ],
     )
     write_csv(
-        COMPARE / "synthetic_prediction_model_summary.csv",
+        output_path(MODEL_SUMMARY, output_dir),
         rows,
         [
             "model_source",
@@ -356,8 +385,9 @@ def aggregate_prediction_model():
     return rows
 
 
-def aggregate_prediction_primary():
-    files = sorted(PRED_DIR.glob("*_prediction_intervention_summary.csv"))
+def aggregate_prediction_primary(input_dir=None, output_dir=None):
+    files = input_files(PRED_DIR if input_dir is None else input_dir,
+                        "*_prediction_intervention_summary.csv")
     keep_metrics = {"abs_logit_change", "margin_drop"}
     rows = aggregate_csv_files(
         files,
@@ -366,7 +396,7 @@ def aggregate_prediction_primary():
         lambda row: row["intervention_mode"] == "permute" and row["metric"] in keep_metrics,
     )
     write_csv(
-        COMPARE / "synthetic_prediction_primary_metrics_summary.csv",
+        output_path(PRIMARY_SUMMARY, output_dir),
         rows,
         [
             "model_source",
@@ -385,8 +415,9 @@ def aggregate_prediction_primary():
     return rows
 
 
-def aggregate_feature_importance():
-    files = sorted(FI_DIR.glob("*_feature_importance_summary.csv"))
+def aggregate_feature_importance(input_dir=None, output_dir=None):
+    files = input_files(FI_DIR if input_dir is None else input_dir,
+                        "*_feature_importance_summary.csv")
     keep_methods = set(FI_LABELS)
     rows = aggregate_csv_files(
         files,
@@ -395,7 +426,7 @@ def aggregate_feature_importance():
         lambda row: row["method"] in keep_methods,
     )
     write_csv(
-        COMPARE / "synthetic_feature_importance_selected_summary.csv",
+        output_path(FEATURE_SUMMARY, output_dir),
         rows,
         [
             "alg",
@@ -413,7 +444,7 @@ def aggregate_feature_importance():
     return rows
 
 
-def plot_prediction_accuracy(rows):
+def plot_prediction_accuracy(rows, output_dir=None):
     methods = ["fedavg", "fedfisher_diag", "fedfisher_kfac", "pooled"]
     groups = [
         ("SyntheticMLP", "iid", "MLP\nIID"),
@@ -455,10 +486,10 @@ def plot_prediction_accuracy(rows):
         top_label, bottom_label = label.split("\n")
         add_text(body, center, bottom + 34, top_label, "axis", "middle")
         add_text(body, center, bottom + 51, bottom_label, "axis", "middle")
-    (COMPARE / "synthetic_prediction_accuracy.svg").write_text(svg_page(width, height, body))
+    output_path("synthetic_prediction_accuracy.svg", output_dir).write_text(svg_page(width, height, body))
 
 
-def plot_prediction_signal_recovery(rows):
+def plot_prediction_signal_recovery(rows, output_dir=None):
     methods = ["fedavg", "fedfisher_diag", "fedfisher_kfac", "pooled"]
     models = ["SyntheticMLP", "SyntheticMLPDeep"]
     metrics = ["abs_logit_change", "margin_drop"]
@@ -526,7 +557,7 @@ def plot_prediction_signal_recovery(rows):
         "middle",
         'transform="rotate(-90 32 {})"'.format((top + bottom) / 2),
     )
-    (COMPARE / "synthetic_prediction_signal_recovery.svg").write_text(
+    output_path("synthetic_prediction_signal_recovery.svg", output_dir).write_text(
         svg_page(width, height, body)
     )
 
@@ -547,7 +578,7 @@ def heat_color(value, vmin=0.0, vmax=10.0):
     return "#16a34a"
 
 
-def plot_feature_importance_heatmap(rows):
+def plot_feature_importance_heatmap(rows, output_dir=None):
     methods = [
         "weight_norm",
         "fisher_weighted",
@@ -608,13 +639,13 @@ def plot_feature_importance_heatmap(rows):
         f'width="300" height="12" fill="url(#heat)" stroke="#d1d5db"/>'
     )
     add_text(body, left + 342, top + len(row_keys) * cell_h + 38, "10 signal hits", "tick")
-    (COMPARE / "synthetic_feature_importance_signal_recovery.svg").write_text(
+    output_path("synthetic_feature_importance_signal_recovery.svg", output_dir).write_text(
         svg_page(width, height, body)
     )
 
 
-def write_synthetic_readme():
-    path = COMPARE / "README.md"
+def write_synthetic_readme(output_dir=None):
+    path = output_path("README.md", output_dir)
     old = path.read_text() if path.exists() else ""
     marker = "\n## Synthetic experiment visualizations\n"
     if marker in old:
@@ -645,20 +676,84 @@ task timed out, so some non-IID levels have incomplete coverage.
     path.write_text(old.rstrip() + addition)
 
 
-def main():
-    COMPARE.mkdir(parents=True, exist_ok=True)
-    original_rows = read_rows(ORIGINAL_SUMMARY)
-    alpha_rows = read_rows(ALPHA_SUMMARY)
-    plot_original_gain(original_rows)
-    plot_alpha_sweep(alpha_rows)
-    prediction_model = aggregate_prediction_model()
-    prediction_primary = aggregate_prediction_primary()
-    feature_importance = aggregate_feature_importance()
-    plot_prediction_accuracy(prediction_model)
-    plot_prediction_signal_recovery(prediction_primary)
-    plot_feature_importance_heatmap(feature_importance)
-    write_synthetic_readme()
-    print("Wrote synthetic visualizations to", COMPARE)
+def argument_parser():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--archive-root", type=Path, default=ARCHIVE_ROOT,
+                        help="Preserved historical summary archive (not included in a Git clone).")
+    parser.add_argument("--original-summary", type=Path,
+                        help="Original comparison CSV; defaults to its archived relative path.")
+    parser.add_argument("--alpha-summary", type=Path,
+                        help="Alpha-sweep comparison CSV; defaults to its archived relative path.")
+    parser.add_argument("--summary-dir", type=Path,
+                        help="Directory containing the three synthetic_*_summary.csv tables; defaults to ARCHIVE_ROOT/results/compare.")
+    parser.add_argument("--prediction-dir", type=Path,
+                        help="Explicit saved per-seed prediction CSVs to aggregate instead of the two archived prediction tables.")
+    parser.add_argument("--feature-importance-dir", type=Path,
+                        help="Explicit saved per-seed feature-importance CSVs to aggregate instead of the archived feature table.")
+    parser.add_argument("--output-dir", type=Path, default=COMPARE,
+                        help="Presentation output below the FedFisher data/scratch roots (default: %(default)s).")
+    return parser
+
+
+def main(argv=None):
+    parser = argument_parser()
+    args = parser.parse_args(argv)
+    archived_outputs = args.archive_root / "synthetic_binary_experiment" / "outputs"
+    original_summary = args.original_summary or (
+        archived_outputs / "original_fedfisher_1000seeds" / "figures" / "original_compare_summary.csv")
+    alpha_summary = args.alpha_summary or (
+        archived_outputs / "original_fedfisher_alpha_sweep_1000seeds" / "figures" / "alpha_sweep_summary.csv")
+    summary_dir = args.summary_dir or args.archive_root / "results" / "compare"
+    table_paths = {"original": original_summary, "alpha": alpha_summary}
+    raw_files = []
+    output_names = (
+        "synthetic_original_accuracy_gains.svg", "synthetic_alpha_sweep_accuracy_gains.svg",
+        "synthetic_prediction_accuracy.svg", "synthetic_prediction_signal_recovery.svg",
+        "synthetic_feature_importance_signal_recovery.svg", MODEL_SUMMARY, PRIMARY_SUMMARY,
+        FEATURE_SUMMARY, "README.md")
+    try:
+        if args.prediction_dir is None:
+            table_paths.update(model=summary_dir / MODEL_SUMMARY, primary=summary_dir / PRIMARY_SUMMARY)
+        else:
+            raw_files.extend(input_files(args.prediction_dir, "*_prediction_intervention_model_summary.csv"))
+            raw_files.extend(input_files(args.prediction_dir, "*_prediction_intervention_summary.csv"))
+        if args.feature_importance_dir is None:
+            table_paths["feature"] = summary_dir / FEATURE_SUMMARY
+        else:
+            raw_files.extend(input_files(args.feature_importance_dir, "*_feature_importance_summary.csv"))
+        # Check every required input and output path before creating a report directory.
+        tables = {name: read_rows(path) for name, path in table_paths.items()}
+        if any(not rows for rows in tables.values()):
+            raise ValueError("Saved summary CSVs must contain data rows")
+        outputs = {name: output_path(name, args.output_dir) for name in output_names}
+        inputs = {path.resolve() for path in (*table_paths.values(), *raw_files)}
+        if inputs.intersection(outputs.values()):
+            raise ValueError("Report outputs must not overwrite input CSVs; choose a separate --output-dir")
+    except (OSError, ValueError) as error:
+        parser.error(str(error) + "; provide saved CSV paths with the input options (see --help)")
+
+    output_dir = outputs["README.md"].parent
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plot_original_gain(tables["original"], output_dir)
+    plot_alpha_sweep(tables["alpha"], output_dir)
+    if args.prediction_dir is None:
+        prediction_model, prediction_primary = tables["model"], tables["primary"]
+        write_csv(outputs[MODEL_SUMMARY], prediction_model, list(prediction_model[0]))
+        write_csv(outputs[PRIMARY_SUMMARY], prediction_primary, list(prediction_primary[0]))
+    else:
+        prediction_model = aggregate_prediction_model(args.prediction_dir, output_dir)
+        prediction_primary = aggregate_prediction_primary(args.prediction_dir, output_dir)
+    if args.feature_importance_dir is None:
+        feature_importance = tables["feature"]
+        write_csv(outputs[FEATURE_SUMMARY], feature_importance, list(feature_importance[0]))
+    else:
+        feature_importance = aggregate_feature_importance(args.feature_importance_dir, output_dir)
+    plot_prediction_accuracy(prediction_model, output_dir)
+    plot_prediction_signal_recovery(prediction_primary, output_dir)
+    plot_feature_importance_heatmap(feature_importance, output_dir)
+    write_synthetic_readme(output_dir)
+    print("Wrote synthetic visualizations to", output_dir)
+    return 0
 
 
 if __name__ == "__main__":

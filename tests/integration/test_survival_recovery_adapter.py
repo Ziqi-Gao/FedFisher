@@ -15,6 +15,7 @@ from effect_modifier_experiment.survival_mlp8 import discovery_protocol as disco
 
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/survival-recovery-v1'
+REQUEST_FIXTURES = fixture.PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests'
 FIXTURES = ('survival-dslasso-diagnostic-running-job.json',
             'survival-dslasso-recovery-shard-running-job.json',
             'survival-dslasso-repair-pilot-running-job.json',
@@ -185,7 +186,7 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
         self.assertEqual(formal['properties']['scenario']['enum'], ['iid', 'covariate_shift'])
         self.assertEqual(formal['properties']['shard_count']['enum'], [8, 16])
         self.assertEqual(formal['allOf'][0]['then']['properties']['shard_index']['maximum'], 7)
-        examples = list((PROPOSAL_ROOT / 'examples').glob('*.job-request.json'))
+        examples = list((REQUEST_FIXTURES / 'survival-recovery-v1').glob('*.job-request.json'))
         self.assertEqual(len(examples), 2)
         tasks = set()
         for path in examples:
@@ -239,7 +240,8 @@ for module in ('numpy', 'torch', 'effect_modifier_experiment.survival.recovery',
         self.assertEqual(proposal.count('[[tasks]]'), 2)
         for task in recovery.tasks_for_epoch(2):
             self.assertIn('name = "' + task + '"', proposal)
-        requests = [json.loads(p.read_text()) for p in (root / 'examples').glob('*.json')]
+        requests = [json.loads(p.read_text())
+                    for p in (REQUEST_FIXTURES / 'survival-repair-v2').glob('*.json')]
         self.assertEqual({r['task'] for r in requests}, set(recovery.tasks_for_epoch(2)))
         for request in requests:
             self.assertNotIn('resources', request)

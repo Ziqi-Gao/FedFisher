@@ -32,9 +32,11 @@ models have been removed.
 | Shared timing, fingerprints and recovery arithmetic | [Components](effect_modifier_experiment/components/README.md) |
 | Artifacts, provenance and read-only evidence | [Infrastructure](effect_modifier_experiment/infrastructure/README.md) |
 | Scheduler validation, dispatch and publication | [Scheduling](effect_modifier_experiment/scheduling/README.md) |
-| Task schemas, disabled proposals and examples | [Scheduler contracts](effect_modifier_experiment/server_scheduler/README.md) |
+| Task schemas and disabled proposals | [Scheduler contracts](effect_modifier_experiment/server_scheduler/README.md) |
+| Scheduler request examples | [Test fixtures](tests/fixtures/server_scheduler_requests/README.md) |
 | Tables and figures from completed artifacts | [Reporting](reporting/README.md) |
 | Compatible commands and historical export files | [Scripts](scripts/README.md) |
+| Historical result tables and recovery | [Result archive](docs/archives/README.md) |
 
 ## Execution and storage
 
@@ -46,8 +48,9 @@ outputs under `/scr/del6500/FedFisher`.
 The GitHub source tree contains code, documentation, dependency specifications
 and small reviewed fixtures and metadata. Datasets, checkpoints, experiment
 outputs, environments and caches stay in their designated data or scratch
-trees. Existing historical results and source-bound proofs remain preserved;
-see the [publication review workflow](docs/development.md#prepare-a-github-push).
+trees. Historical result tables are indexed in the [result archive](docs/archives/README.md)
+and retained outside the active Git tree. Source-bound proofs keep their original
+producer bindings. See the [publication review workflow](docs/development.md#prepare-a-github-push).
 
 New scientific work requires a centrally registered ServerScheduler task. The
 foreground entrypoint remains

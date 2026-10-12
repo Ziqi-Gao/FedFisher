@@ -12,6 +12,7 @@ from effect_modifier_experiment.fedfisher_timing import protocol
 
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/fedfisher-timing-v1'
+EXAMPLE_ROOT = fixture.PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests/fedfisher-timing-v1'
 EXPECTED_CELLS = {'fedfisher_diag_shallow', 'fedfisher_kfac_shallow',
                   'fedfisher_diag_deep', 'fedfisher_kfac_deep'}
 
@@ -130,7 +131,7 @@ class FedFisherTimingAdapterTests(unittest.TestCase):
                 self.assertEqual(schema['properties']['shard_count']['enum'], [8, 16])
                 self.assertEqual(schema['properties']['shard_index']['maximum'], 15)
                 self.assertEqual(schema['allOf'][0]['then']['properties']['shard_index']['maximum'], 7)
-        examples = list((PROPOSAL_ROOT / 'examples').glob('*.job-request.json'))
+        examples = list(EXAMPLE_ROOT.glob('*.job-request.json'))
         self.assertEqual(len(examples), 16)
         coverage = set()
         for path in examples:

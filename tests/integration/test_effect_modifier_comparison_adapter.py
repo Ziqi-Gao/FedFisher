@@ -66,9 +66,10 @@ class ComparisonAdapterTests(unittest.TestCase):
 
     def test_schemas_examples_and_disabled_proposal_agree_with_fixed_registry(self):
         root = fixture.PROJECT_ROOT / "effect_modifier_experiment/server_scheduler"
+        examples = fixture.PROJECT_ROOT / "tests/fixtures/server_scheduler_requests/comparison"
         for stem, task in (("comparison-pilot", protocol.PILOT_TASK), ("comparison-shard", protocol.FORMAL_TASK)):
             schema = json.loads((root / (stem + "-parameters.schema.json")).read_text())
-            example = json.loads((root / "examples" / (stem + ".job-request.json")).read_text())
+            example = json.loads((examples / (stem + ".job-request.json")).read_text())
             self.assertFalse(schema["additionalProperties"])
             self.assertEqual(set(schema["properties"]["cell"]["enum"]), set(protocol.CELLS))
             self.assertEqual(example["task"], task)

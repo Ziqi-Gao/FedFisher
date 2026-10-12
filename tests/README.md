@@ -25,7 +25,9 @@ source or authorize a scientific pilot/formal job.
 | `integration/` | Adapter/runner, request, acceptance and reporting composition |
 | `regression/` | Known stationarity, separation, stopping and gradient failure cases |
 | `architecture/` | Dependency boundaries, compatible commands and exact request parity |
-| `fixtures/` | Small checked-in running manifests and request-parity reference data |
+| `fixtures/server_scheduler/` | Scheduler-owned running-manifest examples for adapter fixtures |
+| `fixtures/server_scheduler_requests/` | Unsubmitted request examples grouped by recipe; see the [contract index](../effect_modifier_experiment/server_scheduler/README.md) |
+| Other `fixtures/` files | Small reference data, including scientific request-parity digests |
 
 Mixed historical files stay intact and are placed by primary responsibility;
 their numerical tests and assertions remain together. `tests.paths.PROJECT_ROOT`

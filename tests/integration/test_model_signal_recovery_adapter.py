@@ -13,6 +13,7 @@ from effect_modifier_experiment.model_signal_ablation import protocol as origina
 from effect_modifier_experiment.model_signal_ablation import recovery_protocol as protocol
 
 PROPOSALS = fixture.PROJECT_ROOT / 'effect_modifier_experiment/server_scheduler/model-signal-recovery-v2'
+EXAMPLE_ROOT = fixture.PROJECT_ROOT / 'tests/fixtures/server_scheduler_requests/model-signal-recovery-v2'
 FIXTURES = tuple('model-signal-recovery-' + phase + '-running-job.json'
                  for phase in ('pilot', 'diagnostic', 'shard'))
 
@@ -150,7 +151,7 @@ for name in ('numpy', 'torch', 'effect_modifier_experiment.model_signal_ablation
                 self.assertEqual(restricted['cell']['const'], 'fedavg_small_e1_patience')
             else:
                 self.assertEqual(schema['properties']['shard_count']['const'], 16)
-        examples = list((PROPOSALS / 'examples').glob('*.job-request.json'))
+        examples = list(EXAMPLE_ROOT.glob('*.job-request.json'))
         self.assertEqual(len(examples), 3)
         for path in examples:
             request = json.loads(path.read_text())

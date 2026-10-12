@@ -32,3 +32,33 @@ data or scratch roots. It excludes data generation, fitting, model inference,
 scientific completion mutation and detached work. Original binary historical
 export paths remain references and do not grant a local-compute exception.
 See the root [protocol](../AGENTS.md) and [architecture](../docs/architecture.md).
+
+## Historical binary comparison inputs
+
+`scripts/make_synthetic_compare_visualizations.py --help` lists explicit input
+and output options. A fresh clone contains the renderer; its historical CSV
+inputs are external artifacts. The default input archive is
+`/data/del6500/FedFisher/repository-archives/github-content-cleanup-20261012`,
+with the original relative paths preserved:
+
+- `synthetic_binary_experiment/outputs/original_fedfisher_1000seeds/figures/original_compare_summary.csv`
+- `synthetic_binary_experiment/outputs/original_fedfisher_alpha_sweep_1000seeds/figures/alpha_sweep_summary.csv`
+- `results/compare/synthetic_prediction_model_summary.csv`
+- `results/compare/synthetic_prediction_primary_metrics_summary.csv`
+- `results/compare/synthetic_feature_importance_selected_summary.csv`
+
+Set `--archive-root` to a copy with that layout, or use `--original-summary`,
+`--alpha-summary` and `--summary-dir` to supply the saved tables explicitly.
+The default uses the three already aggregated comparison tables. Explicit
+`--prediction-dir` and `--feature-importance-dir` options instead aggregate
+the corresponding saved per-seed CSVs with the original averaging rules;
+missing raw inputs fail rather than falling back to another cohort.
+
+The default output is `/data/del6500/FedFisher/results/compare`. `--output-dir`
+must resolve below the FedFisher data or scratch roots, outside the preserved
+repository archive, and must not overwrite an input table. Missing summaries
+fail before output creation and identify the required path. Repository-local
+historical outputs are never an implicit input or output destination. These
+path options preserve the existing metrics and do not authorize new binary
+training, evaluation or inference; the experiment's [policy](../synthetic_binary_experiment/AGENTS.md)
+continues to apply.

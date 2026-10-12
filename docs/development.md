@@ -103,8 +103,12 @@ Stage explicit reviewed paths, then inspect the complete staged patch with
 `git diff --cached --stat` and `git diff --cached`. Check newly added files for
 generated artifacts, large binaries and credentials before committing. Ignore
 rules affect untracked files; they do not remove an already tracked file from
-the next commit. Preserve historical material and resolve any unintended
-tracked artifact separately. Confirm the intended branch and remote destination
+the next commit. To retire tracked historical output from the active Git tree,
+first preserve and hash-check a durable copy and record its recovery index.
+Untrack exact reviewed paths with `git rm --cached -- PATH`, retaining the local
+originals and Git history. Deleting or rewriting historical artifacts still
+requires the separate authorization in the applicable policy. See the
+[archive guide](archives/README.md). Confirm the intended branch and remote destination
 before pushing; publishing Git history does not submit scheduler work.
 
 ## Scientific release boundary

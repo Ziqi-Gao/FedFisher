@@ -11,6 +11,7 @@ import tests.integration.test_fedfisher_server_scheduler_adapter as fixture
 from effect_modifier_experiment.survival import protocol
 
 PROPOSAL_ROOT = fixture.PROJECT_ROOT/'effect_modifier_experiment/server_scheduler/survival-v1'
+EXAMPLE_ROOT = fixture.PROJECT_ROOT/'tests/fixtures/server_scheduler_requests/survival-v1'
 
 
 class SurvivalAdapterTests(unittest.TestCase):
@@ -128,7 +129,7 @@ class SurvivalAdapterTests(unittest.TestCase):
         self.assertEqual(schema['properties']['cell']['enum'], list(protocol.CELLS))
         self.assertEqual(schema['properties']['scenario']['enum'], list(protocol.SCENARIOS))
         coverage = set()
-        examples = list((PROPOSAL_ROOT/'examples').glob('*.job-request.json'))
+        examples = list(EXAMPLE_ROOT.glob('*.job-request.json'))
         self.assertEqual(len(examples), 10)
         for path in examples:
             request = json.loads(path.read_text())
@@ -147,7 +148,7 @@ class SurvivalAdapterTests(unittest.TestCase):
         self.assertEqual(formal['properties']['scenario'], schema['properties']['scenario'])
         self.assertEqual(formal['properties']['shard_count']['enum'], [8, 16])
         self.assertEqual(formal['allOf'][0]['then']['properties']['shard_index']['maximum'], 7)
-        formal_examples = list((PROPOSAL_ROOT/'formal-examples').glob('*.job-request.json'))
+        formal_examples = list((EXAMPLE_ROOT/'formal').glob('*.job-request.json'))
         self.assertEqual(len(formal_examples), 10)
         formal_coverage = set()
         for path in formal_examples:
