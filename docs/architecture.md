@@ -24,12 +24,14 @@ FedFisher/
     fedfisher_timing/                 original Diag/KFAC CPU timing
     model_signal_ablation/            model/signal recipes and recovery
     survival/                        survival methods and recovery epochs
-    survival_pooled/                 paired pooled survival probability validation
+    survival_pooled/                 historical pooled survival probability controls
+    survival_mlp8/                   paired MLP8 prediction and modifier discovery
+    survival_comparators/            ten-seed FedAvg and accepted-model comparison
     dslassocov/, one_shot_lasso/       guides and original benchmark invariant validators
     dslassocov_*.py, one_shot_*.py, run_*.py, manage_*.py
                                      preserved original LASSO interfaces
   reporting/binary/                   original binary tables and plots
-  reporting/effect_modifier/          factorial, method, timing and replay presentation
+  reporting/effect_modifier/          factorial, method, timing, replay and survival reports
   scripts/                           compatible Python commands and historical launch files
   tests/unit/, contracts/, integration/, regression/, architecture/, fixtures/
   docs/architecture.md, development.md, codex/, legacy/
@@ -92,11 +94,13 @@ experiment schema, estimator interface or generic optimization framework.
 ## Compatibility and scientific preservation
 
 The registered external adapter path and existing Python command names remain
-thin wrappers. Normal imports of moved commands share the implementation module
-state. The explicit `scripts` package keeps those compatible imports within the
-selected checkout. New code imports the package implementation directly. Report bodies keep
-their existing metrics and presentation calculations; lineage identifies the
-implementation file after a move.
+thin wrappers. Commands that forward an entire module share the implementation's
+state on import. Other commands retain a small argument parser that calls a
+package function, such as `make_survival_pooled_results.py` calling `write_report`.
+The explicit `scripts` package keeps compatible imports within the selected
+checkout. New code imports the package implementation directly. Report bodies
+keep their existing metrics and presentation calculations; lineage identifies
+the implementation file after a move.
 
 Original scientific paths remain in place, including `run_one_shot_algs.py`,
 `algs/fisher_avg.py`, `train_model.py` and `utils/compress_fisher.py`. Legacy

@@ -1,21 +1,61 @@
 # Local environments and package caches
+.venv/
+venv/
 .conda/
 .conda_pkgs/
 .pip_cache/
+.cache/
+
+# Local credentials (scientific run_manifest.env files remain trackable)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
 
 # Editor and Codex-local metadata
 .vscode/
+.idea/
 .codex
+.DS_Store
+*.swp
+*.swo
 
 # Python runtime caches
 __pycache__/
 *.py[cod]
+.ipynb_checkpoints/
+
+# Development, test and build output
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+build/
+dist/
+*.egg-info/
 
 # Root-level local data, run outputs, and scheduler logs
 /data/
 /logs/
 /results/
+/outputs/
+/checkpoints/
 slurm-*.out
+
+# Generated model/data arrays belong under /data or /scr, not in source.
+# Existing tracked historical artifacts are unaffected by these rules.
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.npy
+*.npz
 
 # One-off local artifacts
 1.png

@@ -3,8 +3,21 @@
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from effect_modifier_experiment.scheduling.publication.survival_comparators import main
+if __name__ == '__main__':
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from effect_modifier_experiment.scheduling.publication import survival_comparators as _implementation
+
+
+def __getattr__(name):
+    return getattr(_implementation, name)
+
+
+def __dir__():
+    return sorted(set(globals()) | set(dir(_implementation)))
+
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    raise SystemExit(_implementation.main())
+else:
+    sys.modules[__name__] = _implementation

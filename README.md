@@ -26,6 +26,9 @@ models have been removed.
 | Original Diag/KFAC CPU timing | [Timing](effect_modifier_experiment/fedfisher_timing/README.md) |
 | Small models, signal strengths and recovery | [Model/signal ablations](effect_modifier_experiment/model_signal_ablation/README.md) |
 | Survival methods and recovery | [Survival](effect_modifier_experiment/survival/README.md) |
+| MLP8 survival prediction and modifier discovery | [Federated and pooled MLP8 comparison](effect_modifier_experiment/survival_mlp8/README.md) |
+| Ten-seed survival method comparison | [FedAvg and accepted-model comparators](effect_modifier_experiment/survival_comparators/README.md) |
+| Historical pooled survival controls | [Pooled probability benchmark](effect_modifier_experiment/survival_pooled/README.md) |
 | Shared timing, fingerprints and recovery arithmetic | [Components](effect_modifier_experiment/components/README.md) |
 | Artifacts, provenance and read-only evidence | [Infrastructure](effect_modifier_experiment/infrastructure/README.md) |
 | Scheduler validation, dispatch and publication | [Scheduling](effect_modifier_experiment/scheduling/README.md) |
@@ -39,6 +42,12 @@ The canonical source tree is `/home/del6500/projects/FedFisher`. Keep source and
 small metadata here, durable datasets/models/results under
 `/data/del6500/FedFisher`, and disposable caches, environment files and temporary
 outputs under `/scr/del6500/FedFisher`.
+
+The GitHub source tree contains code, documentation, dependency specifications
+and small reviewed fixtures and metadata. Datasets, checkpoints, experiment
+outputs, environments and caches stay in their designated data or scratch
+trees. Existing historical results and source-bound proofs remain preserved;
+see the [publication review workflow](docs/development.md#prepare-a-github-push).
 
 New scientific work requires a centrally registered ServerScheduler task. The
 foreground entrypoint remains
@@ -56,7 +65,9 @@ proofs retain their original source bindings.
 
 ## Development
 
-Dependencies remain in [requirements.txt](requirements.txt). Use the existing
+The pinned scientific dependencies remain in [requirements.txt](requirements.txt).
+The commands below describe the configured lab host and its canonical checkout;
+this repository is not a standalone installed distribution. Use the existing
 science environment for bounded development fixtures:
 
 ```bash
@@ -65,4 +76,4 @@ science environment for bounded development fixtures:
 
 The runner limits numerical libraries to one thread and writes caches and
 temporary files to project scratch. See the [development guide](docs/development.md)
-for dependency boundaries, focused checks and scientific release gates.
+for optional reporting dependencies, focused checks and scientific release gates.

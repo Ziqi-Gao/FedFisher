@@ -5,6 +5,41 @@ Read it after `AGENTS.md`, `PROJECT_CONTEXT.md`, and `SCHEDULER_RUNBOOK.md`, the
 verify every live claim against Git, scientific manifests, and the scheduler's
 read-only durable state. The older migration inventory is historical only.
 
+## GitHub preparation cleanup — 2026-10-12 UTC
+
+The user requested repository organization before a GitHub push. Before any
+source edit, saved-only comparator acceptance was replayed on clean
+`473254182fecfec6bc1a9538ee82ab42ebd2bae8`. All 20 requests/units and ten paired
+seeds passed semantic, manifest, artifact, provenance and producer checks, and
+the fresh result exactly matched the preserved acceptance proof. Model forward
+calls were forbidden. Direct durable-state inspection at
+`2026-10-12T07:17:43Z` found no nonterminal FedFisher jobs. These are before-edit
+observations, not claims about later central state or new-source acceptance.
+
+The source-release receipt is
+`/scr/del6500/FedFisher/github-cleanup-20261012/source-release-before-edit.json`,
+SHA-256 `bc5c4a9800992b118d9d149bb8ca45328b5ac0a7885e2fd4cf84498c83c192c3`.
+The original proof and all scientific artifacts retain their producer bindings.
+
+Cleanup is on `codex/github-cleanup-20261012`. It supplements project and CLI
+navigation, documents reporting dependencies and Git publication scope, and
+ignores local credentials, environments, caches and generated model arrays.
+Three request wrappers now share the established module-forwarding convention;
+the pooled report CLI also avoids changing the import search path on import.
+Scientific implementations, request plans, namespaces, central admission
+guards, dependency pins and agent policies are unchanged. Historical source,
+launch files, results and Git history are preserved. No new scientific task,
+request publication, central action or remote push was performed.
+
+Validation passed 13 focused architecture/request-parity tests and the full
+**986-test** suite in **149.710 seconds**, with no failures or skips. Static
+checks covered 349 Python files, 141 JSON files, 17 TOML files, 222 local
+documentation links and whitespace. The complete fixture log is
+`/scr/del6500/FedFisher/github-cleanup-20261012/full-suite.log`; runner caches
+and temporary fixtures are under `/scr/del6500/FedFisher/tests/` and the
+existing project-scratch fixture directories. This is development validation,
+not authorization to resume historical runs under changed source.
+
 ## Ten-seed survival FedAvg and accepted dsLasso replay
 
 The user authorized transferring the best previous FedAvg hyperparameters,

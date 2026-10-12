@@ -26,6 +26,9 @@ MOVED = {
     'prepare_model_signal_completion_requests': 'effect_modifier_experiment.scheduling.publication.model_signal_completion',
     'prepare_survival_requests': 'effect_modifier_experiment.scheduling.publication.survival',
     'prepare_survival_recovery_requests': 'effect_modifier_experiment.scheduling.publication.survival_recovery',
+    'prepare_survival_pooled_requests': 'effect_modifier_experiment.scheduling.publication.survival_pooled',
+    'prepare_survival_mlp8_requests': 'effect_modifier_experiment.scheduling.publication.survival_mlp8',
+    'prepare_survival_comparators_requests': 'effect_modifier_experiment.scheduling.publication.survival_comparators',
     'make_synthetic_compare_visualizations': 'reporting.binary.comparison',
     'plot_synthetic_original': 'reporting.binary.original',
     'plot_synthetic_alpha_sweep': 'reporting.binary.alpha_sweep',
@@ -46,9 +49,30 @@ PLANS = {'original': 'effect_modifier_experiment.requests', 'comparison': 'effec
 
 PLANS['model_signal_completion'] = 'effect_modifier_experiment.model_signal_ablation.completion_requests'
 PLANS['survival_mlp8'] = 'effect_modifier_experiment.survival_mlp8.requests'
+PLANS['survival_pooled'] = 'effect_modifier_experiment.survival_pooled.requests'
+PLANS['survival_comparators'] = 'effect_modifier_experiment.survival_comparators.requests'
 
 
 class RepositoryLayoutTests(unittest.TestCase):
+    def test_importing_command_wrappers_preserves_the_selected_checkout(self):
+        # A fresh process catches unconditional sys.path edits even when the
+        # canonical checkout already appears elsewhere in the search path.
+        names = ['scripts.' + name for name in MOVED]
+        names.append('scripts.make_survival_pooled_results')
+        code = '''
+import importlib, sys
+from pathlib import Path
+root = Path(%r)
+for name in %r:
+    before = list(sys.path)
+    module = importlib.import_module(name)
+    assert sys.path == before, name
+    assert Path(module.__file__).resolve().is_relative_to(root), name
+''' % (str(ROOT), names)
+        subprocess.run([sys.executable, '-B', '-c', code], cwd=ROOT, check=True,
+                       env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'),
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
     def test_legacy_imports_share_implementation_and_module_state(self):
         for old, new in MOVED.items():
             with self.subTest(command=old):
@@ -71,7 +95,8 @@ class RepositoryLayoutTests(unittest.TestCase):
 
     def test_shared_layers_and_experiment_runner_dependencies_remain_separate(self):
         owners = {'causal_comparison', 'fedfisher_timing', 'model_signal_ablation',
-                  'one_shot_effects', 'survival', 'survival_pooled', 'survival_mlp8'}
+                  'one_shot_effects', 'survival', 'survival_pooled', 'survival_mlp8',
+                  'survival_comparators'}
         base = ROOT / 'effect_modifier_experiment'
         for path in base.rglob('*.py'):
             parts = path.relative_to(ROOT).with_suffix('').parts
@@ -162,7 +187,8 @@ for name in sys.modules:
     def test_compatible_cli_help_runs_outside_repository(self):
         # Only argparse entrypoints: some historical renderers have no help mode.
         names = [name for name in MOVED if name.startswith('prepare_')]
-        names += ['report_effects_replay', 'report_fedfisher_timing']
+        names += ['report_effects_replay', 'report_fedfisher_timing',
+                  'make_survival_pooled_results']
         if ROOT == catalog.PROJECT_ROOT:
             names += ['fedfisher_server_scheduler_adapter']
         environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')

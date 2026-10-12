@@ -6,11 +6,12 @@ with a centrally admitted protocol-v2 running manifest. Request commands publish
 review bundles; they do not submit jobs. Import package implementations in new
 library code.
 
-`scripts` is an explicit Python package. Existing imports such as
-`scripts.report_effects_replay` forward to the same implementation module as
-the package API; command callers retain shared module state. The old filenames
-also remain executable CLI entrypoints. New libraries use the implementation
-packages directly.
+`scripts` is an explicit Python package. Module-forwarding commands, including
+`scripts.report_effects_replay` and the `prepare_*` commands, share their package
+implementation's state on import. Some commands instead parse arguments and
+call a package function: `make_survival_pooled_results.py` delegates to
+`write_report`. Established filenames remain CLI entrypoints. New libraries use
+the implementation packages directly.
 
 | Compatible command | Implementation |
 | --- | --- |
@@ -21,8 +22,12 @@ packages directly.
 | `prepare_fedfisher_timing_requests.py` | [publication/fedfisher_timing.py](../effect_modifier_experiment/scheduling/publication/fedfisher_timing.py) |
 | `prepare_model_signal_requests.py` | [publication/model_signal.py](../effect_modifier_experiment/scheduling/publication/model_signal.py) |
 | `prepare_model_signal_recovery_requests.py` | [publication/model_signal_recovery.py](../effect_modifier_experiment/scheduling/publication/model_signal_recovery.py) |
+| `prepare_model_signal_completion_requests.py` | [publication/model_signal_completion.py](../effect_modifier_experiment/scheduling/publication/model_signal_completion.py) |
 | `prepare_survival_requests.py` | [publication/survival.py](../effect_modifier_experiment/scheduling/publication/survival.py) |
 | `prepare_survival_recovery_requests.py` | [publication/survival_recovery.py](../effect_modifier_experiment/scheduling/publication/survival_recovery.py) |
+| `prepare_survival_pooled_requests.py` | [publication/survival_pooled.py](../effect_modifier_experiment/scheduling/publication/survival_pooled.py) |
+| `prepare_survival_mlp8_requests.py` | [publication/survival_mlp8.py](../effect_modifier_experiment/scheduling/publication/survival_mlp8.py) |
+| `prepare_survival_comparators_requests.py` | [publication/survival_comparators.py](../effect_modifier_experiment/scheduling/publication/survival_comparators.py) |
 | `make_synthetic_compare_visualizations.py` | [reporting/binary/comparison.py](../reporting/binary/comparison.py) |
 | `plot_synthetic_original.py` | [reporting/binary/original.py](../reporting/binary/original.py) |
 | `plot_synthetic_alpha_sweep.py` | [reporting/binary/alpha_sweep.py](../reporting/binary/alpha_sweep.py) |
@@ -36,11 +41,19 @@ packages directly.
 | `report_effects_replay.py` | [reporting/effect_modifier/effects_replay.py](../reporting/effect_modifier/effects_replay.py) |
 | `report_fedfisher_timing.py` | [reporting/effect_modifier/fedfisher_timing.py](../reporting/effect_modifier/fedfisher_timing.py) |
 | `summarize_effect_modifier_ablations.py` | [reporting/effect_modifier/ablations.py](../reporting/effect_modifier/ablations.py) |
+| `make_survival_pooled_results.py` | [reporting/effect_modifier/survival_pooled.py](../reporting/effect_modifier/survival_pooled.py), via `write_report` |
 | `check_effect_modifier_dslassocov_invariants.py` | [effect_modifier_experiment/dslassocov/invariants.py](../effect_modifier_experiment/dslassocov/invariants.py) |
 | `check_effect_modifier_one_shot_lasso_invariants.py` | [effect_modifier_experiment/one_shot_lasso/invariants.py](../effect_modifier_experiment/one_shot_lasso/invariants.py) |
 
 `validate_*` and `check_*_invariants.py` remain scientific acceptance/checking
 commands with their existing provenance and completion requirements.
+`validate_model_signal_completion.py`, `validate_survival_pooled.py`,
+`validate_survival_mlp8.py` and `validate_survival_comparators.py` cover their
+separate experiment contracts. The MLP8 preparation and validation commands use
+`--discovery` for the complete V2 probability and Top-2/AUROC comparison; omitting
+it retains the historical V1 prediction contract. Refer to each experiment's
+guide before preparing requests or validating an artifact namespace.
+
 `run_tests.py` runs bounded development fixtures. `setup_lab_server_env.sh`
 remains the existing reviewed environment setup; a layout change needs no
 installation. See [development](../docs/development.md).

@@ -60,10 +60,52 @@ fixture directories. Tests are categorized by their primary responsibility;
 shared checkout paths live in `tests.paths`, and small fixture documents remain in
 `tests/fixtures/`. See [the test guide](../tests/README.md).
 
-`requirements.txt` remains the dependency specification. `pyproject.toml` holds
-optional static-tool settings; no new tool is required or installed. The
-original flat modules still require the canonical source import path, so this
-layout does not advertise a standalone installed distribution.
+## Environments and dependencies
+
+`requirements.txt` pins the scientific dependencies: NumPy, PyTorch and
+NNGeometry. Preserve those pins during repository cleanup. `pyproject.toml`
+holds optional static-tool settings; no new tool is required or installed.
+The scientific adapter, storage paths and existing environment target the
+canonical lab checkout. Cloning the repository elsewhere does not configure a
+portable scientific runtime or register an execution path.
+
+PNG reporting additionally uses Matplotlib, which is not part of the core
+requirements. Effects replay selects `/opt/anaconda3/bin/python` for its
+separate rendering step; the pooled-survival CLI imports Matplotlib in the
+interpreter used to run that command. Treat these as lab-specific reporting
+dependencies rather than replacements for the pinned science environment.
+Rendering is limited to the deterministic completed-artifact exception. Figure
+caches belong under project scratch, and tables and figures belong under the
+data or scratch roots.
+
+## Prepare a GitHub push
+
+Complete the scientific closeout below before changing source bound to a
+cohort. Review the Git diff and run focused checks appropriate to the changes.
+Publish source, documentation, dependency specifications, small fixtures and
+reviewed metadata. Keep datasets, fitted models, generated results, virtual
+environments, caches, local credentials and machine-local settings out of new
+commits. Existing historical artifacts, manifests and proofs remain intact;
+repository cleanup does not authorize deleting them or rewriting their source
+bindings. Do not traverse the preserved `results/server-scheduler-migration/`
+clone to prepare a release.
+
+Inspect changes before staging:
+
+```bash
+git status --short
+git diff --stat
+git diff --check
+git diff
+```
+
+Stage explicit reviewed paths, then inspect the complete staged patch with
+`git diff --cached --stat` and `git diff --cached`. Check newly added files for
+generated artifacts, large binaries and credentials before committing. Ignore
+rules affect untracked files; they do not remove an already tracked file from
+the next commit. Preserve historical material and resolve any unintended
+tracked artifact separately. Confirm the intended branch and remote destination
+before pushing; publishing Git history does not submit scheduler work.
 
 ## Scientific release boundary
 
